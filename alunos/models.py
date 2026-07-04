@@ -25,6 +25,14 @@ class Encarregado(models.Model):
         return self.user.username
 
 class Aluno(models.Model):
+    user = models.OneToOneField(
+    User,
+    on_delete=models.SET_NULL,
+    null=True,
+    blank=True,
+    related_name='aluno'
+)
+
     nome = models.CharField(
     max_length=200
 )

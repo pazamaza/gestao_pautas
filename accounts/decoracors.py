@@ -3,7 +3,13 @@ from functools import wraps
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import render
 
-from .utils import eh_administrador, eh_admin_ou_professor, eh_professor
+from .utils import (
+    eh_administrador,
+    eh_admin_ou_professor,
+    eh_aluno,
+    eh_encarregado,
+    eh_professor,
+)
 
 
 def grupo_requerido(nome_grupo):
@@ -37,3 +43,11 @@ def professor_requerido(view_func):
 
 def admin_ou_professor_requerido(view_func):
     return _acesso_requerido(eh_admin_ou_professor)(view_func)
+
+
+def aluno_requerido(view_func):
+    return _acesso_requerido(eh_aluno)(view_func)
+
+
+def encarregado_requerido(view_func):
+    return _acesso_requerido(eh_encarregado)(view_func)

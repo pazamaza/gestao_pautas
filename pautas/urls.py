@@ -20,6 +20,9 @@ from .views import (
     exportar_pdf,
     gerar_resultados,
     importar_excel,
+    meus_dependentes,
+    minhas_notas,
+    notas_dependente,
     pauta_trimestral,
     pauta_turma,
     resultado_reportar_erro,
@@ -53,4 +56,8 @@ urlpatterns = [
     path('resultados/gerar/', gerar_resultados, name='gerar_resultados'),
     path('resultados/<int:pk>/validar/', resultado_validar, name='resultado_validar'),
     path('resultados/<int:pk>/reportar-erro/', resultado_reportar_erro, name='resultado_reportar_erro'),
+
+    path('minhas-notas/', minhas_notas, name='minhas_notas'),
+    path('dependentes/', meus_dependentes, name='meus_dependentes'),
+    path('dependentes/<int:aluno_id>/notas/', notas_dependente, name='notas_dependente'),
 ]

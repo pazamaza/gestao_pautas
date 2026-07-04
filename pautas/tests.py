@@ -171,3 +171,86 @@ class PermissoesPautasTests(PautasTestBase):
     def test_anonimo_redirecionado_para_login(self):
         response = self.client.get(reverse('avaliacao_lista'))
         self.assertEqual(response.status_code, 302)
+
+
+class ConsultaPautasTests(PautasTestBase):
+    def setUp(self):
+        super().setUp()
+
+        grupo_aluno = Group.objects.create(name='Aluno')
+        grupo_encarregado = Group.objects.create(name='Encarregado')
+
+        self.aluno_user = User.objects.create_user(username='aluno1', password='senha123')
+        self.aluno_user.groups.add(grupo_aluno)
+        self.aluno.user = self.aluno_user
+        self.aluno.save()
+
+        self.encarregado_user = self.encarregado.user
+        self.encarregado_user.groups.add(grupo_encarregado)
+
+        self.avaliacao.status = Avaliacao.STATUS_VALIDADA
+        self.avaliacao.save()
+
+        outro_periodo = PeriodoAcademico.objects.create(
+            nome='2º Trimestre', ano_letivo=self.ano_letivo, aberto=True
+        )
+        self.avaliacao_com_erros = Avaliacao.objects.create(
+            atribuicao=self.atribuicao, periodo=outro_periodo, status=Avaliacao.STATUS_COM_ERROS
+        )
+        Nota.objects.create(
+            avaliacao=self.avaliacao_com_erros, aluno=self.aluno, mac=5, npp=5, npt=5
+        )
+
+        outro_encarregado_user = User.objects.create_user(username='encarregado2', password='senha123')
+        outro_encarregado_user.groups.add(grupo_encarregado)
+        self.outro_encarregado = Encarregado.objects.create(
+            user=outro_encarregado_user, telefone='911111111'
+        )
+        self.outro_aluno = Aluno.objects.create(
+            nome='Outro Aluno',
+            numero_processo='NP002',
+            data_nascimento=datetime.date(2011, 2, 2),
+            sexo='F',
+            turma=self.turma,
+            encarregado=self.outro_encarregado,
+        )
+
+    def test_aluno_ve_apenas_notas_validadas(self):
+        self.client.login(username='aluno1', password='senha123')
+        response = self.client.get(reverse('minhas_notas'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '1º Trimestre')
+        self.assertNotContains(response, '2º Trimestre')
+
+    def test_aluno_sem_registo_associado_ve_mensagem_amigavel(self):
+        sem_registo = User.objects.create_user(username='sem_registo', password='senha123')
+        sem_registo.groups.add(Group.objects.get(name='Aluno'))
+
+        self.client.login(username='sem_registo', password='senha123')
+        response = self.client.get(reverse('minhas_notas'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'não está associada a um registo de aluno')
+
+    def test_encarregado_ve_notas_validadas_do_dependente(self):
+        self.client.login(username='encarregado1', password='senha123')
+        response = self.client.get(reverse('notas_dependente', args=[self.aluno.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '1º Trimestre')
+        self.assertNotContains(response, '2º Trimestre')
+
+    def test_encarregado_nao_acede_a_dependente_de_outro(self):
+        self.client.login(username='encarregado1', password='senha123')
+        response = self.client.get(reverse('notas_dependente', args=[self.outro_aluno.id]))
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_encarregado_lista_dependentes(self):
+        self.client.login(username='encarregado1', password='senha123')
+        response = self.client.get(reverse('meus_dependentes'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Aluno Teste')
+        self.assertNotContains(response, 'Outro Aluno')

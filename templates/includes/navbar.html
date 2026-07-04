@@ -77,6 +77,18 @@
                 </li>
                 {% endif %}
 
+                {% if eh_aluno_nav %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'minhas_notas' %}">Minhas Pautas</a>
+                </li>
+                {% endif %}
+
+                {% if eh_encarregado_nav %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'meus_dependentes' %}">Meus Educandos</a>
+                </li>
+                {% endif %}
+
                 {% if user.is_authenticated %}
                 <li class="nav-item">
                     <a class="nav-link position-relative" href="{% url 'notificacao_lista' %}">

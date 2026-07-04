@@ -6,7 +6,7 @@ from .models import Perfil
 from django.contrib.auth.decorators import login_required
 from .utils import usuario_do_grupo, eh_administrador
 from alunos.models import Aluno, Encarregado
-from professores.models import Professor
+from professores.models import Professor, AtribuicaoDocente
 from turmas.models import Turma, Classe, PeriodoAcademico
 from disciplinas.models import Disciplina
 from pautas.models import Avaliacao, ResultadoDisciplina
@@ -110,12 +110,40 @@ def dashboard(request):
 
     if usuario_do_grupo(user, 'Professor'):
 
+        atribuicoes_professor = AtribuicaoDocente.objects.filter(professor__user=user)
+
+        context.update({
+            'total_turmas': atribuicoes_professor.values('turma').distinct().count(),
+            'total_disciplinas': atribuicoes_professor.values('disciplina').distinct().count(),
+            'avaliacoes_pendentes': Avaliacao.objects.filter(
+                atribuicao__professor__user=user, status=Avaliacao.STATUS_RASCUNHO
+            ).count(),
+            'avaliacoes_com_erros': Avaliacao.objects.filter(
+                atribuicao__professor__user=user, status=Avaliacao.STATUS_COM_ERROS
+            ).count(),
+            'avaliacoes_validadas': Avaliacao.objects.filter(
+                atribuicao__professor__user=user, status=Avaliacao.STATUS_VALIDADA
+            ).count(),
+        })
+
         return render(
             request,
             'dashboards/professor.html', context
         )
 
     if usuario_do_grupo(user, 'Aluno'):
+
+        aluno = getattr(user, 'aluno', None)
+
+        context.update({
+            'aluno': aluno,
+            'resultados_validados': (
+                ResultadoDisciplina.objects.filter(
+                    aluno=aluno, status=ResultadoDisciplina.STATUS_VALIDADA
+                ).count()
+                if aluno else 0
+            ),
+        })
 
         return render(
             request,
@@ -124,6 +152,15 @@ def dashboard(request):
         )
 
     if usuario_do_grupo(user, 'Encarregado'):
+
+        encarregado = getattr(user, 'encarregado', None)
+
+        context.update({
+            'dependentes': (
+                Aluno.objects.filter(encarregado=encarregado).order_by('nome')
+                if encarregado else Aluno.objects.none()
+            ),
+        })
 
         return render(
             request,

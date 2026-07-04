@@ -22,15 +22,7 @@ Dashboard do Professor
         <div class="col-md-3">
             <div class="card shadow-sm">
                 <div class="card-body text-center">
-                    <h6 class="text-muted">Alunos</h6>
-                    <h3>{{ total_alunos }}</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm">
-                <div class="card-body text-center">
-                    <h6 class="text-muted">Turmas</h6>
+                    <h6 class="text-muted">Minhas Turmas</h6>
                     <h3>{{ total_turmas }}</h3>
                 </div>
             </div>
@@ -38,16 +30,24 @@ Dashboard do Professor
         <div class="col-md-3">
             <div class="card shadow-sm">
                 <div class="card-body text-center">
-                    <h6 class="text-muted">Disciplinas</h6>
+                    <h6 class="text-muted">Minhas Disciplinas</h6>
                     <h3>{{ total_disciplinas }}</h3>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card shadow-sm">
+            <div class="card shadow-sm border-warning">
                 <div class="card-body text-center">
-                    <h6 class="text-muted">Professores</h6>
-                    <h3>{{ total_professores }}</h3>
+                    <h6 class="text-muted">Pautas Com Erros</h6>
+                    <h3 class="text-warning">{{ avaliacoes_com_erros }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-success">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Pautas Validadas</h6>
+                    <h3 class="text-success">{{ avaliacoes_validadas }}</h3>
                 </div>
             </div>
         </div>

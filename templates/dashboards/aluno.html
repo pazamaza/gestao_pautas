@@ -15,27 +15,31 @@ Dashboard do Aluno
         </div>
     </div>
 
+    {% if aluno %}
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Resultados Validados</h6>
+                    <h3>{{ resultados_validados }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-warning">
+        A sua conta ainda não está associada a um registo de aluno. Contacte a secretaria.
+    </div>
+    {% endif %}
+
     <div class="row g-3">
         <div class="col-md-4">
-            <a href="{% url 'nota_lista' %}" class="text-decoration-none">
+            <a href="{% url 'minhas_notas' %}" class="text-decoration-none">
                 <div class="card shadow-sm h-100">
                     <div class="card-body">
-                        <h5 class="card-title">Notas</h5>
+                        <h5 class="card-title">Minhas Pautas</h5>
                         <p class="card-text text-muted">
-                            Veja as notas lançadas nas avaliações.
-                        </p>
-                    </div>
-                </div>
-            </a>
-        </div>
-
-        <div class="col-md-4">
-            <a href="{% url 'resultado_lista' %}" class="text-decoration-none">
-                <div class="card shadow-sm h-100">
-                    <div class="card-body">
-                        <h5 class="card-title">Resultados</h5>
-                        <p class="card-text text-muted">
-                            Acompanhe a situação final por disciplina.
+                            Veja as notas e resultados já validados por disciplina.
                         </p>
                     </div>
                 </div>

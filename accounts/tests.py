@@ -47,3 +47,44 @@ class DashboardViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'dashboards/sem_permissao.html')
+
+
+class DashboardPapelEspecificoTests(TestCase):
+    def setUp(self):
+        Group.objects.create(name='Professor')
+        Group.objects.create(name='Aluno')
+        Group.objects.create(name='Encarregado')
+
+    def test_dashboard_professor(self):
+        from professores.models import Professor
+
+        user = User.objects.create_user(username='prof', password='senha123')
+        user.groups.add(Group.objects.get(name='Professor'))
+        Professor.objects.create(user=user, numero_funcionario='P100')
+
+        self.client.login(username='prof', password='senha123')
+        response = self.client.get(reverse('dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'dashboards/professor.html')
+
+    def test_dashboard_aluno_sem_registo_associado(self):
+        user = User.objects.create_user(username='aluno1', password='senha123')
+        user.groups.add(Group.objects.get(name='Aluno'))
+
+        self.client.login(username='aluno1', password='senha123')
+        response = self.client.get(reverse('dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'dashboards/aluno.html')
+        self.assertContains(response, 'não está associada a um registo de aluno')
+
+    def test_dashboard_encarregado_sem_dependentes(self):
+        user = User.objects.create_user(username='enc1', password='senha123')
+        user.groups.add(Group.objects.get(name='Encarregado'))
+
+        self.client.login(username='enc1', password='senha123')
+        response = self.client.get(reverse('dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'dashboards/encarregado.html')

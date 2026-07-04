@@ -8,6 +8,11 @@ class AlunoForm(forms.ModelForm):
         model = Aluno
         fields = '__all__'
         widgets = {
+            'user': forms.Select(
+                attrs={
+                    'class': 'form-select'
+                }
+            ),
             'nome': forms.TextInput(
                 attrs={
                     'class': 'form-control'

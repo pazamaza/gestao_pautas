@@ -7,6 +7,8 @@ from django.views.generic import CreateView, DeleteView, ListView, UpdateView
 from accounts.decoracors import (
     admin_ou_professor_requerido,
     administrador_requerido,
+    aluno_requerido,
+    encarregado_requerido,
     professor_requerido,
 )
 from accounts.mixins import (
@@ -489,3 +491,76 @@ class ResultadoDisciplinaDeleteView(SuperuserRequeridoMixin, DeleteView):
     model = ResultadoDisciplina
     template_name = 'pautas/resultado_excluir.html'
     success_url = reverse_lazy('resultado_lista')
+
+
+def _pautas_validadas_do_aluno(aluno):
+    resultados_por_disciplina = {
+        resultado.disciplina_id: resultado
+        for resultado in ResultadoDisciplina.objects.filter(
+            aluno=aluno, status=ResultadoDisciplina.STATUS_VALIDADA
+        ).select_related('disciplina', 'ano_letivo')
+    }
+
+    notas = (
+        Nota.objects
+        .filter(aluno=aluno, avaliacao__status=Avaliacao.STATUS_VALIDADA)
+        .select_related(
+            'avaliacao__periodo',
+            'avaliacao__atribuicao__disciplina',
+        )
+        .order_by('avaliacao__atribuicao__disciplina__nome', 'avaliacao__periodo__nome')
+    )
+
+    disciplinas = {}
+    for nota in notas:
+        disciplina = nota.avaliacao.atribuicao.disciplina
+        info = disciplinas.setdefault(disciplina.id, {
+            'disciplina': disciplina,
+            'notas': [],
+            'resultado': resultados_por_disciplina.get(disciplina.id),
+        })
+        info['notas'].append(nota)
+
+    for disciplina_id, resultado in resultados_por_disciplina.items():
+        if disciplina_id not in disciplinas:
+            disciplinas[disciplina_id] = {
+                'disciplina': resultado.disciplina,
+                'notas': [],
+                'resultado': resultado,
+            }
+
+    return {
+        'disciplinas': sorted(disciplinas.values(), key=lambda info: info['disciplina'].nome),
+    }
+
+
+@aluno_requerido
+def minhas_notas(request):
+    aluno = getattr(request.user, 'aluno', None)
+
+    if aluno is None:
+        return render(request, 'pautas/minhas_notas.html', {'aluno': None})
+
+    contexto = _pautas_validadas_do_aluno(aluno)
+    contexto['aluno'] = aluno
+    return render(request, 'pautas/minhas_notas.html', contexto)
+
+
+@encarregado_requerido
+def meus_dependentes(request):
+    dependentes = Aluno.objects.filter(
+        encarregado=request.user.encarregado
+    ).order_by('nome')
+    return render(request, 'pautas/meus_dependentes.html', {'dependentes': dependentes})
+
+
+@encarregado_requerido
+def notas_dependente(request, aluno_id):
+    aluno = get_object_or_404(Aluno.objects.select_related('encarregado__user'), pk=aluno_id)
+
+    if aluno.encarregado.user_id != request.user.id:
+        return render(request, 'dashboards/sem_permissao.html', status=403)
+
+    contexto = _pautas_validadas_do_aluno(aluno)
+    contexto['aluno'] = aluno
+    return render(request, 'pautas/minhas_notas.html', contexto)
