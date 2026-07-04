@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}Eliminar Frequência{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-danger text-white">
+            <h3>Eliminar Frequência</h3>
+        </div>
+        <div class="card-body">
+            <p> Tem certeza que deseja eliminar este registo?</p>
+            <p><strong>
+                    {{ object.aluno }}
+                    -
+                    {{ object.data }}
+                </strong>
+            </p>
+            <form method="post">
+                {% csrf_token %}
+                <button type="submit"
+                    class="btn btn-danger">Confirmar</button>
+                <a href="{% url 'frequencia_lista' %}"
+                   class="btn btn-secondary">Cancelar</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

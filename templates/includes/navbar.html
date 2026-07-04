@@ -1,0 +1,79 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="{% url 'dashboard' %}">
+            Gestão de Pautas Escolar
+        </a>
+
+        <button class="navbar-toggler"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#navbarPrincipal"
+                aria-controls="navbarPrincipal"
+                aria-expanded="false"
+                aria-label="Abrir menu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarPrincipal">
+            <ul class="navbar-nav ms-auto align-items-lg-center">
+                {% if user.is_authenticated %}
+                    <li class="nav-item">
+                        <span class="navbar-text text-warning me-lg-3">
+                            Bem-vindo, <strong>{{ user.username }}</strong>
+                        </span>
+                    </li>
+                {% endif %}
+
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'dashboard' %}">
+                        Dashboard
+                    </a>
+                </li>
+
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle"
+                       href="#"
+                       id="menuCadastros"
+                       role="button"
+                       data-bs-toggle="dropdown"
+                       aria-expanded="false">
+                        Cadastros
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end"
+                        aria-labelledby="menuCadastros">
+                        <li><a class="dropdown-item" href="{% url 'aluno_lista' %}">Alunos</a></li>
+                        <li><a class="dropdown-item" href="{% url 'encarregado_lista' %}">Encarregados</a></li>
+                        <li><a class="dropdown-item" href="{% url 'professor_lista' %}">Professores</a></li>
+                        <li><a class="dropdown-item" href="{% url 'turma_lista' %}">Turmas</a></li>
+                        <li><a class="dropdown-item" href="{% url 'disciplina_lista' %}">Disciplinas</a></li>
+                    </ul>
+                </li>
+
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle"
+                       href="#"
+                       id="menuAcademico"
+                       role="button"
+                       data-bs-toggle="dropdown"
+                       aria-expanded="false">
+                        Académico
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end"
+                        aria-labelledby="menuAcademico">
+                        <li><a class="dropdown-item" href="{% url 'avaliacao_lista' %}">Avaliações</a></li>
+                        <li><a class="dropdown-item" href="{% url 'nota_lista' %}">Notas</a></li>
+                        <li><a class="dropdown-item" href="{% url 'atribuicao_lista' %}">Atribuições Docentes</a></li>
+                        <li><a class="dropdown-item" href="{% url 'resultado_lista' %}">Resultados Finais</a></li>
+                        <li><a class="dropdown-item" href="{% url 'frequencia_lista' %}">Frequências</a></li>
+                    </ul>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'home' %}">
+                        Sair
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>

@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block title %}
+Dashboard do Professor
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h2 class="mb-1">Dashboard do Professor</h2>
+            <p class="text-muted mb-0">
+                Gestão de turmas, avaliações, notas e pautas.
+            </p>
+        </div>
+        <a href="{% url 'avaliacao_nova' %}" class="btn btn-primary">
+            Nova Avaliação
+        </a>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Alunos</h6>
+                    <h3>{{ total_alunos }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Turmas</h6>
+                    <h3>{{ total_turmas }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Disciplinas</h6>
+                    <h3>{{ total_disciplinas }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Professores</h6>
+                    <h3>{{ total_professores }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-4">
+            <a href="{% url 'avaliacao_lista' %}" class="btn btn-outline-primary w-100 py-3">
+                Avaliações e Pautas
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="{% url 'nota_lista' %}" class="btn btn-outline-success w-100 py-3">
+                Lançamento de Notas
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="{% url 'resultado_lista' %}" class="btn btn-outline-secondary w-100 py-3">
+                Resultados Finais
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

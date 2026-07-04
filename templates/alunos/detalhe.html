@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+
+{% block title %}
+Detalhes do Aluno
+{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <div class="card shadow">
+
+        <div class="card-header bg-primary text-white">
+
+            <h3>{{ aluno.nome }}</h3>
+
+        </div>
+
+        <div class="card-body">
+
+            <table class="table">
+
+                <tr>
+                    <th>Nº Processo</th>
+                    <td>{{ aluno.numero_processo }}</td>
+                </tr>
+
+                <tr>
+                    <th>Nome</th>
+                    <td>{{ aluno.nome }}</td>
+                </tr>
+
+                <tr>
+                    <th>Data Nascimento</th>
+                    <td>{{ aluno.data_nascimento }}</td>
+                </tr>
+
+                <tr>
+                    <th>Sexo</th>
+                    <td>{{ aluno.get_sexo_display }}</td>
+                </tr>
+
+                <tr>
+                    <th>Turma</th>
+                    <td>{{ aluno.turma }}</td>
+                </tr>
+
+                <tr>
+                    <th>Encarregado</th>
+                    <td>{{ aluno.encarregado }}</td>
+                </tr>
+
+                <tr>
+                    <th>Frequência</th>
+                    <td>{{ aluno.calcular_frequencia }}%</td>
+                </tr>
+
+            </table>
+
+            <a href="{% url 'aluno_editar' aluno.id %}"
+               class="btn btn-warning">
+
+                Editar
+
+            </a>
+
+            <a href="{% url 'aluno_lista' %}"
+               class="btn btn-secondary">
+
+                Voltar
+
+            </a>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

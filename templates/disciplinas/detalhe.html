@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+
+{% block title %}
+Detalhes da Disciplina
+{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <div class="card shadow">
+
+        <div class="card-header bg-primary text-white">
+
+            <h3>{{ disciplina.nome }}</h3>
+
+        </div>
+
+        <div class="card-body">
+
+            <table class="table">
+
+                <tr>
+                    <th>Nome</th>
+                    <td>{{ disciplina.nome }}</td>
+                </tr>
+
+                <tr>
+                    <th>Sigla</th>
+                    <td>{{ disciplina.sigla }}</td>
+                </tr>
+
+                <tr>
+                    <th>Descrição</th>
+                    <td>{{ disciplina.descricao }}</td>
+                </tr>
+
+                <tr>
+                    <th>Ativa</th>
+                    <td>
+                        {% if disciplina.ativa %}
+                            Sim
+                        {% else %}
+                            Não
+                        {% endif %}
+                    </td>
+                </tr>
+
+            </table>
+
+            <a href="{% url 'disciplina_editar' disciplina.id %}"
+               class="btn btn-warning">
+
+                Editar
+
+            </a>
+
+            <a href="{% url 'disciplina_lista' %}"
+               class="btn btn-secondary">
+
+                Voltar
+
+            </a>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between">
+        <h2>Encarregados</h2>
+        <a href="{% url 'encarregado_novo' %}"
+           class="btn btn-primary">
+            Novo Encarregado </a>
+    </div>
+    <table class="table table-striped mt-3">
+        <thead>
+            <tr>
+                <th>Nome</th>
+                <th>Telefone</th>
+                <th>Profissão</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for encarregado in encarregados %}
+            <tr>
+                <td>{{ encarregado }}</td>
+                <td>{{ encarregado.telefone }}</td>
+                <td>{{ encarregado.profissao }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

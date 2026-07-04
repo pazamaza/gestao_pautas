@@ -1,0 +1,69 @@
+from django.urls import reverse_lazy
+
+from django.views.generic import (
+    ListView,
+    CreateView,
+    UpdateView,
+    DeleteView,
+    DetailView
+)
+
+from .models import Disciplina
+from .forms import DisciplinaForm
+
+
+class DisciplinaListView(ListView):
+
+    model = Disciplina
+
+    paginate_by = 10
+
+    template_name = 'disciplinas/lista.html'
+
+    context_object_name = 'disciplinas'
+
+
+class DisciplinaCreateView(CreateView):
+
+    model = Disciplina
+
+    form_class = DisciplinaForm
+
+    template_name = 'disciplinas/form.html'
+
+    success_url = reverse_lazy(
+        'disciplina_lista'
+    )
+
+
+class DisciplinaUpdateView(UpdateView):
+
+    model = Disciplina
+
+    form_class = DisciplinaForm
+
+    template_name = 'disciplinas/form.html'
+
+    success_url = reverse_lazy(
+        'disciplina_lista'
+    )
+
+
+class DisciplinaDeleteView(DeleteView):
+
+    model = Disciplina
+
+    template_name = 'disciplinas/excluir.html'
+
+    success_url = reverse_lazy(
+        'disciplina_lista'
+    )
+
+
+class DisciplinaDetailView(DetailView):
+
+    model = Disciplina
+
+    template_name = 'disciplinas/detalhe.html'
+
+    context_object_name = 'disciplina'

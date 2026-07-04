@@ -1,0 +1,37 @@
+from django import forms
+
+from .models import Nota
+
+
+class NotaForm(forms.ModelForm):
+
+    class Meta:
+
+        model = Nota
+
+        fields = [
+            'mac',
+            'npp',
+            'npt'
+        ]
+
+        widgets = {
+
+            'mac': forms.NumberInput(
+                attrs={
+                    'class': 'form-control'
+                }
+            ),
+
+            'npp': forms.NumberInput(
+                attrs={
+                    'class': 'form-control'
+                }
+            ),
+
+            'npt': forms.NumberInput(
+                attrs={
+                    'class': 'form-control'
+                }
+            ),
+        }

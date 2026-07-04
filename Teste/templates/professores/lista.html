@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% block title %}
+Professores
+{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between">
+        <h2>Professores</h2>
+        <a href="{% url 'professor_novo' %}"
+           class="btn btn-primary">Novo Professor </a>
+    </div>
+    
+    <div class="table-responsive">
+   <table class="table table-striped mt-3" style="width:100%;">
+        <thead>
+            <tr>
+                <th>Nº Func.</th>
+                <th>Nome</th>
+                <th>Disciplina</th>
+                <th>Turma</th>
+                <th >Telefone</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+{% for professor in professores %}
+<tr>
+    <td>{{ professor.numero_funcionario }}</td>
+
+    <td>{{ professor }}</td>
+
+    <td>
+        {% for atr in professor.atribuicaodocente_set.all %}
+            {{ atr.disciplina }}<br>
+        {% empty %}
+            —
+        {% endfor %}
+    </td>
+
+    <td>
+        {% for atr in professor.atribuicaodocente_set.all %}
+            {{ atr.turma }}<br>
+        {% empty %}
+            —
+        {% endfor %}
+    </td>
+
+    <td>{{ professor.telefone }}</td>
+
+    <td>
+        <td>
+    <a href="{% url 'professor_editar' professor.pk %}"
+       class="btn btn-warning btn-sm">Editar</a>
+
+    <a href="{% url 'professor_excluir' professor.pk %}"
+       class="btn btn-danger btn-sm"> Eliminar </a>
+</td>
+    </td>
+</tr>
+
+{% empty %}
+<tr>
+    <td colspan="6">Nenhum professor cadastrado.</td>
+</tr>
+{% endfor %}
+</tbody>
+    </table>
+</div>
+</div>
+{% endblock %}

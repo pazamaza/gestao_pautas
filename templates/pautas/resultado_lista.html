@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+
+{% block title %}
+Resultados Finais
+{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <div class="d-flex justify-content-between">
+
+        <h2>Resultados Finais</h2>
+
+        <div>
+
+            <a href="{% url 'gerar_resultados' %}"
+               class="btn btn-success">
+
+                Gerar Resultados
+
+            </a>
+
+            <a href="{% url 'resultado_novo' %}"
+               class="btn btn-primary">
+
+                Novo Resultado
+
+            </a>
+
+        </div>
+
+    </div>
+    <table class="table table-striped mt-3">
+
+        <thead>
+
+            <tr>
+
+                <th>Aluno</th>
+
+                <th>Disciplina</th>
+
+                <th>MT1</th>
+
+                <th>MT2</th>
+
+                <th>MT3</th>
+
+                <th>MF</th>
+
+                <th>Exame</th>
+
+                <th>Resultado</th>
+
+                <th>Ações</th>
+
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+            {% for resultado in resultados %}
+
+            <tr>
+
+                <td>{{ resultado.aluno }}</td>
+
+                <td>{{ resultado.disciplina }}</td>
+
+                <td>{{ resultado.mt1 }}</td>
+
+                <td>{{ resultado.mt2 }}</td>
+
+                <td>{{ resultado.mt3 }}</td>
+
+                <td>{{ resultado.mf }}</td>
+                <td>{% if resultado.exame %} {{ resultado.exame }}
+                    {% else %} Dispensado  {% endif %}
+</td>
+
+                <td>{{ resultado.resultado }}</td>
+
+                <td>
+
+                    <a href="{% url 'resultado_editar' resultado.id %}"
+                       class="btn btn-warning btn-sm">
+
+                        Editar
+
+                    </a>
+
+                    <a href="{% url 'resultado_excluir' resultado.id %}"
+                       class="btn btn-danger btn-sm">
+
+                        Excluir
+
+                    </a>
+
+                </td>
+
+            </tr>
+
+            {% empty %}
+
+            <tr>
+
+                <td colspan="9">
+
+                    Nenhum resultado encontrado.
+
+                </td>
+
+            </tr>
+
+            {% endfor %}
+
+        </tbody>
+
+    </table>
+
+</div>
+
+{% endblock %}

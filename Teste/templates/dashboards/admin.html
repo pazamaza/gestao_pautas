@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block title %}
+Dashboard
+{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h2> Dashboard Administrador </h2>
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5>Alunos</h5>
+                    <h2>{{ total_alunos }} </h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5>
+                        Professores
+                    </h5>
+                    <h2>
+                        {{ total_professores }}
+                    </h2>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

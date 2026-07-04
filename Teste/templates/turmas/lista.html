@@ -1,0 +1,39 @@
+<h2>Turmas</h2>
+
+<a href="{% url 'turma_novo' %}">
+    Nova Turma
+</a>
+
+<table>
+
+    <tr>
+        <th>ID</th>
+        <th>Turma</th>
+        <th>Ações</th>
+    </tr>
+
+    {% for turma in turmas %}
+
+    <tr>
+
+        <td>{{ turma.id }}</td>
+
+        <td>{{ turma }}</td>
+
+        <td>
+
+            <a href="{% url 'turma_editar' turma.id %}">
+                Editar
+            </a>
+
+            <a href="{% url 'turma_excluir' turma.id %}">
+                Excluir
+            </a>
+
+        </td>
+
+    </tr>
+
+    {% endfor %}
+
+</table>

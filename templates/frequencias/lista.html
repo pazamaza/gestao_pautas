@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between">
+        <h2>Frequências</h2>
+        <a href="{% url 'frequencia_form' %}"
+           class="btn btn-primary">Nova Frequência </a>
+    </div>
+    <table class="table table-striped mt-3">
+        <thead>
+            <tr>
+                <th>Aluno</th>
+                <th>Data</th>
+                <th>Estado</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for frequencia in frequencias %}
+            <tr>
+                <td>{{ frequencia.aluno }}</td>
+                <td>{{ frequencia.data }}</td>
+                <td>{{ frequencia.get_estado_display }}</td>
+                <td>
+                    <a href="{% url 'frequencia_editar' frequencia.id %}"
+                       class="btn btn-warning btn-sm">
+                        Editar
+                    </a>
+                    <a href="{% url 'frequencia_excluir' frequencia.id %}"
+                       class="btn btn-danger btn-sm">
+                        Eliminar
+                    </a>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

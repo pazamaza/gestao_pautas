@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <h2>Lançamento de Notas</h2>
+    <a href="{% url 'nota_nova' %}"
+   class="btn btn-primary">Nova Nota</a>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Avaliação</th>
+                <th>Aluno</th>
+                <th>MAC</th>
+                <th>NPP</th>
+                <th>NPT</th>
+                <th>MT</th>
+                <th>Situação</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for nota in notas %}
+            <tr>
+                <td>{{ nota.avaliacao }}</td>
+                <td>{{ nota.aluno }}</td>
+                <td>{{ nota.mac }}</td>
+                <td>{{ nota.npp }}</td>
+                <td>{{ nota.npt }}</td>
+                <td>{{ nota.mt }}</td>
+                     <td>
+    {% if nota.mt >= 10 %}
+        Aprovado
+    {% elif nota.mt >= 8 %}
+        Exame
+    {% else %}
+        Reprovado
+    {% endif %}
+</td>
+
+<td>
+    <a href="{% url 'nota_editar' nota.id %}"
+       class="btn btn-warning btn-sm">
+       Editar
+    </a>
+
+    <a href="{% url 'nota_excluir' nota.id %}"
+       class="btn btn-danger btn-sm">
+       Eliminar
+    </a>
+</td>
+            </tr>           
+            {% endfor %}
+        </tbody>
+       
+    </table>
+</div>
+{% endblock %}

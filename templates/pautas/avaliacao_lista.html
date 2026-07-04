@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <div class="d-flex justify-content-between">
+
+        <h2>Avaliações</h2>
+
+        <a href="{% url 'avaliacao_nova' %}"
+           class="btn btn-primary">
+
+            Nova Avaliação
+
+        </a>
+
+    </div>
+
+    <table class="table table-striped mt-3">
+
+        <thead>
+
+            <tr>
+
+                <th>Atribuição</th>
+
+                <th>Período</th>
+
+                <th>Ações</th>
+
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+            {% for avaliacao in avaliacoes %}
+
+            <tr>
+
+                <td>{{ avaliacao.atribuicao }}</td>
+
+                <td>{{ avaliacao.periodo }}</td>
+
+                <td class="d-flex flex-wrap gap-1">
+                    <a href="{% url 'pauta_trimestral' avaliacao.id %}"
+                       class="btn btn-info btn-sm">
+                        Ver Pauta
+                    </a>
+                    <a href="{% url 'pauta_exportar_excel' avaliacao.id %}"
+                       class="btn btn-success btn-sm">
+                        Excel
+                    </a>
+                    <a href="{% url 'pauta_exportar_pdf' avaliacao.id %}"
+                       class="btn btn-danger btn-sm">
+                        PDF
+                    </a>
+                    <a href="{% url 'avaliacao_editar' avaliacao.id %}"
+                       class="btn btn-warning btn-sm">
+                        Editar</a>
+                    <a href="{% url 'avaliacao_excluir' avaliacao.id %}"
+                       class="btn btn-danger btn-sm">
+                        Eliminar </a>
+                </td>
+
+            </tr>
+
+            {% empty %}
+
+            <tr>
+
+                <td colspan="3">
+
+                    Nenhuma avaliação cadastrada.
+
+                </td>
+
+            </tr>
+
+            {% endfor %}
+
+        </tbody>
+
+    </table>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+{% block title %}
+Detalhes do Aluno
+{% endblock %}
+{% block content %}
+<style>
+    .atalho-btn{
+    width: 180px;
+    height: 80px;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    font-size: 1.3rem;
+    font-weight: bold;
+
+    white-space: nowrap;
+}
+</style>
+
+<div class="d-flex justify-content-center gap-3 overflow-auto pb-2">
+    <div class="col-md-3">
+        <div class="card shadow-sm">
+            <div class="card-body text-center">
+                <h5>Alunos</h5>
+                <h2>{{ total_alunos }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm">
+            <div class="card-body text-center">
+                <h5>Professores</h5>
+                <h2>{{ total_professores }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm">
+            <div class="card-body text-center">
+                <h5>Turmas</h5>
+                <h2>{{ total_turmas }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm">
+            <div class="card-body text-center">
+                <h5>Disciplinas</h5>
+                <h2>{{ total_disciplinas }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+<hr class="my-4"><br>
+<h2 class="text-center mb-4" style="color: red;">Atalhos Rápidos</h2>
+
+<div class="d-flex flex-wrap justify-content-center gap-4">
+    
+    <a href="{% url 'aluno_lista' %}" class="btn btn-primary atalho-btn">
+        <i class="fas fa-user-graduate fa-3x mb-3"></i>
+        <span>Alunos</span>
+    </a>
+
+    <a href="{% url 'professor_lista' %}" class="btn btn-success atalho-btn">
+        <i class="fas fa-chalkboard-teacher fa-3x mb-3"></i>
+        <span>Professores</span>
+    </a>
+
+    <a href="{% url 'turma_lista' %}" class="btn btn-warning atalho-btn">
+        <i class="fas fa-users fa-3x mb-3"></i>
+        <span>Turmas</span>
+    </a>
+
+    <a href="{% url 'disciplina_lista' %}" class="btn btn-info atalho-btn">
+        <i class="fas fa-book fa-3x mb-3"></i>
+        <span>Disciplinas</span>
+    </a>
+
+    <a href="{% url 'encarregado_lista' %}" class="btn btn-secondary atalho-btn">
+        <i class="fas fa-briefcase fa-3x mb-3"></i>
+        <span>Encarregados</span>
+    </a>
+
+</div>
+{% endblock %}

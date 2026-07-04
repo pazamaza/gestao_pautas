@@ -1,0 +1,9 @@
+body{
+    background:#f8f9fa;
+}
+.nav-link:hover{
+    background:#0d6efd;
+}
+.card{
+    border:none;
+}

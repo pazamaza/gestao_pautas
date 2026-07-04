@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <h2>Disciplinas</h2>
+
+    <a href="{% url 'disciplina_nova' %}"
+       class="btn btn-primary mb-3">
+
+        Nova Disciplina
+
+    </a>
+
+    <table class="table table-striped">
+
+        <thead>
+
+            <tr>
+
+                <th>Nome</th>
+                <th>Sigla</th>
+                <th>Ações</th>
+
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+            {% for disciplina in disciplinas %}
+
+            <tr>
+
+                <td>{{ disciplina.nome }}</td>
+
+                <td>{{ disciplina.sigla }}</td>
+
+                <td>
+
+                    <a href="{% url 'disciplina_detalhe' disciplina.pk %}"
+                       class="btn btn-info btn-sm">
+
+                        Ver
+
+                    </a>
+
+                    <a href="{% url 'disciplina_editar' disciplina.pk %}"
+                       class="btn btn-warning btn-sm">
+
+                        Editar
+
+                    </a>
+
+                    <a href="{% url 'disciplina_excluir' disciplina.pk %}"
+                       class="btn btn-danger btn-sm">
+
+                        Excluir
+
+                    </a>
+
+                </td>
+
+            </tr>
+
+            {% empty %}
+
+            <tr>
+
+                <td colspan="3">
+
+                    Nenhuma disciplina cadastrada.
+
+                </td>
+
+            </tr>
+
+            {% endfor %}
+
+        </tbody>
+
+    </table>
+
+</div>
+
+{% endblock %}
