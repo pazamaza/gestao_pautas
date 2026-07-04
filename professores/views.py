@@ -1,12 +1,13 @@
 from django.urls import reverse_lazy
 from django.views.generic import (ListView, CreateView,
     UpdateView, DeleteView, DetailView)
-from .models import (Professor, AtribuicaoDocente)
+from .models import (Professor, AtribuicaoDocente, DiretorTurma)
 
 from .forms import (ProfessorForm, ProfessorUpdateForm,
     ProfessorCadastroForm, ProfessorEdicaoForm,
-    AtribuicaoDocenteForm)
+    AtribuicaoDocenteForm, DiretorTurmaForm)
 
+from accounts.mixins import AdministradorRequeridoMixin
 from django.contrib.auth.models import User
 from django.views import View
 from django.shortcuts import (render, redirect)
@@ -197,3 +198,28 @@ class AtribuicaoDocenteCreateView(CreateView):
     form_class = AtribuicaoDocenteForm
     template_name = ('professores/atribuicao_form.html' )
     success_url = reverse_lazy('atribuicao_lista')
+
+
+class DiretorTurmaListView(AdministradorRequeridoMixin, ListView):
+    model = DiretorTurma
+    template_name = 'professores/diretor_turma_lista.html'
+    context_object_name = 'diretores'
+
+    def get_queryset(self):
+        return DiretorTurma.objects.select_related(
+            'professor__user', 'turma__classe', 'ano_letivo'
+        ).order_by('-ano_letivo__descricao', 'turma__classe__nome', 'turma__nome')
+
+
+class DiretorTurmaCreateView(AdministradorRequeridoMixin, CreateView):
+    model = DiretorTurma
+    form_class = DiretorTurmaForm
+    template_name = 'professores/diretor_turma_form.html'
+    success_url = reverse_lazy('diretor_turma_lista')
+
+
+class DiretorTurmaUpdateView(AdministradorRequeridoMixin, UpdateView):
+    model = DiretorTurma
+    form_class = DiretorTurmaForm
+    template_name = 'professores/diretor_turma_form.html'
+    success_url = reverse_lazy('diretor_turma_lista')

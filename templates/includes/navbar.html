@@ -30,6 +30,7 @@
                     </a>
                 </li>
 
+                {% if eh_administrador_nav %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle"
                        href="#"
@@ -46,9 +47,14 @@
                         <li><a class="dropdown-item" href="{% url 'professor_lista' %}">Professores</a></li>
                         <li><a class="dropdown-item" href="{% url 'turma_lista' %}">Turmas</a></li>
                         <li><a class="dropdown-item" href="{% url 'disciplina_lista' %}">Disciplinas</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{% url 'diretor_turma_lista' %}">Diretores de Turma</a></li>
+                        <li><a class="dropdown-item" href="{% url 'periodo_lista' %}">Períodos de Lançamento</a></li>
                     </ul>
                 </li>
+                {% endif %}
 
+                {% if eh_administrador_nav or eh_professor_nav %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle"
                        href="#"
@@ -60,13 +66,27 @@
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end"
                         aria-labelledby="menuAcademico">
-                        <li><a class="dropdown-item" href="{% url 'avaliacao_lista' %}">Avaliações</a></li>
+                        <li><a class="dropdown-item" href="{% url 'avaliacao_lista' %}">Avaliações / Pautas</a></li>
                         <li><a class="dropdown-item" href="{% url 'nota_lista' %}">Notas</a></li>
+                        {% if eh_administrador_nav %}
                         <li><a class="dropdown-item" href="{% url 'atribuicao_lista' %}">Atribuições Docentes</a></li>
+                        {% endif %}
                         <li><a class="dropdown-item" href="{% url 'resultado_lista' %}">Resultados Finais</a></li>
                         <li><a class="dropdown-item" href="{% url 'frequencia_lista' %}">Frequências</a></li>
                     </ul>
                 </li>
+                {% endif %}
+
+                {% if user.is_authenticated %}
+                <li class="nav-item">
+                    <a class="nav-link position-relative" href="{% url 'notificacao_lista' %}">
+                        Notificações
+                        {% if notificacoes_nao_lidas %}
+                        <span class="badge rounded-pill bg-danger">{{ notificacoes_nao_lidas }}</span>
+                        {% endif %}
+                    </a>
+                </li>
+                {% endif %}
 
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'home' %}">

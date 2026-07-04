@@ -1,4 +1,6 @@
+from django.contrib.auth.models import User
 from django.db import models
+from django.utils import timezone
 from django.core.validators import (MinValueValidator,
     MaxValueValidator)
 from alunos.models import Aluno
@@ -6,7 +8,59 @@ from professores.models import AtribuicaoDocente
 from turmas.models import PeriodoAcademico
 from decimal import Decimal, ROUND_HALF_UP
 
-class Avaliacao(models.Model):
+
+class StatusValidacaoMixin(models.Model):
+    STATUS_RASCUNHO = 'rascunho'
+    STATUS_COM_ERROS = 'com_erros'
+    STATUS_VALIDADA = 'validada'
+
+    STATUS_CHOICES = [
+        (STATUS_RASCUNHO, 'Rascunho'),
+        (STATUS_COM_ERROS, 'Com Erros'),
+        (STATUS_VALIDADA, 'Validada'),
+    ]
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_RASCUNHO
+    )
+
+    validado_por = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='+'
+    )
+
+    validado_em = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+
+    observacoes_validacao = models.TextField(
+        blank=True
+    )
+
+    class Meta:
+        abstract = True
+
+    def marcar_validada(self, user):
+        self.status = self.STATUS_VALIDADA
+        self.validado_por = user
+        self.validado_em = timezone.now()
+        self.save()
+
+    def marcar_com_erros(self, user, observacoes):
+        self.status = self.STATUS_COM_ERROS
+        self.validado_por = user
+        self.validado_em = timezone.now()
+        self.observacoes_validacao = observacoes
+        self.save()
+
+
+class Avaliacao(StatusValidacaoMixin, models.Model):
 
     atribuicao = models.ForeignKey(
         AtribuicaoDocente,
@@ -35,7 +89,7 @@ class Avaliacao(models.Model):
             f"{self.atribuicao} - "
             f"{self.periodo}"
         )
-    
+
 
 class Pauta(models.Model):
 
@@ -138,7 +192,7 @@ class Nota(models.Model):
     def __str__(self):
         return f"{self.aluno} - {self.mt}"
 
-class ResultadoDisciplina(models.Model):
+class ResultadoDisciplina(StatusValidacaoMixin, models.Model):
 
     aluno = models.ForeignKey(
         'alunos.Aluno',

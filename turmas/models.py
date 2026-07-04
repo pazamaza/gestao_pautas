@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 
 
 class AnoLetivo(models.Model):
@@ -36,12 +37,38 @@ class PeriodoAcademico(models.Model):
         default=True
     )
 
+    data_inicio_lancamento = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Início do lançamento de notas'
+    )
+
+    data_fim_lancamento = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Fim do lançamento de notas'
+    )
+
     class Meta:
         verbose_name = 'Período Académico'
         verbose_name_plural = 'Períodos Académicos'
 
     def __str__(self):
         return f"{self.nome} - {self.ano_letivo}"
+
+    def periodo_lancamento_ativo(self):
+        if not self.aberto:
+            return False
+
+        hoje = timezone.localdate()
+
+        if self.data_inicio_lancamento and hoje < self.data_inicio_lancamento:
+            return False
+
+        if self.data_fim_lancamento and hoje > self.data_fim_lancamento:
+            return False
+
+        return True
 
 
 class Classe(models.Model):

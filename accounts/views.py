@@ -4,11 +4,12 @@ from django.contrib.auth import logout
 from django.contrib.auth.forms import AuthenticationForm
 from .models import Perfil
 from django.contrib.auth.decorators import login_required
-from .utils import usuario_do_grupo
+from .utils import usuario_do_grupo, eh_administrador
 from alunos.models import Aluno, Encarregado
 from professores.models import Professor
-from turmas.models import Turma
+from turmas.models import Turma, Classe, PeriodoAcademico
 from disciplinas.models import Disciplina
+from pautas.models import Avaliacao, ResultadoDisciplina
 
 def login_view(request):
 
@@ -55,14 +56,51 @@ def dashboard(request):
         'total_encarregados': Encarregado.objects.count(),
     }
 
-    if user.is_superuser:
-        return render(
-    request,
-    'dashboards/admin.html',
-    context
-)
+    if eh_administrador(user):
 
-    if usuario_do_grupo(user, 'Administrador'):
+        avaliacoes_pendentes = Avaliacao.objects.filter(
+            status=Avaliacao.STATUS_RASCUNHO
+        ).count()
+        avaliacoes_com_erros = Avaliacao.objects.filter(
+            status=Avaliacao.STATUS_COM_ERROS
+        ).count()
+        avaliacoes_validadas = Avaliacao.objects.filter(
+            status=Avaliacao.STATUS_VALIDADA
+        ).count()
+
+        resultados_pendentes = ResultadoDisciplina.objects.exclude(
+            status=ResultadoDisciplina.STATUS_VALIDADA
+        ).count()
+        resultados_validados = ResultadoDisciplina.objects.filter(
+            status=ResultadoDisciplina.STATUS_VALIDADA
+        ).count()
+
+        turmas_por_classe = (
+            Classe.objects
+            .order_by('nome')
+            .values_list('nome', flat=True)
+        )
+        contagem_por_classe = [
+            Turma.objects.filter(classe__nome=nome, ativo=True).count()
+            for nome in turmas_por_classe
+        ]
+
+        context.update({
+            'avaliacoes_pendentes': avaliacoes_pendentes,
+            'avaliacoes_com_erros': avaliacoes_com_erros,
+            'avaliacoes_validadas': avaliacoes_validadas,
+            'resultados_pendentes': resultados_pendentes,
+            'resultados_validados': resultados_validados,
+            'periodos': PeriodoAcademico.objects.select_related('ano_letivo').order_by(
+                '-ano_letivo__descricao', 'nome'
+            ),
+            'grafico_avaliacoes_labels': ['Rascunho', 'Com Erros', 'Validadas'],
+            'grafico_avaliacoes_dados': [
+                avaliacoes_pendentes, avaliacoes_com_erros, avaliacoes_validadas
+            ],
+            'grafico_turmas_labels': list(turmas_por_classe),
+            'grafico_turmas_dados': contagem_por_classe,
+        })
 
         return render(
             request,

@@ -15,6 +15,15 @@
                     <br>
                     {{ avaliacao.periodo }}
                 </p>
+                <p class="mb-0">
+                    {% if avaliacao.status == 'validada' %}
+                        <span class="badge bg-success">Validada</span>
+                    {% elif avaliacao.status == 'com_erros' %}
+                        <span class="badge bg-warning text-dark">Com Erros</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Rascunho</span>
+                    {% endif %}
+                </p>
             </div>
 
             <div class="d-flex flex-wrap align-items-start gap-2">
@@ -36,6 +45,41 @@
 
         <div class="card-body">
 
+            {% if eh_administrador %}
+            <div class="card border-primary mb-4">
+                <div class="card-header bg-primary text-white">
+                    Painel de Validação
+                </div>
+                <div class="card-body">
+                    {% if avaliacao.observacoes_validacao %}
+                    <p><strong>Últimas observações:</strong> {{ avaliacao.observacoes_validacao }}</p>
+                    {% endif %}
+                    <div class="d-flex flex-wrap gap-2">
+                        <a href="{% url 'avaliacao_validar' avaliacao.id %}"
+                           class="btn btn-success"
+                           onclick="return confirm('Validar esta pauta e disponibilizá-la?');">
+                            Validar
+                        </a>
+                        <button type="button" class="btn btn-warning"
+                                data-bs-toggle="collapse"
+                                data-bs-target="#reportarErroPanel">
+                            Reportar Erros
+                        </button>
+                    </div>
+                    <div class="collapse mt-3" id="reportarErroPanel">
+                        <form method="post" action="{% url 'avaliacao_reportar_erro' avaliacao.id %}">
+                            {% csrf_token %}
+                            <div class="mb-2">
+                                {{ form_erro_validacao.observacoes_validacao }}
+                            </div>
+                            <button type="submit" class="btn btn-danger">
+                                Enviar e Notificar Professor/Diretor
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% else %}
             <form method="post"
                   enctype="multipart/form-data"
                   action="{% url 'pauta_importar_excel' avaliacao.id %}"
@@ -54,6 +98,7 @@
                     </button>
                 </div>
             </form>
+            {% endif %}
 
             <table class="table table-bordered">
 

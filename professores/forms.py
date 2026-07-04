@@ -1,5 +1,5 @@
 from django import forms
-from .models import (Professor, AtribuicaoDocente)
+from .models import (Professor, AtribuicaoDocente, DiretorTurma)
 from django.contrib.auth.models import User
 
 
@@ -26,6 +26,22 @@ class AtribuicaoDocenteForm(forms.ModelForm):
                 attrs={'class': 'form-select'} ),
             'ano_letivo': forms.Select(
                 attrs={'class': 'form-select'} ),
+        }
+
+
+class DiretorTurmaForm(forms.ModelForm):
+    class Meta:
+        model = DiretorTurma
+        fields = '__all__'
+        widgets = {
+            'professor': forms.Select(
+                attrs={'class': 'form-select'}),
+            'turma': forms.Select(
+                attrs={'class': 'form-select'}),
+            'ano_letivo': forms.Select(
+                attrs={'class': 'form-select'}),
+            'ativo': forms.CheckboxInput(
+                attrs={'class': 'form-check-input'}),
         }
 
 

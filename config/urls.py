@@ -11,4 +11,5 @@ urlpatterns = [
     path('disciplinas/', include('disciplinas.urls')),
     path('pautas/', include('pautas.urls')),
     path('frequencias/', include('frequencias.urls')),
+    path('notificacoes/', include('notificacoes.urls')),
 ]

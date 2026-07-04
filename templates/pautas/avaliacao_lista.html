@@ -2,47 +2,99 @@
 
 {% block content %}
 
-<div class="container mt-4">
+<div class="container-fluid mt-4">
 
-    <div class="d-flex justify-content-between">
+    <div class="d-flex justify-content-between flex-wrap gap-2">
 
         <h2>Avaliações</h2>
 
+        {% if not eh_administrador %}
         <a href="{% url 'avaliacao_nova' %}"
            class="btn btn-primary">
-
             Nova Avaliação
-
         </a>
+        {% endif %}
 
     </div>
 
+    <form method="get" class="row g-2 align-items-end mt-2">
+        <div class="col-md-3">
+            <label class="form-label">Turma</label>
+            <select name="turma" class="form-select">
+                <option value="">Todas</option>
+                {% for turma in turmas %}
+                <option value="{{ turma.id }}" {% if request.GET.turma == turma.id|stringformat:"s" %}selected{% endif %}>
+                    {{ turma }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Disciplina</label>
+            <select name="disciplina" class="form-select">
+                <option value="">Todas</option>
+                {% for disciplina in disciplinas %}
+                <option value="{{ disciplina.id }}" {% if request.GET.disciplina == disciplina.id|stringformat:"s" %}selected{% endif %}>
+                    {{ disciplina }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Período (Trimestre)</label>
+            <select name="periodo" class="form-select">
+                <option value="">Todos</option>
+                {% for periodo in periodos %}
+                <option value="{{ periodo.id }}" {% if request.GET.periodo == periodo.id|stringformat:"s" %}selected{% endif %}>
+                    {{ periodo }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Estado</label>
+            <select name="status" class="form-select">
+                <option value="">Todos</option>
+                {% for valor, rotulo in status_choices %}
+                <option value="{{ valor }}" {% if request.GET.status == valor %}selected{% endif %}>
+                    {{ rotulo }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-12">
+            <button type="submit" class="btn btn-outline-primary btn-sm">Filtrar</button>
+            <a href="{% url 'avaliacao_lista' %}" class="btn btn-outline-secondary btn-sm">Limpar</a>
+        </div>
+    </form>
+
+    <div class="table-responsive">
     <table class="table table-striped mt-3">
 
         <thead>
-
             <tr>
-
                 <th>Atribuição</th>
-
                 <th>Período</th>
-
+                <th>Estado</th>
                 <th>Ações</th>
-
             </tr>
-
         </thead>
 
         <tbody>
 
             {% for avaliacao in avaliacoes %}
-
             <tr>
-
                 <td>{{ avaliacao.atribuicao }}</td>
-
                 <td>{{ avaliacao.periodo }}</td>
-
+                <td>
+                    {% if avaliacao.status == 'validada' %}
+                        <span class="badge bg-success">Validada</span>
+                    {% elif avaliacao.status == 'com_erros' %}
+                        <span class="badge bg-warning text-dark">Com Erros</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Rascunho</span>
+                    {% endif %}
+                </td>
                 <td class="d-flex flex-wrap gap-1">
                     <a href="{% url 'pauta_trimestral' avaliacao.id %}"
                        class="btn btn-info btn-sm">
@@ -56,33 +108,28 @@
                        class="btn btn-danger btn-sm">
                         PDF
                     </a>
+                    {% if not eh_administrador %}
                     <a href="{% url 'avaliacao_editar' avaliacao.id %}"
                        class="btn btn-warning btn-sm">
                         Editar</a>
                     <a href="{% url 'avaliacao_excluir' avaliacao.id %}"
                        class="btn btn-danger btn-sm">
                         Eliminar </a>
+                    {% endif %}
                 </td>
-
             </tr>
-
             {% empty %}
-
             <tr>
-
-                <td colspan="3">
-
+                <td colspan="4">
                     Nenhuma avaliação cadastrada.
-
                 </td>
-
             </tr>
-
             {% endfor %}
 
         </tbody>
 
     </table>
+    </div>
 
 </div>
 

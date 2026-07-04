@@ -13,6 +13,8 @@ from .views import (
     ResultadoDisciplinaDeleteView,
     ResultadoDisciplinaListView,
     ResultadoDisciplinaUpdateView,
+    avaliacao_reportar_erro,
+    avaliacao_validar,
     baixar_modelo_excel,
     exportar_excel,
     exportar_pdf,
@@ -20,6 +22,8 @@ from .views import (
     importar_excel,
     pauta_trimestral,
     pauta_turma,
+    resultado_reportar_erro,
+    resultado_validar,
 )
 
 
@@ -39,10 +43,14 @@ urlpatterns = [
     path('avaliacoes/<int:avaliacao_id>/importar-excel/', importar_excel, name='pauta_importar_excel'),
     path('avaliacoes/<int:avaliacao_id>/exportar-excel/', exportar_excel, name='pauta_exportar_excel'),
     path('avaliacoes/<int:avaliacao_id>/exportar-pdf/', exportar_pdf, name='pauta_exportar_pdf'),
+    path('avaliacoes/<int:avaliacao_id>/validar/', avaliacao_validar, name='avaliacao_validar'),
+    path('avaliacoes/<int:avaliacao_id>/reportar-erro/', avaliacao_reportar_erro, name='avaliacao_reportar_erro'),
 
     path('resultados/', ResultadoDisciplinaListView.as_view(), name='resultado_lista'),
     path('resultados/novo/', ResultadoDisciplinaCreateView.as_view(), name='resultado_novo'),
     path('resultados/<int:pk>/editar/', ResultadoDisciplinaUpdateView.as_view(), name='resultado_editar'),
     path('resultados/<int:pk>/excluir/', ResultadoDisciplinaDeleteView.as_view(), name='resultado_excluir'),
     path('resultados/gerar/', gerar_resultados, name='gerar_resultados'),
+    path('resultados/<int:pk>/validar/', resultado_validar, name='resultado_validar'),
+    path('resultados/<int:pk>/reportar-erro/', resultado_reportar_erro, name='resultado_reportar_erro'),
 ]

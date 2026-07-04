@@ -6,7 +6,10 @@ from .views import (
     ProfessorUpdateView,
     ProfessorDeleteView,
     AtribuicaoDocenteListView,
-    AtribuicaoDocenteCreateView
+    AtribuicaoDocenteCreateView,
+    DiretorTurmaListView,
+    DiretorTurmaCreateView,
+    DiretorTurmaUpdateView,
 )
 
 urlpatterns = [
@@ -22,4 +25,8 @@ urlpatterns = [
     path('<int:pk>/editar/', ProfessorUpdateView.as_view(),
     name='professor_editar'),
     path('<int:pk>/excluir/', ProfessorDeleteView.as_view(),  name='professor_excluir'),
+
+    path('diretores-turma/', DiretorTurmaListView.as_view(), name='diretor_turma_lista'),
+    path('diretores-turma/novo/', DiretorTurmaCreateView.as_view(), name='diretor_turma_novo'),
+    path('diretores-turma/<int:pk>/editar/', DiretorTurmaUpdateView.as_view(), name='diretor_turma_editar'),
 ]

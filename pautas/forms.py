@@ -4,6 +4,15 @@ from .models import Avaliacao
 from .models import ResultadoDisciplina
 
 
+class ObservacoesValidacaoForm(forms.Form):
+    observacoes_validacao = forms.CharField(
+        label='Observações',
+        widget=forms.Textarea(
+            attrs={'class': 'form-control', 'rows': 4}
+        )
+    )
+
+
 class ImportarNotasExcelForm(forms.Form):
     arquivo = forms.FileField(
         label='Arquivo Excel',
@@ -19,7 +28,7 @@ class ImportarNotasExcelForm(forms.Form):
 class AvaliacaoForm(forms.ModelForm):
     class Meta:
         model = Avaliacao
-        fields = '__all__'
+        fields = ['atribuicao', 'periodo']
         widgets = {'atribuicao': forms.Select(
                 attrs={'class': 'form-select'} ),
 
@@ -58,6 +67,17 @@ class NotaForm(forms.ModelForm):
                 }
             ),
         }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        avaliacao = cleaned_data.get('avaliacao')
+
+        if avaliacao and not avaliacao.periodo.periodo_lancamento_ativo():
+            raise forms.ValidationError(
+                'Fora do período de lançamento de notas para este trimestre.'
+            )
+
+        return cleaned_data
 
 class ResultadoDisciplinaForm(forms.ModelForm):
 

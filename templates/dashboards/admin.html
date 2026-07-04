@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}
-Detalhes do Aluno
+Dashboard
 {% endblock %}
 {% block content %}
 <style>
@@ -18,6 +19,8 @@ Detalhes do Aluno
     white-space: nowrap;
 }
 </style>
+
+<div class="container-fluid mt-3">
 
 <div class="d-flex justify-content-center gap-3 overflow-auto pb-2">
     <div class="col-md-3">
@@ -57,7 +60,7 @@ Detalhes do Aluno
 <h2 class="text-center mb-4" style="color: red;">Atalhos Rápidos</h2>
 
 <div class="d-flex flex-wrap justify-content-center gap-4">
-    
+
     <a href="{% url 'aluno_lista' %}" class="btn btn-primary atalho-btn">
         <i class="fas fa-user-graduate fa-3x mb-3"></i>
         <span>Alunos</span>
@@ -83,5 +86,98 @@ Detalhes do Aluno
         <span>Encarregados</span>
     </a>
 
+    <a href="{% url 'diretor_turma_lista' %}" class="btn btn-dark atalho-btn">
+        <span>Diretores de Turma</span>
+    </a>
+
 </div>
+
+<hr class="my-4">
+<h2 class="text-center mb-4">Validação de Pautas</h2>
+
+<div class="d-flex flex-wrap justify-content-center gap-3">
+    <a href="{% url 'avaliacao_lista' %}?status=rascunho" class="card shadow-sm text-decoration-none text-dark" style="width: 200px;">
+        <div class="card-body text-center">
+            <h5>Trimestrais Pendentes</h5>
+            <h2>{{ avaliacoes_pendentes }}</h2>
+        </div>
+    </a>
+    <a href="{% url 'avaliacao_lista' %}?status=com_erros" class="card shadow-sm text-decoration-none text-dark border-warning" style="width: 200px;">
+        <div class="card-body text-center">
+            <h5>Trimestrais Com Erros</h5>
+            <h2 class="text-warning">{{ avaliacoes_com_erros }}</h2>
+        </div>
+    </a>
+    <a href="{% url 'avaliacao_lista' %}?status=validada" class="card shadow-sm text-decoration-none text-dark border-success" style="width: 200px;">
+        <div class="card-body text-center">
+            <h5>Trimestrais Validadas</h5>
+            <h2 class="text-success">{{ avaliacoes_validadas }}</h2>
+        </div>
+    </a>
+    <a href="{% url 'resultado_lista' %}?status=validada" class="card shadow-sm text-decoration-none text-dark" style="width: 200px;">
+        <div class="card-body text-center">
+            <h5>Resultados Anuais Validados</h5>
+            <h2>{{ resultados_validados }} / {{ resultados_pendentes|add:resultados_validados }}</h2>
+        </div>
+    </a>
+</div>
+
+<hr class="my-4">
+<div class="row g-4">
+    <div class="col-md-6">
+        <h4 class="text-center">Distribuição das Avaliações por Estado</h4>
+        <canvas id="grafico-avaliacoes" height="200"></canvas>
+        {{ grafico_avaliacoes_labels|json_script:"grafico-avaliacoes-labels" }}
+        {{ grafico_avaliacoes_dados|json_script:"grafico-avaliacoes-dados" }}
+    </div>
+    <div class="col-md-6">
+        <h4 class="text-center">Turmas Ativas por Classe</h4>
+        <canvas id="grafico-turmas" height="200"></canvas>
+        {{ grafico_turmas_labels|json_script:"grafico-turmas-labels" }}
+        {{ grafico_turmas_dados|json_script:"grafico-turmas-dados" }}
+    </div>
+</div>
+
+<hr class="my-4">
+<div class="d-flex justify-content-between align-items-center">
+    <h4>Período de Lançamento de Notas</h4>
+    <a href="{% url 'periodo_lista' %}" class="btn btn-outline-primary btn-sm">Gerir Períodos</a>
+</div>
+<div class="table-responsive">
+    <table class="table table-sm table-striped">
+        <thead>
+            <tr>
+                <th>Período</th>
+                <th>Ano Letivo</th>
+                <th>Estado</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for periodo in periodos %}
+            <tr>
+                <td>{{ periodo.nome }}</td>
+                <td>{{ periodo.ano_letivo }}</td>
+                <td>
+                    {% if periodo.periodo_lancamento_ativo %}
+                        <span class="badge bg-success">Aberto</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Fechado</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="3">Nenhum período cadastrado.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/vendor/chart.min.js' %}"></script>
+<script src="{% static 'js/dashboard_charts.js' %}"></script>
 {% endblock %}

@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}
+Notificações
+{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h2>Notificações</h2>
+
+    <div class="list-group mt-3">
+        {% for notificacao in notificacoes %}
+        <div class="list-group-item {% if not notificacao.lida %}list-group-item-warning{% endif %}">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <h5 class="mb-1">{{ notificacao.titulo }}</h5>
+                    <p class="mb-1">{{ notificacao.mensagem }}</p>
+                    <small class="text-muted">{{ notificacao.criado_em }}</small>
+                    {% if notificacao.link_url %}
+                        <br>
+                        <a href="{{ notificacao.link_url }}">Ver pauta</a>
+                    {% endif %}
+                </div>
+                {% if not notificacao.lida %}
+                <form method="post" action="{% url 'notificacao_marcar_lida' notificacao.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">Marcar como lida</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <p>Não tem notificações.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

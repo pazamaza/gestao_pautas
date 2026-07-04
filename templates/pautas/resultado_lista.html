@@ -6,119 +6,161 @@ Resultados Finais
 
 {% block content %}
 
-<div class="container mt-4">
+<div class="container-fluid mt-4">
 
-    <div class="d-flex justify-content-between">
+    <div class="d-flex justify-content-between flex-wrap gap-2">
 
-        <h2>Resultados Finais</h2>
+        <h2>Resultados Finais (Anual)</h2>
 
+        {% if eh_administrador %}
         <div>
-
             <a href="{% url 'gerar_resultados' %}"
                class="btn btn-success">
-
                 Gerar Resultados
-
             </a>
-
-            <a href="{% url 'resultado_novo' %}"
-               class="btn btn-primary">
-
-                Novo Resultado
-
-            </a>
-
         </div>
+        {% endif %}
 
     </div>
+
+    <form method="get" class="row g-2 align-items-end mt-2">
+        <div class="col-md-3">
+            <label class="form-label">Turma</label>
+            <select name="turma" class="form-select">
+                <option value="">Todas</option>
+                {% for turma in turmas %}
+                <option value="{{ turma.id }}" {% if request.GET.turma == turma.id|stringformat:"s" %}selected{% endif %}>
+                    {{ turma }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Disciplina</label>
+            <select name="disciplina" class="form-select">
+                <option value="">Todas</option>
+                {% for disciplina in disciplinas %}
+                <option value="{{ disciplina.id }}" {% if request.GET.disciplina == disciplina.id|stringformat:"s" %}selected{% endif %}>
+                    {{ disciplina }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Ano Letivo</label>
+            <select name="ano_letivo" class="form-select">
+                <option value="">Todos</option>
+                {% for ano in anos_letivos %}
+                <option value="{{ ano.id }}" {% if request.GET.ano_letivo == ano.id|stringformat:"s" %}selected{% endif %}>
+                    {{ ano }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Estado</label>
+            <select name="status" class="form-select">
+                <option value="">Todos</option>
+                {% for valor, rotulo in status_choices %}
+                <option value="{{ valor }}" {% if request.GET.status == valor %}selected{% endif %}>
+                    {{ rotulo }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-12">
+            <button type="submit" class="btn btn-outline-primary btn-sm">Filtrar</button>
+            <a href="{% url 'resultado_lista' %}" class="btn btn-outline-secondary btn-sm">Limpar</a>
+        </div>
+    </form>
+
+    <div class="table-responsive">
     <table class="table table-striped mt-3">
 
         <thead>
-
             <tr>
-
                 <th>Aluno</th>
-
+                <th>Turma</th>
                 <th>Disciplina</th>
-
                 <th>MT1</th>
-
                 <th>MT2</th>
-
                 <th>MT3</th>
-
                 <th>MF</th>
-
                 <th>Exame</th>
-
                 <th>Resultado</th>
-
-                <th>Ações</th>
-
+                <th>Estado</th>
+                {% if eh_administrador %}
+                <th>Validação</th>
+                {% endif %}
             </tr>
-
         </thead>
 
         <tbody>
 
             {% for resultado in resultados %}
-
             <tr>
-
                 <td>{{ resultado.aluno }}</td>
-
+                <td>{{ resultado.aluno.turma }}</td>
                 <td>{{ resultado.disciplina }}</td>
-
                 <td>{{ resultado.mt1 }}</td>
-
                 <td>{{ resultado.mt2 }}</td>
-
                 <td>{{ resultado.mt3 }}</td>
-
                 <td>{{ resultado.mf }}</td>
-                <td>{% if resultado.exame %} {{ resultado.exame }}
-                    {% else %} Dispensado  {% endif %}
-</td>
-
+                <td>{% if resultado.exame %}{{ resultado.exame }}{% else %}Dispensado{% endif %}</td>
                 <td>{{ resultado.resultado }}</td>
-
                 <td>
-
-                    <a href="{% url 'resultado_editar' resultado.id %}"
-                       class="btn btn-warning btn-sm">
-
-                        Editar
-
-                    </a>
-
-                    <a href="{% url 'resultado_excluir' resultado.id %}"
-                       class="btn btn-danger btn-sm">
-
-                        Excluir
-
-                    </a>
-
+                    {% if resultado.status == 'validada' %}
+                        <span class="badge bg-success">Validada</span>
+                    {% elif resultado.status == 'com_erros' %}
+                        <span class="badge bg-warning text-dark">Com Erros</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Rascunho</span>
+                    {% endif %}
                 </td>
-
+                {% if eh_administrador %}
+                <td class="d-flex flex-wrap gap-1">
+                    <a href="{% url 'resultado_validar' resultado.id %}"
+                       class="btn btn-success btn-sm"
+                       onclick="return confirm('Validar este resultado?');">
+                        Validar
+                    </a>
+                    <button type="button"
+                            class="btn btn-warning btn-sm"
+                            data-bs-toggle="collapse"
+                            data-bs-target="#erro-resultado-{{ resultado.id }}">
+                        Reportar Erro
+                    </button>
+                </td>
+                {% endif %}
             </tr>
-
+            {% if eh_administrador %}
+            <tr class="collapse" id="erro-resultado-{{ resultado.id }}">
+                <td colspan="11">
+                    <form method="post" action="{% url 'resultado_reportar_erro' resultado.id %}" class="row g-2">
+                        {% csrf_token %}
+                        <div class="col-md-9">
+                            <textarea name="observacoes_validacao" class="form-control" rows="2"
+                                      placeholder="Descreva o erro encontrado">{{ resultado.observacoes_validacao }}</textarea>
+                        </div>
+                        <div class="col-md-3">
+                            <button type="submit" class="btn btn-danger w-100">Enviar e Notificar</button>
+                        </div>
+                    </form>
+                </td>
+            </tr>
+            {% endif %}
             {% empty %}
-
             <tr>
-
-                <td colspan="9">
-
+                <td colspan="11">
                     Nenhum resultado encontrado.
-
                 </td>
-
             </tr>
-
             {% endfor %}
 
         </tbody>
 
     </table>
+    </div>
 
 </div>
 
