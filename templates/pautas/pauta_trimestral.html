@@ -79,7 +79,7 @@
                     </div>
                 </div>
             </div>
-            {% else %}
+            {% elif pode_editar %}
             <form method="post"
                   enctype="multipart/form-data"
                   action="{% url 'pauta_importar_excel' avaliacao.id %}"
@@ -98,6 +98,11 @@
                     </button>
                 </div>
             </form>
+            {% else %}
+            <div class="alert alert-info">
+                Está a ver esta pauta como diretor de turma — apenas o professor titular da
+                disciplina pode lançar ou importar notas.
+            </div>
             {% endif %}
 
             <table class="table table-bordered">

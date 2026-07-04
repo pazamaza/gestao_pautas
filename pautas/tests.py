@@ -147,6 +147,38 @@ class ValidacaoAvaliacaoTests(PautasTestBase):
         self.assertEqual(response.status_code, 403)
 
 
+class DiretorTurmaVisualizaPautaTests(PautasTestBase):
+    def setUp(self):
+        super().setUp()
+        DiretorTurma.objects.create(
+            professor=self.outro_professor, turma=self.turma, ano_letivo=self.ano_letivo
+        )
+
+    def test_diretor_de_turma_ve_pauta_de_outra_disciplina(self):
+        self.client.login(username='outro_prof', password='senha123')
+        response = self.client.get(reverse('pauta_trimestral', args=[self.avaliacao.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'Importar Notas')
+        self.assertContains(response, 'diretor de turma')
+
+    def test_diretor_de_turma_nao_pode_importar_notas(self):
+        self.client.login(username='outro_prof', password='senha123')
+        response = self.client.post(
+            reverse('pauta_importar_excel', args=[self.avaliacao.pk]), {}
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_professor_sem_relacao_com_a_turma_nao_ve_pauta(self):
+        terceiro_user = User.objects.create_user(username='terceiro_prof', password='senha123')
+        terceiro_user.groups.add(self.grupo_professor)
+        Professor.objects.create(user=terceiro_user, numero_funcionario='P003')
+
+        self.client.login(username='terceiro_prof', password='senha123')
+        response = self.client.get(reverse('pauta_trimestral', args=[self.avaliacao.pk]))
+        self.assertEqual(response.status_code, 403)
+
+
 class PermissoesPautasTests(PautasTestBase):
     def test_admin_nao_acede_a_criar_nota(self):
         self.client.login(username='admin', password='senha123')

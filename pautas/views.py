@@ -49,8 +49,20 @@ def notas_da_avaliacao(avaliacao):
     )
 
 
+def _eh_professor_titular(user, avaliacao):
+    return avaliacao.atribuicao.professor.user_id == user.id
+
+
+def _eh_diretor_da_turma(user, turma, ano_letivo):
+    return DiretorTurma.objects.filter(
+        turma=turma, ano_letivo=ano_letivo, professor__user=user, ativo=True
+    ).exists()
+
+
 def _pode_ver_avaliacao(user, avaliacao):
-    return eh_administrador(user) or avaliacao.atribuicao.professor.user_id == user.id
+    if eh_administrador(user) or _eh_professor_titular(user, avaliacao):
+        return True
+    return _eh_diretor_da_turma(user, avaliacao.atribuicao.turma, avaliacao.atribuicao.ano_letivo)
 
 
 class NotaListView(AdminOuProfessorRequeridoMixin, ListView):
@@ -113,6 +125,7 @@ def pauta_trimestral(request, avaliacao_id):
             'form_importacao': ImportarNotasExcelForm(),
             'form_erro_validacao': ObservacoesValidacaoForm(),
             'eh_administrador': eh_administrador(request.user),
+            'pode_editar': _eh_professor_titular(request.user, avaliacao),
         },
     )
 
