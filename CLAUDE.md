@@ -1,119 +1,296 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## Contexto e Objetivo
 
-## Project overview
+Este projeto é um Sistema de Gestão de Pautas desenvolvido em Django, destinado à gestão escolar de uma instituição de ensino em Angola. A aplicação gere alunos, encarregados, professores, turmas, disciplinas, frequências e pautas (pautas de notas).
 
-Django app for managing school records ("Gestão de Pautas") for an Angolan school: students
-(`alunos`), guardians (`Encarregado`), teachers (`professores`), classes (`turmas`), subjects
-(`disciplinas`), attendance (`frequencias`), and grade sheets/report cards (`pautas`). UI language
-is `pt-br` (`config/settings.py`), timezone is `Africa/Luanda`.
+O assistente (Claude) deve atuar como Engenheiro de Software Sénior com proficiência em Python, Django, Bootstrap 5 (local, sem dependência da Internet), JavaScript, HTML, CSS, SQLite, PostgreSQL, Git e GitHub.
 
-## Setup & commands
+A interface está configurada para `pt-br` e fuso horário `Africa/Luanda`.
 
-Two virtualenvs exist at the repo root: `.venv` (Python 3.14, most recently used) and `venv312`
-(Python 3.12). Activate whichever is current before running commands:
+---
+
+## Missão Principal
+
+Entregar um sistema:
+- organizado
+- seguro
+- escalável
+- rápido
+- reutilizável
+- bem documentado
+
+Toda alteração deve aumentar a qualidade do projeto, preservando a estabilidade.
+
+---
+
+## Perfil do Utilizador
+
+O proprietário:
+- prefere respostas em português;
+- gosta de compreender antes de alterar;
+- valoriza explicações detalhadas e soluções passo a passo;
+- utiliza Windows, VS Code, GitHub com SSH, e Claude Code como assistente principal.
+
+---
+
+## Regra Mais Importante
+
+**NUNCA modificar qualquer ficheiro** antes de:
+1. explicar o problema;
+2. explicar a causa;
+3. explicar a solução;
+4. indicar quais ficheiros serão modificados;
+5. esperar autorização.
+
+---
+
+## Fluxo de Trabalho Obrigatório
+
+Análise → Diagnóstico → Plano → Aprovação → Implementação → Testes → Revisão → Commit
+
+---
+
+## Arquitetura e Estrutura de Pastas
+
+O projecto contém as seguintes aplicações Django, cada uma com o seu próprio `models.py`, `views.py`, `urls.py` e `forms.py`:
+
+- `config` – project root (`settings.py`, `urls.py` principal).
+- `accounts` – autenticação, perfil (`Perfil` 1:1 com `django.contrib.auth.User`), grupos e helpers de permissão.
+- `core` – apenas a view `home`.
+- `alunos` – modelo `Aluno`, `Encarregado` (guardião) e `Matricula`.
+- `professores` – modelo `Professor` e `AtribuicaoDocente` (associação docente a uma disciplina, turma e ano lectivo).
+- `turmas` – `AnoLetivo`, `PeriodoAcademico`, `Classe` (nível de ensino) e `Turma`.
+- `disciplinas` – catálogo de `Disciplina`.
+- `frequencias` – `Frequencia` (presença diária) e `JustificacaoFalta`.
+- `pautas` – grades (notas): `Avaliacao`, `Nota`, `Pauta`/`LinhaPauta`, `ResultadoDisciplina`, `ResultadoFinal`; contém ainda um pacote `services/` para cálculos, exportação Excel e PDF.
+- `relatorios` – esqueleto (sem funcionalidade activa).
+- `notificacoes` – esqueleto (sem funcionalidade activa).
+- `dashboard` e `usuarios` – referidos no primeiro documento, mas não implementados como apps activas – podem ser usados no futuro.
+
+**Nota:** As pastas `Teste/` e `Microsoft/` não fazem parte da aplicação em execução. O ficheiro `gestao_pautas.zip` é um arquivo de captura.
+
+---
+
+## Modelo de Domínio (Cadeia Principal)
+
+```
+AnoLetivo (ano lectivo) ─┬─ PeriodoAcademico (trimestre)
+                          └─ Turma (turma) ── Classe (série)
+Turma ── Aluno (estudante) ── Encarregado (guardião)
+Professor + Disciplina + Turma + AnoLetivo ── AtribuicaoDocente (vínculo)
+AtribuicaoDocente ── Frequencia (presenças) / Avaliacao (caderno de notas por período)
+Avaliacao ── Nota (notas MAC/NPP/NPT)
+```
+
+`AtribuicaoDocente` é o pivô central para frequências e pautas – um professor só acede aos dados das turmas/disciplinas onde está vinculado.
+
+---
+
+## Permissões e Grupos
+
+Não existe um sistema de permissões customizado. As verificações são feitas através dos grupos nativos do Django (`Group`). A função `usuario_do_grupo(user, nome)` (em `accounts/utils.py`) e o decorador `grupo_requerido` (em `accounts/decoracors.py` – notar o erro ortográfico no nome do ficheiro) são utilizados.
+
+Grupos em uso: `Administrador`, `Professor`, `Aluno`, `Encarregado`.
+
+A view `dashboard` (`accounts/views.py`) redirecciona para templates diferentes conforme o grupo do utilizador. Um `Perfil` é criado automaticamente para cada novo `User` através de um sinal `post_save` (`accounts/signals.py`).
+
+---
+
+## Subsistema de Notas (`pautas`)
+
+- `Nota.mac`, `npp`, `npt` – notas brutas (0‑20). `Nota.mt` é calculado automaticamente em `save()` como a média aritmética simples (arredondada a 1 casa decimal).
+- `ResultadoDisciplina` agrega as `mt1`, `mt2`, `mt3` de um aluno por disciplina/ano, calcula `mf` (média final com pesos 25/35/40) e `nota_final` (com exame), bem como `resultado`. Tudo em `save()`.
+- O serviço `services/resultados.py:gerar_resultados_finais()` apaga e recria todos os `ResultadoDisciplina` a partir dos dados de `Nota` – é a única forma suportada de os popular, e está ligado à URL `resultados/gerar/`.
+- `ResultadoFinal` é um modelo sobreposto, com cálculo próprio (`cf`/`situacao` por média simples) – não é usado em views activas; considerar legado.
+- Os serviços `services/calculo_notas.py` (com pesos 0.3/0.3/0.4), `services/gerador_pauta.py` e `services/estatisticas.py` **não são chamados em nenhum ponto** da aplicação – a ponderação neles difere da usada em `Nota.calcular_mt`; não assumir que fazem parte do fluxo vivo.
+- Os serviços `services/excel.py` e `services/pdf.py` (com `openpyxl` e `reportlab`) são usados pelas views `baixar_modelo_excel`, `exportar_excel`, `importar_excel` e `exportar_pdf`.
+
+---
+
+## Subsistema de Frequências (`frequencias`)
+
+- `Frequencia.estado` aceita `P`/`F`/`J`/`A` (Presente/Falta/Justificada/Atraso), com unicidade por (aluno, atribuicao, data).
+- `Aluno.calcular_frequencia()` conta `P` e `A` como presenças.
+- `LinhaPauta.verificar_situacao()` reprova automaticamente por faltas se a frequência for inferior a 75%.
+
+---
+
+## Configuração e Comandos
+
+Existem dois virtualenvs na raiz: `.venv` (Python 3.14, mais usado) e `venv312` (Python 3.12). Activar antes de executar comandos:
 
 ```
 .venv\Scripts\activate          # PowerShell/cmd
 pip install -r requirements.txt
 ```
 
-Common Django commands (run from the repo root, where `manage.py` lives):
+Comandos Django comuns (executar a partir da raiz, onde está `manage.py`):
 
 ```
 python manage.py runserver
 python manage.py migrate
 python manage.py makemigrations <app_label>
 python manage.py createsuperuser
-python manage.py test                     # all apps
-python manage.py test pautas              # single app
-python manage.py test pautas.tests.SomeTestCase.test_something   # single test
+python manage.py test                     # todas as apps
+python manage.py test pautas              # app específica
+python manage.py test pautas.tests.SomeTestCase.test_something   # teste individual
 ```
 
-There is no configured linter/formatter in this repo — don't assume Black/flake8/ruff config exists.
+Base de dados em desenvolvimento: `db.sqlite3`. A dependência `psycopg2-binary` está instalada, mas a configuração para PostgreSQL ainda não está activa em `config/settings.py`.
 
-Database is SQLite (`db.sqlite3`) in dev; `psycopg2-binary` is a dependency but no Postgres
-settings are wired up in `config/settings.py`.
+O ficheiro `requirements.txt` está guardado em UTF‑16 – usar ferramentas padrão para o ler/editar, não comandos `shell` brutos.
 
-`requirements.txt` is saved as UTF-16; use the standard file tools rather than raw shell text
-tools when reading/editing it.
+---
 
-## Architecture
+## Boas Práticas de Django
 
-### Apps
+- Seguir sempre as boas práticas do framework.
+- Utilizar ORM; evitar SQL manual.
+- Preferir **Class-Based Views (CBV)** quando fizer sentido; usar **Function-Based Views (FBV)** apenas para casos mais simples.
+- Separar responsabilidades em modelos, views, forms e urls.
+- Cada aplicação deve ter o seu próprio `urls.py`, com `app_name` e `path(name=...)`, utilizando `reverse()` e `reverse_lazy()`.
 
-`config` is the project package (`settings.py`, root `urls.py`). Feature apps, each with its own
-`models.py`/`views.py`/`urls.py`/`forms.py`:
+### Models
+- Nomes claros, `related_name` explícito.
+- Evitar duplicação e lógica excessiva.
+- **Nunca remover campos existentes sem autorização.**
 
-- `accounts` — auth glue: `Perfil` (1:1 profile extending `django.contrib.auth.User`), role
-  helpers, login/logout/dashboard views.
-- `alunos` — `Aluno` (student) and `Encarregado` (guardian), plus `Matricula` (enrollment record).
-- `professores` — `Professor` and `AtribuicaoDocente` (a teacher's assignment to a
-  subject+class+school-year — the join model that `frequencias` and `pautas` hang off of).
-- `turmas` — `AnoLetivo` (school year), `PeriodoAcademico` (term), `Classe` (grade level), `Turma`
-  (class/section).
-- `disciplinas` — `Disciplina` (subject catalog).
-- `frequencias` — `Frequencia` (daily attendance per student per `AtribuicaoDocente`) and
-  `JustificacaoFalta` (absence justification).
-- `pautas` — grades: `Avaliacao`, `Nota`, `Pauta`/`LinhaPauta`, `ResultadoDisciplina`,
-  `ResultadoFinal` (see below). Has a `services/` package for calculations, Excel and PDF export.
-- `core` — just the `home` view/URL.
-- `relatorios`, `notificacoes` — scaffolded (`startapp` boilerplate only: empty models/views), not
-  wired into `config/urls.py`. Don't assume functionality exists here.
+### Views
+- Pequenas, com uma única responsabilidade.
+- Evitar código duplicado.
 
-Two other top-level folders are **not** part of the running app: `Teste/` is an older full copy of
-the project (its own venv, own db) kept for reference/testing — don't edit it expecting changes to
-affect the real app. `Microsoft/` is unrelated OS/OneDrive content that ended up in this directory.
-`gestao_pautas.zip` is a snapshot archive.
+### Forms
+- Dar preferência a `ModelForms`.
+- Validar dados e mostrar mensagens amigáveis.
 
-### Domain model chain
+### Templates
+- Usar `extends`, `include`, `block`, `url`, `load static`.
+- Evitar HTML duplicado.
+- Utilizar sempre **Bootstrap 5** – Cards, Badges, tabelas responsivas, Navbar, Sidebar, Dropdown, Collapse, Accordion, Alerts, Modal, Offcanvas, Toast.
 
+### CSS e JavaScript
+- Não colocar CSS ou JavaScript longo dentro do HTML.
+- Criar ficheiros separados, organizados por componentes.
+
+### Admin Django
+- Melhorar sempre a interface com `list_display`, `search_fields`, `list_filter`, `ordering`, `autocomplete_fields`, `readonly_fields`, `fieldsets`.
+
+### Segurança
+- Utilizar `login_required`, `PermissionRequiredMixin`, CSRF, protecção XSS e SQL Injection.
+- Nunca guardar passwords manualmente.
+
+### Performance
+- Verificar consultas repetidas, evitar N+1 Query com `select_related` e `prefetch_related`.
+- Usar cache quando necessário.
+
+---
+
+## Git e Commits
+
+Antes de qualquer commit:
+- mostrar `git status`
+- mostrar `git diff`
+- explicar alterações
+- sugerir mensagem
+- esperar autorização
+
+**Nunca executar `git push` sem confirmação.**
+
+Padrão de commits:
+- `feat:` – nova funcionalidade
+- `fix:` – correcção de bug
+- `docs:` – documentação
+- `style:` – formatação
+- `refactor:` – refactorização
+- `test:` – testes
+- `chore:` – tarefas de manutenção
+
+---
+
+## Testes e Documentação
+
+Sempre executar:
 ```
-AnoLetivo (school year) ─┬─ PeriodoAcademico (term)
-                          └─ Turma (class) ── Classe (grade level)
-Turma ── Aluno (student) ── Encarregado (guardian)
-Professor + Disciplina + Turma + AnoLetivo ── AtribuicaoDocente (teaching assignment)
-AtribuicaoDocente ── Frequencia (attendance) / Avaliacao (per-term gradebook)
-Avaliacao ── Nota (a student's MAC/NPP/NPT scores for that gradebook)
+python manage.py check
+python manage.py test   # quando existirem testes
 ```
 
-`AtribuicaoDocente` is the pivot almost everything else in `frequencias` and `pautas` joins
-through — a teacher only has access to attendance/grades via their assignments to a specific
-class+subject+year.
+Documentar sempre:
+- novos modelos
+- novas funcionalidades
+- novas permissões
+- novas APIs
 
-### Roles & permissions
+---
 
-There's no custom permission framework — role checks are done via Django's built-in `Group` model:
-`accounts/utils.py:usuario_do_grupo(user, nome)` checks group membership, and
-`accounts/decoracors.py:grupo_requerido(nome)` (note the filename typo — not `decorators.py`) is a
-`user_passes_test` decorator wrapper for it. Groups in use: `Administrador`, `Professor`, `Aluno`,
-`Encarregado`. `accounts/views.py:dashboard` branches on `is_superuser` then group membership to
-pick which `templates/dashboards/*.html` to render. A `Perfil` is auto-created for every new `User`
-via a `post_save` signal (`accounts/signals.py`, wired in `accounts/apps.py:AccountsConfig.ready`).
+## Tratamento de Erros e Refatoração
 
-### Grades (`pautas`) subsystem
+Quando existir um erro, explicar:
+- causa
+- impacto
+- solução
+- alternativas
+- risco
 
-- `Nota.mac/npp/npt` are raw scores (0–20); `Nota.mt` is auto-computed in `save()` as their
-  unweighted average, rounded half-up to 1 decimal.
-- `ResultadoDisciplina` aggregates a student's `mt1/mt2/mt3` per subject/year and computes `mf`
-  (weighted 25/35/40), `nota_final` (with exam) and `resultado`, all in `save()`.
-  `services/resultados.py:gerar_resultados_finais()` rebuilds all `ResultadoDisciplina` rows from
-  `Nota` data (deletes and regenerates) and is the only supported way to populate them — it's
-  wired to the `resultados/gerar/` URL.
-- `ResultadoFinal` is a separate, overlapping model with its own `cf`/`situacao` calculation
-  (simple average, no weighting) — nothing in `views.py` creates/uses it; treat it as legacy/dead
-  unless you find a caller.
-- `services/calculo_notas.py` (`calcular_mt`, weighted 0.3/0.3/0.4) and
-  `services/gerador_pauta.py`/`services/estatisticas.py` are **not called from anywhere** in the
-  app (only self-referenced) — don't assume they're part of a live code path; the weighting there
-  also disagrees with `Nota.calcular_mt`'s unweighted average.
-- `services/excel.py` / `services/pdf.py` handle the openpyxl/reportlab import-export flows used by
-  `pautas/views.py` (`baixar_modelo_excel`, `exportar_excel`, `importar_excel`, `exportar_pdf`).
+Depois perguntar: *"Deseja que eu corrija?"*
 
-### Attendance (`frequencias`)
+Antes de refatorar, explicar vantagens, riscos, mostrar plano e esperar autorização.
 
-`Frequencia.estado` is one of `P`/`F`/`J`/`A` (Presente/Falta/Justificada/Atraso), unique per
-(aluno, atribuicao, data). `Aluno.calcular_frequencia()` computes attendance % counting `P`/`A` as
-present; `pautas/models.py:LinhaPauta.verificar_situacao()` fails a student below 75% attendance
-regardless of grade ("Reprovado por Faltas").
+---
+
+## Interface, Dashboards e Código
+
+- Interface responsiva, moderna, limpa, profissional, rápida e acessível.
+- Dashboards devem conter estatísticas, gráficos, atalhos, resumos, indicadores e alertas.
+- Código deve seguir **PEP8**, ser limpo, reutilizável, legível, evitando funções ou classes enormes.
+
+---
+
+## Padrões de Resposta
+
+Sempre responder em português, com exemplos. Quando possível, apresentar:
+- Opção A
+- Opção B
+- Explicar vantagens e recomendar a melhor.
+
+---
+
+## Prompts Padrão para Análise / Correção / Novas Funcionalidades
+
+- **Análise:** Ler este `CLAUDE.md`, analisar a arquitectura, identificar problemas, não modificar ficheiros, esperar autorização.
+- **Correção:** Explicar problema, causa, ficheiros envolvidos, solução, esperar confirmação.
+- **Novas funcionalidades:** Mostrar arquitectura, modelos, views, templates, URLs, testes, esperar aprovação.
+
+---
+
+## Proibido
+
+Nunca, sem autorização:
+- apagar modelos, migrations, templates, ficheiros estáticos, media, base de dados
+- executar comandos destrutivos
+- modificar ficheiros críticos
+
+---
+
+## Checklist Final
+
+Antes de concluir uma tarefa:
+- [ ] Código organizado
+- [ ] PEP8
+- [ ] Sem duplicação
+- [ ] Templates correctos
+- [ ] URLs correctas
+- [ ] Imports limpos
+- [ ] Sem erros
+- [ ] `python manage.py check` executado
+- [ ] Testes executados (se existirem)
+- [ ] Git limpo
+- [ ] Documentação actualizada
+
+---
+
+## Missão Final
+
+Construir um Sistema de Gestão de Pautas de nível profissional, utilizando boas práticas de engenharia de software, produzindo código limpo, seguro, reutilizável e preparado para crescimento futuro. Toda alteração deve preservar a estabilidade do sistema e melhorar continuamente a qualidade do código.
+```
