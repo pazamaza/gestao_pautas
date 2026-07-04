@@ -7,8 +7,8 @@ from .utils import eh_administrador, eh_professor
 
 class PapeisUsuarioTests(TestCase):
     def setUp(self):
-        Group.objects.create(name='Administrador')
-        Group.objects.create(name='Professor')
+        Group.objects.get_or_create(name='Administrador')
+        Group.objects.get_or_create(name='Professor')
 
     def test_superuser_eh_administrador_sem_grupo(self):
         user = User.objects.create_user(username='super', password='x', is_superuser=True)
@@ -27,7 +27,7 @@ class PapeisUsuarioTests(TestCase):
 
 class DashboardViewTests(TestCase):
     def setUp(self):
-        Group.objects.create(name='Administrador')
+        Group.objects.get_or_create(name='Administrador')
 
     def test_dashboard_admin_renderiza_template_admin(self):
         user = User.objects.create_user(username='adm', password='senha123')
@@ -51,9 +51,9 @@ class DashboardViewTests(TestCase):
 
 class DashboardPapelEspecificoTests(TestCase):
     def setUp(self):
-        Group.objects.create(name='Professor')
-        Group.objects.create(name='Aluno')
-        Group.objects.create(name='Encarregado')
+        Group.objects.get_or_create(name='Professor')
+        Group.objects.get_or_create(name='Aluno')
+        Group.objects.get_or_create(name='Encarregado')
 
     def test_dashboard_professor(self):
         from professores.models import Professor

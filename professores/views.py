@@ -8,7 +8,7 @@ from .forms import (ProfessorForm, ProfessorUpdateForm,
     AtribuicaoDocenteForm, DiretorTurmaForm)
 
 from accounts.mixins import AdministradorRequeridoMixin
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Group, User
 from django.views import View
 from django.shortcuts import (render, redirect)
 from django.shortcuts import ( render,  redirect,
@@ -47,6 +47,8 @@ class ProfessorCreateView(View):
                     'email'
                 ]
             )
+            grupo_professor, _ = Group.objects.get_or_create(name='Professor')
+            user.groups.add(grupo_professor)
             Professor.objects.create(
                 user=user,
                 numero_funcionario=

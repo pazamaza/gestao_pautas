@@ -1,7 +1,7 @@
 import datetime
 import itertools
 
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Group, User
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
@@ -63,6 +63,7 @@ class Command(BaseCommand):
         telefone_seq = itertools.count(900000001)
 
         total_criados = 0
+        grupo_encarregado, _ = Group.objects.get_or_create(name='Encarregado')
 
         with transaction.atomic():
             for turma in turmas_vazias:
@@ -81,6 +82,7 @@ class Command(BaseCommand):
                         first_name=f'Encarregado de {primeiro}',
                         last_name=ultimo,
                     )
+                    user_enc.groups.add(grupo_encarregado)
                     encarregado = Encarregado.objects.create(
                         user=user_enc,
                         telefone=str(next(telefone_seq)),

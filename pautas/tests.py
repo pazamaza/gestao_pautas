@@ -15,8 +15,8 @@ from .models import Avaliacao, Nota
 
 class PautasTestBase(TestCase):
     def setUp(self):
-        self.grupo_admin = Group.objects.create(name='Administrador')
-        self.grupo_professor = Group.objects.create(name='Professor')
+        self.grupo_admin, _ = Group.objects.get_or_create(name='Administrador')
+        self.grupo_professor, _ = Group.objects.get_or_create(name='Professor')
 
         self.admin_user = User.objects.create_user(username='admin', password='senha123')
         self.admin_user.groups.add(self.grupo_admin)
@@ -34,7 +34,7 @@ class PautasTestBase(TestCase):
         )
 
         self.ano_letivo = AnoLetivo.objects.create(descricao='2026')
-        self.classe = Classe.objects.create(nome='7ª Classe')
+        self.classe, _ = Classe.objects.get_or_create(nome='7ª Classe')
         self.turma = Turma.objects.create(nome='A', classe=self.classe, ano_letivo=self.ano_letivo)
         self.disciplina = Disciplina.objects.create(nome='Matemática', sigla='MAT')
 
@@ -177,8 +177,8 @@ class ConsultaPautasTests(PautasTestBase):
     def setUp(self):
         super().setUp()
 
-        grupo_aluno = Group.objects.create(name='Aluno')
-        grupo_encarregado = Group.objects.create(name='Encarregado')
+        grupo_aluno, _ = Group.objects.get_or_create(name='Aluno')
+        grupo_encarregado, _ = Group.objects.get_or_create(name='Encarregado')
 
         self.aluno_user = User.objects.create_user(username='aluno1', password='senha123')
         self.aluno_user.groups.add(grupo_aluno)

@@ -4,7 +4,7 @@ from django.views.generic import (ListView, CreateView,
 from django.contrib.messages.views import SuccessMessageMixin
 from .models import ( Aluno, Encarregado)
 from .forms import (AlunoForm, EncarregadoCadastroForm)
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Group, User
 from django.shortcuts import (render, redirect,
     get_object_or_404)
 from django.views import View
@@ -75,6 +75,8 @@ class EncarregadoCreateView(View):
                     'last_name' ],
                 email=form.cleaned_data[
                     'email' ] )
+            grupo_encarregado, _ = Group.objects.get_or_create(name='Encarregado')
+            user.groups.add(grupo_encarregado)
             Encarregado.objects.create(
                 user=user,
                 telefone=form.cleaned_data[
