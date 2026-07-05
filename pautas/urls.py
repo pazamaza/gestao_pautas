@@ -23,6 +23,8 @@ from .views import (
     meus_dependentes,
     minhas_notas,
     notas_dependente,
+    pauta_final_exportar_excel,
+    pauta_final_exportar_pdf,
     pauta_final_turma,
     pauta_trimestral,
     pauta_turma,
@@ -58,6 +60,8 @@ urlpatterns = [
     path('resultados/<int:pk>/validar/', resultado_validar, name='resultado_validar'),
     path('resultados/<int:pk>/reportar-erro/', resultado_reportar_erro, name='resultado_reportar_erro'),
     path('resultados/pauta-final/', pauta_final_turma, name='pauta_final_turma'),
+    path('resultados/pauta-final/exportar-excel/', pauta_final_exportar_excel, name='pauta_final_exportar_excel'),
+    path('resultados/pauta-final/exportar-pdf/', pauta_final_exportar_pdf, name='pauta_final_exportar_pdf'),
 
     path('minhas-notas/', minhas_notas, name='minhas_notas'),
     path('dependentes/', meus_dependentes, name='meus_dependentes'),

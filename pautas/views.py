@@ -34,10 +34,15 @@ from .models import Avaliacao, Nota, ResultadoDisciplina
 from .services.excel import (
     criar_modelo_excel,
     exportar_pauta_excel,
+    exportar_pauta_final_excel,
     importar_notas_excel,
 )
-from .services.pdf import exportar_pauta_pdf
-from .services.resultados import gerar_resultados_finais, verificar_transicao_aluno
+from .services.pdf import exportar_pauta_final_pdf, exportar_pauta_pdf
+from .services.resultados import (
+    gerar_resultados_finais,
+    montar_pauta_final_turma,
+    verificar_transicao_aluno,
+)
 
 
 def notas_da_avaliacao(avaliacao):
@@ -63,6 +68,12 @@ def _pode_ver_avaliacao(user, avaliacao):
     if eh_administrador(user) or _eh_professor_titular(user, avaliacao):
         return True
     return _eh_diretor_da_turma(user, avaliacao.atribuicao.turma, avaliacao.atribuicao.ano_letivo)
+
+
+def _pode_ver_pauta_final(user, turma, ano_letivo):
+    if eh_administrador(user):
+        return True
+    return bool(ano_letivo and _eh_diretor_da_turma(user, turma, ano_letivo))
 
 
 class NotaListView(AdminOuProfessorRequeridoMixin, ListView):
@@ -286,8 +297,7 @@ def avaliacao_reportar_erro(request, avaliacao_id):
     return redirect('avaliacao_lista')
 
 
-@admin_ou_professor_requerido
-def pauta_final_turma(request):
+def _turma_e_ano_da_pauta_final(request):
     turma_id = request.GET.get('turma')
     ano_letivo_id = request.GET.get('ano_letivo')
 
@@ -297,6 +307,12 @@ def pauta_final_turma(request):
         if ano_letivo_id
         else AnoLetivo.objects.filter(ativo=True).first()
     )
+    return turma, ano_letivo
+
+
+@admin_ou_professor_requerido
+def pauta_final_turma(request):
+    turma, ano_letivo = _turma_e_ano_da_pauta_final(request)
 
     contexto = {
         'turma': turma,
@@ -310,39 +326,55 @@ def pauta_final_turma(request):
     if not turma:
         return render(request, 'pautas/pauta_final_turma.html', contexto)
 
-    pode_ver = eh_administrador(request.user) or (
-        ano_letivo and _eh_diretor_da_turma(request.user, turma, ano_letivo)
-    )
-    if not pode_ver:
+    if not _pode_ver_pauta_final(request.user, turma, ano_letivo):
         return render(request, 'dashboards/sem_permissao.html', status=403)
 
     if ano_letivo:
-        disciplinas = Disciplina.objects.filter(
-            atribuicaodocente__turma=turma,
-            atribuicaodocente__ano_letivo=ano_letivo,
-            atribuicaodocente__ativo=True,
-        ).distinct().order_by('nome')
-
-        alunos = Aluno.objects.filter(turma=turma, estado=Aluno.ESTADO_ATIVO).order_by('nome')
-
-        resultados = {
-            (resultado.aluno_id, resultado.disciplina_id): resultado
-            for resultado in ResultadoDisciplina.objects.filter(
-                aluno__turma=turma, ano_letivo=ano_letivo
-            ).select_related('disciplina', 'aluno')
-        }
-
+        disciplinas, linhas = montar_pauta_final_turma(turma, ano_letivo)
         contexto['disciplinas'] = disciplinas
-        contexto['linhas'] = [
-            {
-                'aluno': aluno,
-                'celulas': [resultados.get((aluno.id, disciplina.id)) for disciplina in disciplinas],
-                'situacao_anual': verificar_transicao_aluno(aluno, ano_letivo),
-            }
-            for aluno in alunos
-        ]
+        contexto['linhas'] = linhas
 
     return render(request, 'pautas/pauta_final_turma.html', contexto)
+
+
+@admin_ou_professor_requerido
+def pauta_final_exportar_excel(request):
+    turma, ano_letivo = _turma_e_ano_da_pauta_final(request)
+
+    if not turma or not ano_letivo:
+        return render(request, 'dashboards/sem_permissao.html', status=403)
+    if not _pode_ver_pauta_final(request.user, turma, ano_letivo):
+        return render(request, 'dashboards/sem_permissao.html', status=403)
+
+    disciplinas, linhas = montar_pauta_final_turma(turma, ano_letivo)
+    arquivo = exportar_pauta_final_excel(turma, ano_letivo, disciplinas, linhas)
+    nome = f'pauta_final_{turma.id}_{ano_letivo.id}.xlsx'
+    return FileResponse(
+        arquivo,
+        as_attachment=True,
+        filename=nome,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+
+
+@admin_ou_professor_requerido
+def pauta_final_exportar_pdf(request):
+    turma, ano_letivo = _turma_e_ano_da_pauta_final(request)
+
+    if not turma or not ano_letivo:
+        return render(request, 'dashboards/sem_permissao.html', status=403)
+    if not _pode_ver_pauta_final(request.user, turma, ano_letivo):
+        return render(request, 'dashboards/sem_permissao.html', status=403)
+
+    disciplinas, linhas = montar_pauta_final_turma(turma, ano_letivo)
+    arquivo = exportar_pauta_final_pdf(turma, ano_letivo, disciplinas, linhas)
+    nome = f'pauta_final_{turma.id}_{ano_letivo.id}.pdf'
+    return FileResponse(
+        arquivo,
+        as_attachment=True,
+        filename=nome,
+        content_type='application/pdf',
+    )
 
 
 @administrador_requerido

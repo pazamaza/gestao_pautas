@@ -61,6 +61,18 @@ Pauta Final da Turma
                 &nbsp;|&nbsp; Período: {{ turma.get_periodo_display|default:"—" }}
                 &nbsp;|&nbsp; Ano Letivo: {{ ano_letivo }}
             </div>
+            {% if disciplinas %}
+            <div class="d-flex justify-content-center gap-2 mt-3">
+                <a href="{% url 'pauta_final_exportar_excel' %}?turma={{ turma.id }}&ano_letivo={{ ano_letivo.id }}"
+                   class="btn btn-success btn-sm">
+                    Exportar Excel
+                </a>
+                <a href="{% url 'pauta_final_exportar_pdf' %}?turma={{ turma.id }}&ano_letivo={{ ano_letivo.id }}"
+                   class="btn btn-danger btn-sm">
+                    Exportar PDF
+                </a>
+            </div>
+            {% endif %}
         </div>
     </div>
 

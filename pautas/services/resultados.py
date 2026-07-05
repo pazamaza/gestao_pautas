@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from alunos.models import Aluno
+from disciplinas.models import Disciplina
 from pautas.models import Nota, ResultadoDisciplina, SituacaoAnual
 
 DISCIPLINAS_EM_ANDAMENTO = (
@@ -118,6 +119,34 @@ def verificar_transicao_aluno(aluno, ano_letivo):
         [resultado.disciplina for resultado in em_deficiencia]
     )
     return situacao_anual
+
+
+def montar_pauta_final_turma(turma, ano_letivo):
+    disciplinas = Disciplina.objects.filter(
+        atribuicaodocente__turma=turma,
+        atribuicaodocente__ano_letivo=ano_letivo,
+        atribuicaodocente__ativo=True,
+    ).distinct().order_by('nome')
+
+    alunos = Aluno.objects.filter(turma=turma, estado=Aluno.ESTADO_ATIVO).order_by('nome')
+
+    resultados = {
+        (resultado.aluno_id, resultado.disciplina_id): resultado
+        for resultado in ResultadoDisciplina.objects.filter(
+            aluno__turma=turma, ano_letivo=ano_letivo
+        ).select_related('disciplina', 'aluno')
+    }
+
+    linhas = [
+        {
+            'aluno': aluno,
+            'celulas': [resultados.get((aluno.id, disciplina.id)) for disciplina in disciplinas],
+            'situacao_anual': verificar_transicao_aluno(aluno, ano_letivo),
+        }
+        for aluno in alunos
+    ]
+
+    return disciplinas, linhas
 
 
 def gerar_situacoes_anuais(ano_letivo):

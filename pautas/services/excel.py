@@ -207,6 +207,87 @@ def importar_notas_excel(avaliacao, arquivo):
     }
 
 
+def exportar_pauta_final_excel(turma, ano_letivo, disciplinas, linhas):
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = 'Pauta Final'
+
+    sheet['A1'] = 'Gestao de Pautas'
+    sheet['A1'].font = Font(bold=True, size=14)
+    sheet['A2'] = f'Pauta Final - {turma}'
+    sheet['A3'] = (
+        f'Sala: {turma.sala or "-"}  |  '
+        f'Periodo: {turma.get_periodo_display() or "-"}  |  '
+        f'Ano Letivo: {ano_letivo}'
+    )
+
+    linha_disciplinas = 5
+    linha_subcabecalhos = 6
+
+    sheet.cell(row=linha_disciplinas, column=1, value='Nº')
+    sheet.cell(row=linha_disciplinas, column=2, value='Aluno')
+    sheet.merge_cells(
+        start_row=linha_disciplinas, start_column=1, end_row=linha_subcabecalhos, end_column=1
+    )
+    sheet.merge_cells(
+        start_row=linha_disciplinas, start_column=2, end_row=linha_subcabecalhos, end_column=2
+    )
+
+    coluna = 3
+    for disciplina in disciplinas:
+        sheet.cell(row=linha_disciplinas, column=coluna, value=str(disciplina))
+        sheet.merge_cells(
+            start_row=linha_disciplinas, start_column=coluna,
+            end_row=linha_disciplinas, end_column=coluna + 3,
+        )
+        for indice, rotulo in enumerate(['MFD', 'NE', 'MF', 'NER']):
+            sheet.cell(row=linha_subcabecalhos, column=coluna + indice, value=rotulo)
+        coluna += 4
+
+    sheet.cell(row=linha_disciplinas, column=coluna, value='Situação Geral')
+    sheet.merge_cells(
+        start_row=linha_disciplinas, start_column=coluna,
+        end_row=linha_subcabecalhos, end_column=coluna,
+    )
+    total_colunas = coluna
+
+    header_fill = PatternFill('solid', fgColor='D9EAF7')
+    for linha_cabecalho in sheet.iter_rows(
+        min_row=linha_disciplinas, max_row=linha_subcabecalhos, min_col=1, max_col=total_colunas
+    ):
+        for cell in linha_cabecalho:
+            cell.font = Font(bold=True)
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+
+    for indice, linha in enumerate(linhas, start=1):
+        valores = [indice, str(linha['aluno'])]
+        for resultado in linha['celulas']:
+            if resultado:
+                valores.extend([
+                    resultado.mf,
+                    resultado.exame if resultado.exame is not None else '',
+                    resultado.nota_final if resultado.nota_final is not None else '',
+                    resultado.nota_recurso if resultado.nota_recurso is not None else '',
+                ])
+            else:
+                valores.extend(['', '', '', ''])
+        situacao_anual = linha['situacao_anual']
+        valores.append(situacao_anual.situacao if situacao_anual else '')
+        sheet.append(valores)
+
+    sheet.column_dimensions['A'].width = 6
+    sheet.column_dimensions['B'].width = 30
+    for coluna_indice in range(3, total_colunas):
+        sheet.column_dimensions[get_column_letter(coluna_indice)].width = 8
+    sheet.column_dimensions[get_column_letter(total_colunas)].width = 24
+
+    output = BytesIO()
+    workbook.save(output)
+    output.seek(0)
+    return output
+
+
 def converter_nota(valor):
     try:
         nota = Decimal(str(valor).replace(',', '.'))
