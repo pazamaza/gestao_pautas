@@ -1,3 +1,4 @@
+from django.db.models import Prefetch
 from django.urls import reverse_lazy
 from django.views.generic import (ListView, CreateView,
     UpdateView, DeleteView, DetailView)
@@ -70,9 +71,17 @@ class ProfessorCreateView(View):
 
 class ProfessorListView(ListView):
     model = Professor
-    
     template_name = 'professores/lista.html'
     context_object_name = 'professores'
+
+    def get_queryset(self):
+        return Professor.objects.prefetch_related(
+            Prefetch(
+                'diretorturma_set',
+                queryset=DiretorTurma.objects.filter(ativo=True).select_related('turma'),
+                to_attr='diretorias_ativas'
+            )
+        )
 
 class ProfessorUpdateView(View):
 
