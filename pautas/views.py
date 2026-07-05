@@ -37,7 +37,7 @@ from .services.excel import (
     importar_notas_excel,
 )
 from .services.pdf import exportar_pauta_pdf
-from .services.resultados import gerar_resultados_finais
+from .services.resultados import gerar_resultados_finais, verificar_transicao_aluno
 
 
 def notas_da_avaliacao(avaliacao):
@@ -284,6 +284,65 @@ def avaliacao_reportar_erro(request, avaliacao_id):
 
     messages.success(request, 'Erro reportado e professor/diretor notificados.')
     return redirect('avaliacao_lista')
+
+
+@admin_ou_professor_requerido
+def pauta_final_turma(request):
+    turma_id = request.GET.get('turma')
+    ano_letivo_id = request.GET.get('ano_letivo')
+
+    turma = get_object_or_404(Turma, pk=turma_id) if turma_id else None
+    ano_letivo = (
+        get_object_or_404(AnoLetivo, pk=ano_letivo_id)
+        if ano_letivo_id
+        else AnoLetivo.objects.filter(ativo=True).first()
+    )
+
+    contexto = {
+        'turma': turma,
+        'ano_letivo': ano_letivo,
+        'turmas': Turma.objects.filter(ativo=True).order_by('classe__nome', 'nome'),
+        'anos_letivos': AnoLetivo.objects.all(),
+        'disciplinas': [],
+        'linhas': [],
+    }
+
+    if not turma:
+        return render(request, 'pautas/pauta_final_turma.html', contexto)
+
+    pode_ver = eh_administrador(request.user) or (
+        ano_letivo and _eh_diretor_da_turma(request.user, turma, ano_letivo)
+    )
+    if not pode_ver:
+        return render(request, 'dashboards/sem_permissao.html', status=403)
+
+    if ano_letivo:
+        disciplinas = Disciplina.objects.filter(
+            atribuicaodocente__turma=turma,
+            atribuicaodocente__ano_letivo=ano_letivo,
+            atribuicaodocente__ativo=True,
+        ).distinct().order_by('nome')
+
+        alunos = Aluno.objects.filter(turma=turma, estado=Aluno.ESTADO_ATIVO).order_by('nome')
+
+        resultados = {
+            (resultado.aluno_id, resultado.disciplina_id): resultado
+            for resultado in ResultadoDisciplina.objects.filter(
+                aluno__turma=turma, ano_letivo=ano_letivo
+            ).select_related('disciplina', 'aluno')
+        }
+
+        contexto['disciplinas'] = disciplinas
+        contexto['linhas'] = [
+            {
+                'aluno': aluno,
+                'celulas': [resultados.get((aluno.id, disciplina.id)) for disciplina in disciplinas],
+                'situacao_anual': verificar_transicao_aluno(aluno, ano_letivo),
+            }
+            for aluno in alunos
+        ]
+
+    return render(request, 'pautas/pauta_final_turma.html', contexto)
 
 
 @administrador_requerido

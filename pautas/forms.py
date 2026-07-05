@@ -92,7 +92,8 @@ class ResultadoDisciplinaForm(forms.ModelForm):
             'mt1',
             'mt2',
             'mt3',
-            'exame'
+            'exame',
+            'nota_recurso'
         ]
 
         widgets = {
@@ -122,6 +123,10 @@ class ResultadoDisciplinaForm(forms.ModelForm):
             ),
 
             'exame': forms.NumberInput(
+                attrs={'class': 'form-control'}
+            ),
+
+            'nota_recurso': forms.NumberInput(
                 attrs={'class': 'form-control'}
             ),
         }

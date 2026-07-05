@@ -22,6 +22,12 @@ class Disciplina(models.Model):
         default=True
     )
 
+    nuclear = models.BooleanField(
+        default=False,
+        verbose_name='Disciplina nuclear',
+        help_text='Disciplinas nucleares (Matemática, Língua Portuguesa) não têm direito a recurso.'
+    )
+
     class Meta:
         ordering = ['nome']
 

@@ -1,7 +1,12 @@
 from decimal import Decimal
 
 from alunos.models import Aluno
-from pautas.models import Nota, ResultadoDisciplina
+from pautas.models import Nota, ResultadoDisciplina, SituacaoAnual
+
+DISCIPLINAS_EM_ANDAMENTO = (
+    ResultadoDisciplina.RESULTADO_RECURSO,
+    ResultadoDisciplina.RESULTADO_DEFICIENCIA,
+)
 
 
 NOMES_PERIODOS = {
@@ -66,3 +71,64 @@ def gerar_resultados_finais():
             criados += 1
 
     return criados
+
+
+def verificar_transicao_aluno(aluno, ano_letivo):
+    resultados = list(
+        ResultadoDisciplina.objects
+        .filter(aluno=aluno, ano_letivo=ano_letivo)
+        .select_related('disciplina')
+    )
+
+    if not resultados:
+        return None
+
+    if any(resultado.resultado == ResultadoDisciplina.RESULTADO_REPROVADO for resultado in resultados):
+        situacao = SituacaoAnual.SITUACAO_REPROVADO
+        em_deficiencia = []
+    else:
+        em_deficiencia = [
+            resultado for resultado in resultados
+            if resultado.resultado in DISCIPLINAS_EM_ANDAMENTO
+        ]
+
+        if not em_deficiencia:
+            situacao = SituacaoAnual.SITUACAO_APROVADO
+        elif len(em_deficiencia) <= 2:
+            situacao = SituacaoAnual.SITUACAO_APROVADO_COMPENSACAO
+        elif len(em_deficiencia) <= 4:
+            recuperadas = sum(
+                1 for resultado in em_deficiencia
+                if resultado.nota_recurso is not None and resultado.nota_recurso >= 10
+            )
+            situacao = (
+                SituacaoAnual.SITUACAO_APROVADO_COMPENSACAO
+                if recuperadas >= 2
+                else SituacaoAnual.SITUACAO_REPROVADO
+            )
+        else:
+            situacao = SituacaoAnual.SITUACAO_REPROVADO
+
+    situacao_anual, _ = SituacaoAnual.objects.update_or_create(
+        aluno=aluno,
+        ano_letivo=ano_letivo,
+        defaults={'situacao': situacao},
+    )
+    situacao_anual.disciplinas_em_deficiencia.set(
+        [resultado.disciplina for resultado in em_deficiencia]
+    )
+    return situacao_anual
+
+
+def gerar_situacoes_anuais(ano_letivo):
+    alunos = Aluno.objects.filter(
+        estado=Aluno.ESTADO_ATIVO,
+        resultadodisciplina__ano_letivo=ano_letivo,
+    ).distinct()
+
+    total = 0
+    for aluno in alunos:
+        if verificar_transicao_aluno(aluno, ano_letivo):
+            total += 1
+
+    return total

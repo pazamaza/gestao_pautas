@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+
+{% block title %}
+Pauta Final da Turma
+{% endblock %}
+
+{% block content %}
+
+<div class="container-fluid mt-4">
+
+    <div class="d-flex justify-content-between flex-wrap gap-2">
+        <h2>Pauta Final da Turma</h2>
+        <a href="{% url 'resultado_lista' %}" class="btn btn-outline-secondary">
+            Voltar
+        </a>
+    </div>
+
+    <form method="get" class="row g-2 align-items-end mt-2">
+        <div class="col-md-4">
+            <label class="form-label">Turma</label>
+            <select name="turma" class="form-select">
+                <option value="">Selecione a turma</option>
+                {% for t in turmas %}
+                <option value="{{ t.id }}" {% if turma.id == t.id %}selected{% endif %}>
+                    {{ t }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Ano Letivo</label>
+            <select name="ano_letivo" class="form-select">
+                <option value="">Selecione o ano letivo</option>
+                {% for ano in anos_letivos %}
+                <option value="{{ ano.id }}" {% if ano_letivo.id == ano.id %}selected{% endif %}>
+                    {{ ano }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4">
+            <button type="submit" class="btn btn-outline-primary">Ver Pauta</button>
+        </div>
+    </form>
+
+    {% if not turma %}
+    <div class="alert alert-info mt-4">
+        Seleciona uma turma e um ano letivo para ver a pauta final.
+    </div>
+    {% elif not ano_letivo %}
+    <div class="alert alert-warning mt-4">
+        Não existe nenhum ano letivo ativo; seleciona um ano letivo acima.
+    </div>
+    {% else %}
+
+    <div class="card mt-4">
+        <div class="card-body text-center">
+            <h5 class="mb-1">Pauta Final — {{ turma }}</h5>
+            <div class="text-muted">
+                Sala: {{ turma.sala|default:"—" }}
+                &nbsp;|&nbsp; Período: {{ turma.get_periodo_display|default:"—" }}
+                &nbsp;|&nbsp; Ano Letivo: {{ ano_letivo }}
+            </div>
+        </div>
+    </div>
+
+    <div class="table-responsive mt-3">
+        <table class="table table-bordered table-sm text-center align-middle">
+            <thead class="table-primary">
+                <tr>
+                    <th rowspan="2">Nº</th>
+                    <th rowspan="2">Aluno</th>
+                    {% for disciplina in disciplinas %}
+                    <th colspan="4">{{ disciplina }}</th>
+                    {% endfor %}
+                    <th rowspan="2">Situação Geral</th>
+                </tr>
+                <tr>
+                    {% for disciplina in disciplinas %}
+                    <th>MFD</th>
+                    <th>NE</th>
+                    <th>MF</th>
+                    <th>NER</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for linha in linhas %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td class="text-start">{{ linha.aluno }}</td>
+                    {% for resultado in linha.celulas %}
+                    {% if resultado %}
+                    <td>{{ resultado.mf }}</td>
+                    <td>{{ resultado.exame|default_if_none:"—" }}</td>
+                    <td>{{ resultado.nota_final|default_if_none:"—" }}</td>
+                    <td>{{ resultado.nota_recurso|default_if_none:"—" }}</td>
+                    {% else %}
+                    <td>—</td>
+                    <td>—</td>
+                    <td>—</td>
+                    <td>—</td>
+                    {% endif %}
+                    {% endfor %}
+                    <td>
+                        {% if linha.situacao_anual.situacao == 'Aprovado' %}
+                        <span class="badge bg-success">Aprovado</span>
+                        {% elif linha.situacao_anual.situacao == 'Aprovado por Compensação' %}
+                        <span class="badge bg-warning text-dark">Aprovado por Compensação</span>
+                        {% elif linha.situacao_anual.situacao == 'Reprovado' %}
+                        <span class="badge bg-danger">Reprovado</span>
+                        {% else %}
+                        —
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="50">
+                        Nenhum aluno ativo nesta turma.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% if not disciplinas %}
+        <div class="alert alert-info">
+            Não há disciplinas atribuídas a esta turma neste ano letivo.
+        </div>
+        {% endif %}
+    </div>
+
+    {% endif %}
+
+</div>
+
+{% endblock %}

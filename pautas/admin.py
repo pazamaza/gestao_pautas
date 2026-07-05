@@ -7,6 +7,7 @@ from .models import (
     LinhaPauta,
     ResultadoDisciplina,
     ResultadoFinal,
+    SituacaoAnual,
 )
 
 
@@ -62,10 +63,18 @@ class LinhaPautaAdmin(SomenteLeituraAdmin):
 class ResultadoDisciplinaAdmin(SomenteLeituraAdmin):
     list_display = (
         'aluno', 'disciplina', 'ano_letivo', 'mt1', 'mt2', 'mt3', 'mf',
-        'exame', 'nota_final', 'resultado', 'status'
+        'exame', 'nota_recurso', 'nota_final', 'resultado', 'status'
     )
     list_filter = ('status', 'ano_letivo', 'disciplina', 'resultado')
     search_fields = ('aluno__nome', 'aluno__numero_processo')
+
+
+@admin.register(SituacaoAnual)
+class SituacaoAnualAdmin(SomenteLeituraAdmin):
+    list_display = ('aluno', 'ano_letivo', 'situacao', 'calculado_em')
+    list_filter = ('ano_letivo', 'situacao')
+    search_fields = ('aluno__nome', 'aluno__numero_processo')
+    filter_horizontal = ('disciplinas_em_deficiencia',)
 
 
 @admin.register(ResultadoFinal)

@@ -252,6 +252,21 @@ class ResultadoDisciplina(StatusValidacaoMixin, models.Model):
     blank=True
 )
 
+    nota_recurso = models.DecimalField(
+        max_digits=4,
+        decimal_places=1,
+        null=True,
+        blank=True,
+        verbose_name='Nota de Recurso',
+        help_text='Nota seca: quando preenchida, torna-se a nota final da disciplina.'
+    )
+
+    RESULTADO_APROVADO = 'Aprovado'
+    RESULTADO_REPROVADO = 'Reprovado'
+    RESULTADO_EXAME = 'Exame'
+    RESULTADO_RECURSO = 'Recurso'
+    RESULTADO_DEFICIENCIA = 'Deficiência'
+
     class Meta:
 
         unique_together = (
@@ -264,26 +279,36 @@ class ResultadoDisciplina(StatusValidacaoMixin, models.Model):
         valor = ((self.mt1 * Decimal('0.25')) + (self.mt2 * Decimal('0.35')) +
             (self.mt3 * Decimal('0.40'))    )
         return self.arredondar_nota(valor)
-    
+
     def calcular_nota_final(self):
+        if self.nota_recurso is not None:
+            return self.nota_recurso
         if self.exame is None:
             return None
         valor = (self.mf + self.exame) / 2
         return self.arredondar_nota(valor)
 
     def verificar_resultado(self):
+        if self.mf < 8:
+            return self.RESULTADO_REPROVADO
         if self.mf >= 10:
-            return "Aprovado"
-        if self.mf >= 8:
-            if self.exame is not None:
-                nota_final = (
-                self.calcular_nota_final())
-                if nota_final >= 10:
-                    return "Aprovado"
-                return "Reprovado"
-            return "Exame"
-        return "Reprovado"
-    
+            return self.RESULTADO_APROVADO
+
+        if self.exame is None:
+            return self.RESULTADO_EXAME
+
+        nota_final = self.calcular_nota_final()
+        if nota_final >= 10:
+            return self.RESULTADO_APROVADO
+        if nota_final < 8:
+            return self.RESULTADO_REPROVADO
+
+        if self.disciplina.nuclear:
+            return self.RESULTADO_REPROVADO
+        if self.nota_recurso is None:
+            return self.RESULTADO_RECURSO
+        return self.RESULTADO_DEFICIENCIA
+
     def arredondar_nota(self, valor):
         valor = Decimal(valor).quantize(
             Decimal('0.1'),
@@ -392,4 +417,61 @@ class ResultadoFinal(models.Model):
         return (
             f"{self.aluno} - "
             f"{self.disciplina}"
+        )
+
+
+class SituacaoAnual(models.Model):
+
+    SITUACAO_APROVADO = 'Aprovado'
+    SITUACAO_APROVADO_COMPENSACAO = 'Aprovado por Compensação'
+    SITUACAO_REPROVADO = 'Reprovado'
+
+    SITUACAO_CHOICES = [
+        (SITUACAO_APROVADO, 'Aprovado'),
+        (SITUACAO_APROVADO_COMPENSACAO, 'Aprovado por Compensação'),
+        (SITUACAO_REPROVADO, 'Reprovado'),
+    ]
+
+    aluno = models.ForeignKey(
+        'alunos.Aluno',
+        on_delete=models.CASCADE
+    )
+
+    ano_letivo = models.ForeignKey(
+        'turmas.AnoLetivo',
+        on_delete=models.CASCADE
+    )
+
+    situacao = models.CharField(
+        max_length=30,
+        choices=SITUACAO_CHOICES,
+        blank=True
+    )
+
+    disciplinas_em_deficiencia = models.ManyToManyField(
+        'disciplinas.Disciplina',
+        blank=True,
+        related_name='+'
+    )
+
+    calculado_em = models.DateTimeField(
+        auto_now=True
+    )
+
+    class Meta:
+
+        unique_together = (
+            'aluno',
+            'ano_letivo'
+        )
+
+        verbose_name = 'Situação Anual'
+        verbose_name_plural = 'Situações Anuais'
+
+    def __str__(self):
+
+        return (
+            f"{self.aluno} - "
+            f"{self.ano_letivo} - "
+            f"{self.situacao}"
         )
