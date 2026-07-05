@@ -26,7 +26,7 @@ def gerar_resultados_finais():
     ResultadoDisciplina.objects.all().delete()
     criados = 0
 
-    alunos = Aluno.objects.filter(ativo=True).select_related('turma')
+    alunos = Aluno.objects.filter(estado=Aluno.ESTADO_ATIVO).select_related('turma')
 
     for aluno in alunos:
         notas_aluno = (

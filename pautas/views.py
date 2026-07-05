@@ -93,7 +93,7 @@ class NotaListView(AdminOuProfessorRequeridoMixin, ListView):
 @admin_ou_professor_requerido
 def pauta_turma(request, turma_id):
     turma = get_object_or_404(Turma, id=turma_id)
-    alunos = Aluno.objects.filter(turma=turma, ativo=True).order_by('nome')
+    alunos = Aluno.objects.filter(turma=turma, estado=Aluno.ESTADO_ATIVO).order_by('nome')
     context = {'turma': turma, 'alunos': alunos}
     return render(request, 'pautas/pauta_turma.html', context)
 

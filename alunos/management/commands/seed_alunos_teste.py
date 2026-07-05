@@ -96,7 +96,7 @@ class Command(BaseCommand):
                         sexo='M' if indice % 2 else 'F',
                         turma=turma,
                         encarregado=encarregado,
-                        ativo=True,
+                        estado=Aluno.ESTADO_ATIVO,
                     )
                     total_criados += 1
 

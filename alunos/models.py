@@ -1,3 +1,5 @@
+from datetime import date
+
 from django.db import models
 from django.contrib.auth.models import User
 from turmas.models import Turma
@@ -25,6 +27,15 @@ class Encarregado(models.Model):
         return self.user.username
 
 class Aluno(models.Model):
+
+    ESTADO_ATIVO = 'ativo'
+    ESTADO_TRANSFERIDO = 'transferido'
+
+    ESTADO_CHOICES = (
+        (ESTADO_ATIVO, 'Ativo'),
+        (ESTADO_TRANSFERIDO, 'Transferido'),
+    )
+
     user = models.OneToOneField(
     User,
     on_delete=models.SET_NULL,
@@ -62,8 +73,16 @@ class Aluno(models.Model):
     on_delete=models.PROTECT
 )
 
-    ativo = models.BooleanField(
-    default=True
+    foto = models.ImageField(
+    upload_to='alunos/',
+    blank=True,
+    null=True
+)
+
+    estado = models.CharField(
+    max_length=20,
+    choices=ESTADO_CHOICES,
+    default=ESTADO_ATIVO
 )
 
     criado_em = models.DateTimeField(
@@ -94,6 +113,15 @@ class Aluno(models.Model):
         (presentes / total) * 100,
         2
     )
+
+    def calcular_idade(self):
+        hoje = date.today()
+        return hoje.year - self.data_nascimento.year - (
+            (hoje.month, hoje.day) < (self.data_nascimento.month, self.data_nascimento.day)
+        )
+
+    def total_faltas(self):
+        return self.frequencia_set.filter(estado='F').count()
 
 class Matricula(models.Model):
 

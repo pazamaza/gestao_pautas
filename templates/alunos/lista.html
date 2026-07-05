@@ -3,9 +3,6 @@
 <div class="container mt-4">
     <div class="d-flex justify-content-between">
         <h2>Alunos</h2>
-        <a href="{% url 'aluno_novo' %}"
-           class="btn btn-primary">
-            Novo Aluno </a>
     </div>
     <form method="get" class="mt-3">
         <input
@@ -20,8 +17,10 @@
             <tr>
                 <th>Processo</th>
                 <th>Nome</th>
+                <th>Idade</th>
                 <th>Turma</th>
                 <th>Encarregado</th>
+                <th>Estado</th>
                 <th>Ações</th>
             </tr>
         </thead>
@@ -30,16 +29,14 @@
             <tr>
                 <td>{{ aluno.numero_processo }} </td>
                 <td>{{ aluno.nome }}</td>
+                <td>{{ aluno.calcular_idade }}</td>
                 <td>{{ aluno.turma }}</td>
                 <td>{{ aluno.encarregado }}</td>
+                <td>{{ aluno.get_estado_display }}</td>
                 <td>
 
     <a href="{% url 'aluno_detalhe' aluno.id %}"
-       class="btn btn-info btn-sm"> Ver </a>
-    <a href="{% url 'aluno_editar' aluno.id %}"
-       class="btn btn-warning btn-sm"> Editar </a>
-    <a href="{% url 'aluno_excluir' aluno.id %}"
-       class="btn btn-danger btn-sm">Eliminar</a>
+       class="btn btn-info btn-sm">Detalhes</a>
 </td>
             </tr>
             {% endfor %}

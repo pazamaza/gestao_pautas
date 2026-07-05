@@ -18,6 +18,19 @@ Detalhes do Aluno
 
         <div class="card-body">
 
+            <div class="text-center mb-4">
+                {% if aluno.foto %}
+                <img src="{{ aluno.foto.url }}" alt="Foto de {{ aluno.nome }}"
+                     class="rounded-circle shadow-sm"
+                     style="width:150px;height:150px;object-fit:cover;">
+                {% else %}
+                <div class="rounded-circle bg-secondary bg-opacity-25 d-inline-flex align-items-center justify-content-center"
+                     style="width:150px;height:150px;">
+                    <i class="fas fa-user fa-3x text-secondary"></i>
+                </div>
+                {% endif %}
+            </div>
+
             <table class="table">
 
                 <tr>
@@ -36,6 +49,11 @@ Detalhes do Aluno
                 </tr>
 
                 <tr>
+                    <th>Idade</th>
+                    <td>{{ aluno.calcular_idade }}</td>
+                </tr>
+
+                <tr>
                     <th>Sexo</th>
                     <td>{{ aluno.get_sexo_display }}</td>
                 </tr>
@@ -51,18 +69,21 @@ Detalhes do Aluno
                 </tr>
 
                 <tr>
+                    <th>Estado</th>
+                    <td>{{ aluno.get_estado_display }}</td>
+                </tr>
+
+                <tr>
                     <th>Frequência</th>
                     <td>{{ aluno.calcular_frequencia }}%</td>
                 </tr>
 
+                <tr>
+                    <th>Nº de Faltas</th>
+                    <td>{{ aluno.total_faltas }}</td>
+                </tr>
+
             </table>
-
-            <a href="{% url 'aluno_editar' aluno.id %}"
-               class="btn btn-warning">
-
-                Editar
-
-            </a>
 
             <a href="{% url 'aluno_lista' %}"
                class="btn btn-secondary">
