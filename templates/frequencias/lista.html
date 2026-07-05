@@ -3,8 +3,10 @@
 <div class="container mt-4">
     <div class="d-flex justify-content-between">
         <h2>Frequências</h2>
+        {% if pode_gerir %}
         <a href="{% url 'frequencia_form' %}"
            class="btn btn-primary">Nova Frequência </a>
+        {% endif %}
     </div>
     <table class="table table-striped mt-3">
         <thead>
@@ -12,7 +14,9 @@
                 <th>Aluno</th>
                 <th>Data</th>
                 <th>Estado</th>
+                {% if pode_gerir %}
                 <th>Ações</th>
+                {% endif %}
             </tr>
         </thead>
         <tbody>
@@ -21,6 +25,7 @@
                 <td>{{ frequencia.aluno }}</td>
                 <td>{{ frequencia.data }}</td>
                 <td>{{ frequencia.get_estado_display }}</td>
+                {% if pode_gerir %}
                 <td>
                     <a href="{% url 'frequencia_editar' frequencia.id %}"
                        class="btn btn-warning btn-sm">
@@ -31,6 +36,7 @@
                         Eliminar
                     </a>
                 </td>
+                {% endif %}
             </tr>
         {% endfor %}
         </tbody>

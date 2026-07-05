@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}
 Dashboard do Aluno
@@ -6,26 +7,84 @@ Dashboard do Aluno
 
 {% block content %}
 <div class="container py-4">
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-        <div>
-            <h2 class="mb-1">Dashboard do Aluno</h2>
-            <p class="text-muted mb-0">
-                Consulte as suas pautas, resultados e frequência escolar.
-            </p>
+
+    {% if aluno %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-body d-flex flex-wrap align-items-center gap-4">
+            {% if aluno.foto %}
+            <img src="{{ aluno.foto.url }}" alt="Foto de {{ aluno.nome }}"
+                 class="rounded-circle shadow-sm"
+                 style="width:100px;height:100px;object-fit:cover;">
+            {% else %}
+            <div class="rounded-circle bg-secondary bg-opacity-25 d-inline-flex align-items-center justify-content-center"
+                 style="width:100px;height:100px;">
+                <i class="fas fa-user fa-2x text-secondary"></i>
+            </div>
+            {% endif %}
+
+            <div>
+                <h3 class="mb-1">{{ aluno.nome }}</h3>
+                <p class="text-muted mb-1">
+                    Nº Processo: {{ aluno.numero_processo }} &bull;
+                    Idade: {{ aluno.calcular_idade }} anos &bull;
+                    Turma: {{ aluno.turma }}
+                </p>
+                <span class="badge {% if aluno.estado == 'ativo' %}bg-success{% else %}bg-secondary{% endif %}">
+                    {{ aluno.get_estado_display }}
+                </span>
+            </div>
         </div>
     </div>
 
-    {% if aluno %}
+    {% for mensagem in mensagens %}
+    <div class="alert
+        {% if mensagem.tipo == 'sucesso' %}alert-success
+        {% elif mensagem.tipo == 'alerta' %}alert-danger
+        {% else %}alert-info{% endif %}">
+        {{ mensagem.texto }}
+    </div>
+    {% endfor %}
+
     <div class="row g-3 mb-4">
         <div class="col-md-4">
             <div class="card shadow-sm">
                 <div class="card-body text-center">
-                    <h6 class="text-muted">Resultados Validados</h6>
-                    <h3>{{ resultados_validados }}</h3>
+                    <h6 class="text-muted">Média Geral</h6>
+                    <h3>{{ media_geral|default:"—" }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Frequência</h6>
+                    <h3>{{ frequencia }}%</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Nº de Faltas</h6>
+                    <h3>{{ faltas }}</h3>
                 </div>
             </div>
         </div>
     </div>
+
+    {% if grafico_disciplinas_labels %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h5 class="text-center mb-3">Notas por Disciplina e Trimestre</h5>
+            <canvas id="grafico-notas-aluno" height="250"></canvas>
+            {{ grafico_disciplinas_labels|json_script:"grafico-notas-labels" }}
+            {{ grafico_mt1|json_script:"grafico-notas-mt1" }}
+            {{ grafico_mt2|json_script:"grafico-notas-mt2" }}
+            {{ grafico_mt3|json_script:"grafico-notas-mt3" }}
+        </div>
+    </div>
+    {% endif %}
+
     {% else %}
     <div class="alert alert-warning">
         A sua conta ainda não está associada a um registo de aluno. Contacte a secretaria.
@@ -60,4 +119,9 @@ Dashboard do Aluno
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/vendor/chart.min.js' %}"></script>
+<script src="{% static 'js/aluno_charts.js' %}"></script>
 {% endblock %}

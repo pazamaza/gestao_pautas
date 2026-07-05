@@ -10,6 +10,7 @@ from professores.models import Professor, AtribuicaoDocente
 from turmas.models import Turma, Classe, PeriodoAcademico
 from disciplinas.models import Disciplina
 from pautas.models import Avaliacao, ResultadoDisciplina
+from pautas.services.dashboard_aluno import estatisticas_aluno
 
 def login_view(request):
 
@@ -135,15 +136,13 @@ def dashboard(request):
 
         aluno = getattr(user, 'aluno', None)
 
-        context.update({
-            'aluno': aluno,
-            'resultados_validados': (
-                ResultadoDisciplina.objects.filter(
-                    aluno=aluno, status=ResultadoDisciplina.STATUS_VALIDADA
-                ).count()
-                if aluno else 0
-            ),
-        })
+        context.update({'aluno': aluno})
+
+        if aluno:
+            context.update(estatisticas_aluno(aluno))
+            context['resultados_validados'] = len(context['resultados'])
+        else:
+            context['resultados_validados'] = 0
 
         return render(
             request,
