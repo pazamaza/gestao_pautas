@@ -83,6 +83,17 @@ class Classe(models.Model):
 
 
 class Turma(models.Model):
+
+    PERIODO_MANHA = 'manha'
+    PERIODO_TARDE = 'tarde'
+    PERIODO_NOITE = 'noite'
+
+    PERIODO_CHOICES = (
+        (PERIODO_MANHA, 'Manhã'),
+        (PERIODO_TARDE, 'Tarde'),
+        (PERIODO_NOITE, 'Noite'),
+    )
+
     nome = models.CharField(
         max_length=20    )
     classe = models.ForeignKey(
@@ -93,6 +104,15 @@ class Turma(models.Model):
         AnoLetivo,
         on_delete=models.PROTECT
     )
+    sala = models.CharField(
+        max_length=20,
+        blank=True
+    )
+    periodo = models.CharField(
+        max_length=10,
+        choices=PERIODO_CHOICES,
+        blank=True
+    )
     ativo = models.BooleanField(
         default=True,
         verbose_name="Ativa"
@@ -101,4 +121,8 @@ class Turma(models.Model):
         unique_together = ('nome', 'classe', 'ano_letivo'  )
     def __str__(self):
         return (f"{self.classe} " f"{self.nome} - " f"{self.ano_letivo}" )
-    
+
+    def contar_alunos(self):
+        from alunos.models import Aluno
+        return self.aluno_set.filter(estado=Aluno.ESTADO_ATIVO).count()
+

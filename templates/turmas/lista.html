@@ -12,23 +12,41 @@ Turmas
 
         <h2>Turmas</h2>
 
-        <a href="{% url 'turma_novo' %}"
+        <!--<a href="{% url 'turma_novo' %}"
            class="btn btn-primary">
 
             Nova Turma
 
-        </a>
+        </a>-->
 
     </div>
 
-    <form method="get" class="mt-3">
+    <form method="get" class="row g-2 mt-3 align-items-center">
 
-        <input
-            type="text"
-            name="q"
-            value="{{ request.GET.q }}"
-            class="form-control"
-            placeholder="Pesquisar turma">
+        <div class="col-auto">
+            <input
+                type="text"
+                name="q"
+                value="{{ request.GET.q }}"
+                class="form-control"
+                placeholder="Pesquisar turma">
+        </div>
+
+        <div class="col-auto">
+            <select name="ano_letivo" class="form-select">
+                <option value="">Todos os Anos Letivos</option>
+                {% for ano in anos_letivos %}
+                <option value="{{ ano.id }}"
+                    {% if request.GET.ano_letivo == ano.id|stringformat:"s" %}selected{% endif %}>
+                    {{ ano.descricao }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-auto">
+            <button type="submit" class="btn btn-outline-primary">Filtrar</button>
+        </div>
 
     </form>
 
@@ -42,8 +60,10 @@ Turmas
                     <th>ID</th>
                     <th>Turma</th>
                     <th>Classe</th>
-                    <th>Ano Letivo</th>
-                    <th>Ações</th>
+                    <th>Sala</th>
+                    <th>Período</th>
+                    <th>Nº Alunos</th>
+                    <th>Estado</th>
                 </tr>
             </thead>
             <tbody>
@@ -52,17 +72,26 @@ Turmas
                     <td>{{ turma.id }}</td>
                     <td>{{ turma.nome }}</td>
                     <td>{{ turma.classe }}</td>
-                    <td>{{ turma.ano_letivo }}</td>
+                    <td>{{ turma.sala|default:"—" }}</td>
+                    <td>{{ turma.get_periodo_display|default:"—" }}</td>
+                    <td>{{ turma.contar_alunos }}</td>
                     <td>
-                        <a href="{% url 'turma_editar' turma.id %}"
+                        {% if turma.ativo %}
+                        <span class="badge bg-success">Ativa</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Inativa</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <!--<a href="{% url 'turma_editar' turma.id %}"
                            class="btn btn-warning btn-sm">
                             Editar
-                        </a>
+                        </a>-->
                     </td>
                 </tr>
             {% empty %}
                 <tr>
-                    <td colspan="5">
+                    <td colspan="8">
                         Nenhuma turma cadastrada.
                     </td>
                 </tr>

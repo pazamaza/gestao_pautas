@@ -33,7 +33,14 @@ class ClasseAdmin(admin.ModelAdmin):
 
 @admin.register(Turma)
 class TurmaAdmin(admin.ModelAdmin):
-    list_display = ('nome', 'classe', 'ano_letivo', 'ativo')
-    list_filter = ('classe', 'ano_letivo', 'ativo')
-    search_fields = ('nome',)
+    list_display = (
+        'nome', 'classe', 'ano_letivo', 'sala', 'periodo', 'numero_alunos', 'ativo'
+    )
+    list_filter = ('classe', 'ano_letivo', 'periodo', 'ativo')
+    search_fields = ('nome', 'sala')
     autocomplete_fields = ('classe', 'ano_letivo')
+    readonly_fields = ('numero_alunos',)
+
+    def numero_alunos(self, obj):
+        return obj.contar_alunos()
+    numero_alunos.short_description = 'Nº Alunos'

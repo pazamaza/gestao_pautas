@@ -4,24 +4,35 @@ from django.views.generic import (ListView, CreateView,
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
 from accounts.mixins import AdministradorRequeridoMixin
-from .models import Turma, PeriodoAcademico
+from .models import Turma, PeriodoAcademico, AnoLetivo
 from .forms import TurmaForm, PeriodoAcademicoForm
 
 class TurmaListView(ListView):
     model = Turma
-    def get_queryset(self):
-        return Turma.objects.filter(ativo=True)
     template_name = 'turmas/lista.html'
     context_object_name = 'turmas'
     paginate_by = 10
 
     def get_queryset(self):
+        queryset = Turma.objects.select_related('classe', 'ano_letivo').order_by(
+            'classe__nome', 'nome'
+        )
+
         pesquisa = self.request.GET.get('q')
-        queryset = Turma.objects.all()
         if pesquisa:
-            queryset = queryset.filter(     nome__icontains=pesquisa )
+            queryset = queryset.filter(nome__icontains=pesquisa)
+
+        ano_letivo_id = self.request.GET.get('ano_letivo')
+        if ano_letivo_id:
+            queryset = queryset.filter(ano_letivo_id=ano_letivo_id)
+
         return queryset
-    
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['anos_letivos'] = AnoLetivo.objects.all()
+        return context
+
 def desativar_turma(request, pk):
         turma = get_object_or_404(Turma, pk=pk)
         turma.ativo = False
