@@ -22,7 +22,7 @@ class AlunoAdmin(admin.ModelAdmin):
     )
     list_filter = ('turma', 'estado', 'sexo')
     search_fields = ('nome', 'numero_processo')
-    autocomplete_fields = ('encarregado',)
+    autocomplete_fields = ('encarregado', 'turma')
     readonly_fields = ('foto_preview', 'idade_calculada', 'criado_em', 'atualizado_em')
     fieldsets = (
         (None, {
