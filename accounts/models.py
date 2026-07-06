@@ -34,3 +34,31 @@ class Perfil(models.Model):
 
     def __str__(self):
         return self.user.get_full_name() or self.user.username
+
+
+class ProfessorUser(User):
+    class Meta:
+        proxy = True
+        verbose_name = 'Conta de Professor'
+        verbose_name_plural = 'Contas de Professores'
+
+
+class AlunoUser(User):
+    class Meta:
+        proxy = True
+        verbose_name = 'Conta de Aluno'
+        verbose_name_plural = 'Contas de Alunos'
+
+
+class EncarregadoUser(User):
+    class Meta:
+        proxy = True
+        verbose_name = 'Conta de Encarregado'
+        verbose_name_plural = 'Contas de Encarregados'
+
+
+class AdministradorUser(User):
+    class Meta:
+        proxy = True
+        verbose_name = 'Conta de Administrador'
+        verbose_name_plural = 'Contas de Administradores'
