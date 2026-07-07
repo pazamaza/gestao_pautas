@@ -1,4 +1,7 @@
+from django import forms
 from django.contrib import admin
+from django.contrib.auth.models import User
+from django.db.models import Q
 from django.utils.html import format_html
 
 from .models import (
@@ -8,8 +11,32 @@ from .models import (
 )
 
 
+class EncarregadoAdminForm(forms.ModelForm):
+    class Meta:
+        model = Encarregado
+        fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['user'].queryset = User.objects.filter(
+            groups__name='Encarregado'
+        ).filter(
+            Q(encarregado__isnull=True) | Q(pk=self.instance.user_id)
+        ).distinct().order_by('first_name', 'last_name')
+
+    def clean_user(self):
+        user = self.cleaned_data['user']
+        if not user.first_name:
+            raise forms.ValidationError(
+                'Este utilizador não tem nome preenchido. '
+                'Preencha o nome e apelido antes de o associar como encarregado.'
+            )
+        return user
+
+
 @admin.register(Encarregado)
 class EncarregadoAdmin(admin.ModelAdmin):
+    form = EncarregadoAdminForm
     list_display = ('__str__', 'telefone', 'profissao')
     search_fields = ('user__first_name', 'user__last_name', 'user__username')
 

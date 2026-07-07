@@ -1,4 +1,5 @@
 from django import forms
+from django.db.models import Q
 from .models import Aluno
 from django.contrib.auth.models import User
 
@@ -46,6 +47,15 @@ class AlunoForm(forms.ModelForm):
                 }
             ),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['user'].label = 'Conta de utilizador (login) do aluno'
+        self.fields['user'].queryset = User.objects.filter(
+            groups__name='Aluno'
+        ).filter(
+            Q(aluno__isnull=True) | Q(pk=self.instance.user_id)
+        ).distinct().order_by('first_name', 'last_name')
 
     def clean_numero_processo(self):
         numero = self.cleaned_data['numero_processo' ]
