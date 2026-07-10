@@ -1,6 +1,12 @@
+from datetime import timedelta
+
 from django.db import models
+from django.utils import timezone
 from alunos.models import Aluno
 from professores.models import AtribuicaoDocente
+
+PRAZO_JUSTIFICACAO_DIAS = 5
+
 
 class Frequencia(models.Model):
     PRESENTE = 'P'
@@ -26,6 +32,18 @@ class Frequencia(models.Model):
         unique_together = ('aluno', 'atribuicao', 'data')
     def __str__(self):
         return (f"{self.aluno} - " f"{self.data}")
+
+    def prazo_justificacao_expirado(self):
+        limite = self.data + timedelta(days=PRAZO_JUSTIFICACAO_DIAS)
+        return timezone.localdate() > limite
+
+    def esta_injustificada(self):
+        if self.estado != self.FALTA:
+            return False
+        if not self.prazo_justificacao_expirado():
+            return False
+        justificacao = getattr(self, 'justificacaofalta', None)
+        return not (justificacao and justificacao.aprovada)
     
 class JustificacaoFalta(models.Model):
     frequencia = models.OneToOneField(Frequencia,

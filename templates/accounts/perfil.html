@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block title %}
+Perfil
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4" style="max-width: 600px;">
+    <h2>Perfil</h2>
+
+    <div class="card shadow-sm mt-3">
+        <div class="card-header">Dados Pessoais</div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                {% for field in dados_form %}
+                <div class="mb-3">
+                    <label class="form-label">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                    <div class="text-danger small">{{ field.errors }}</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                <button type="submit" name="salvar_dados" class="btn btn-primary">
+                    Guardar
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mt-4">
+        <div class="card-header">Alterar Password</div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                {% for field in senha_form %}
+                <div class="mb-3">
+                    <label class="form-label">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}
+                    <div class="form-text">{{ field.help_text }}</div>
+                    {% endif %}
+                    {% if field.errors %}
+                    <div class="text-danger small">{{ field.errors }}</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                <button type="submit" name="alterar_senha" class="btn btn-warning">
+                    Alterar Password
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block title %}
+Justificações
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Justificações de Falta</h2>
+
+    <div class="table-responsive mt-3">
+        <table class="table table-striped align-middle">
+            <thead>
+                <tr>
+                    <th>Aluno</th>
+                    <th>Turma</th>
+                    <th>Disciplina</th>
+                    <th>Data da Falta</th>
+                    <th>Motivo</th>
+                    <th>Estado</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for justificacao in justificacoes %}
+                <tr>
+                    <td>{{ justificacao.frequencia.aluno }}</td>
+                    <td>{{ justificacao.frequencia.atribuicao.turma }}</td>
+                    <td>{{ justificacao.frequencia.atribuicao.disciplina }}</td>
+                    <td>{{ justificacao.frequencia.data }}</td>
+                    <td>{{ justificacao.motivo|truncatewords:15 }}</td>
+                    <td>
+                        {% if justificacao.aprovada %}
+                        <span class="badge bg-success">Aprovada</span>
+                        {% else %}
+                        <span class="badge bg-warning text-dark">Pendente</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if not justificacao.aprovada %}
+                        <form method="post" action="{% url 'justificacao_aprovar' justificacao.pk %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-success btn-sm">Aprovar</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7">Nenhuma justificação submetida.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

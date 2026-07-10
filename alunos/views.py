@@ -1,6 +1,7 @@
 from django.urls import reverse_lazy
 from django.views.generic import (ListView, CreateView,
     UpdateView, DeleteView, DetailView)
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from .models import ( Aluno, Encarregado)
 from .forms import (AlunoForm, EncarregadoCadastroForm)
@@ -8,6 +9,8 @@ from django.contrib.auth.models import Group, User
 from django.shortcuts import (render, redirect,
     get_object_or_404)
 from django.views import View
+from accounts.utils import eh_administrador, eh_professor
+from professores.models import AtribuicaoDocente
 
 
 class AlunoCreateView(SuccessMessageMixin, CreateView):
@@ -34,7 +37,7 @@ class AlunoDeleteView(DeleteView):
     success_url = reverse_lazy('aluno_lista' )
 
 #Pesquisa
-class AlunoListView(ListView):
+class AlunoListView(LoginRequiredMixin, ListView):
     model = Aluno
     template_name = 'alunos/lista.html'
     context_object_name = 'alunos'
@@ -42,6 +45,17 @@ class AlunoListView(ListView):
     def get_queryset(self):
         pesquisa = self.request.GET.get('q')
         queryset = Aluno.objects.all().order_by('nome')
+
+        user = self.request.user
+        if not eh_administrador(user):
+            if eh_professor(user):
+                turmas_ids = AtribuicaoDocente.objects.filter(
+                    professor__user=user, ativo=True
+                ).values_list('turma_id', flat=True)
+                queryset = queryset.filter(turma_id__in=turmas_ids)
+            else:
+                queryset = queryset.none()
+
         if pesquisa:
             queryset = queryset.filter(
                 nome__icontains=pesquisa

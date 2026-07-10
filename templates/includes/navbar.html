@@ -31,6 +31,14 @@
                 </li>
 
                 {% if eh_administrador_nav %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'admin:index' %}">
+                        Painel Admin
+                    </a>
+                </li>
+                {% endif %}
+
+                {% if eh_administrador_nav %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle"
                        href="#"
@@ -54,7 +62,7 @@
                 </li>
                 {% endif %}
 
-                {% if eh_administrador_nav or eh_professor_nav %}
+                {% if eh_administrador_nav %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle"
                        href="#"
@@ -68,12 +76,65 @@
                         aria-labelledby="menuAcademico">
                         <li><a class="dropdown-item" href="{% url 'avaliacao_lista' %}">Avaliações / Pautas</a></li>
                         <li><a class="dropdown-item" href="{% url 'nota_lista' %}">Notas</a></li>
-                        {% if eh_administrador_nav %}
                         <li><a class="dropdown-item" href="{% url 'atribuicao_lista' %}">Atribuições Docentes</a></li>
-                        {% endif %}
                         <li><a class="dropdown-item" href="{% url 'resultado_lista' %}">Resultados Finais</a></li>
+                        <li><a class="dropdown-item" href="{% url 'mini_pauta_trimestral' %}">Mini-Pauta Trimestral</a></li>
                         <li><a class="dropdown-item" href="{% url 'frequencia_lista' %}">Frequências</a></li>
                     </ul>
+                </li>
+                {% endif %}
+
+                {% if eh_professor_nav %}
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle"
+                       href="#"
+                       id="menuEnsino"
+                       role="button"
+                       data-bs-toggle="dropdown"
+                       aria-expanded="false">
+                        Ensino
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end"
+                        aria-labelledby="menuEnsino">
+                        <li><a class="dropdown-item" href="{% url 'aluno_lista' %}">Alunos</a></li>
+                    </ul>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle"
+                       href="#"
+                       id="menuAvaliacoes"
+                       role="button"
+                       data-bs-toggle="dropdown"
+                       aria-expanded="false">
+                        Avaliações
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end"
+                        aria-labelledby="menuAvaliacoes">
+                        <li><a class="dropdown-item" href="{% url 'lancamento_notas' %}">Lançar Notas</a></li>
+                        <li><a class="dropdown-item" href="{% url 'avaliacao_lista' %}">Avaliações / Pautas</a></li>
+                        <li><a class="dropdown-item" href="{% url 'pauta_final_turma' %}">Pauta-Geral</a></li>
+                    </ul>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle"
+                       href="#"
+                       id="menuFrequencia"
+                       role="button"
+                       data-bs-toggle="dropdown"
+                       aria-expanded="false">
+                        Frequência
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end"
+                        aria-labelledby="menuFrequencia">
+                        <li><a class="dropdown-item" href="{% url 'frequencia_lista' %}">Frequências</a></li>
+                        <li><a class="dropdown-item" href="{% url 'justificacao_lista' %}">Justificações</a></li>
+                    </ul>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'relatorios_professor' %}">Relatórios</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'perfil' %}">Conta</a>
                 </li>
                 {% endif %}
 
@@ -101,7 +162,7 @@
                 {% endif %}
 
                 <li class="nav-item">
-                    <a class="nav-link" href="{% url 'home' %}">
+                    <a class="nav-link" href="{% url 'logout' %}">
                         Sair
                     </a>
                 </li>

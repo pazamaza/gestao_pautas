@@ -41,7 +41,7 @@ class AvaliacaoAdmin(SomenteLeituraAdmin):
 
 @admin.register(Nota)
 class NotaAdmin(SomenteLeituraAdmin):
-    list_display = ('aluno', 'avaliacao', 'mac', 'npp', 'npt', 'mt')
+    list_display = ('aluno', 'avaliacao', 'mac', 'npt', 'mt')
     list_filter = ('avaliacao__periodo', 'avaliacao__atribuicao__disciplina')
     search_fields = ('aluno__nome', 'aluno__numero_processo')
 

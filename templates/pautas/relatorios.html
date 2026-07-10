@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+
+{% block title %}
+Relatórios
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Relatórios</h2>
+
+    <h5 class="mt-4">Pautas Gerais por Turma</h5>
+    <div class="table-responsive">
+        <table class="table table-sm table-striped align-middle">
+            <thead>
+                <tr>
+                    <th>Turma</th>
+                    <th>Excel</th>
+                    <th>PDF</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for turma in turmas %}
+                <tr>
+                    <td>{{ turma }}</td>
+                    <td>
+                        <a class="btn btn-success btn-sm"
+                           href="{% url 'pauta_final_exportar_excel' %}?turma={{ turma.id }}&ano_letivo={{ turma.ano_letivo_id }}">
+                            Excel
+                        </a>
+                    </td>
+                    <td>
+                        <a class="btn btn-danger btn-sm"
+                           href="{% url 'pauta_final_exportar_pdf' %}?turma={{ turma.id }}&ano_letivo={{ turma.ano_letivo_id }}">
+                            PDF
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3">Nenhuma turma associada.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <h5 class="mt-4">Mini-Pautas por Disciplina/Turma</h5>
+    <div class="table-responsive">
+        <table class="table table-sm table-striped align-middle">
+            <thead>
+                <tr>
+                    <th>Turma</th>
+                    <th>Disciplina</th>
+                    <th>Excel</th>
+                    <th>PDF</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for atribuicao in atribuicoes %}
+                <tr>
+                    <td>{{ atribuicao.turma }}</td>
+                    <td>{{ atribuicao.disciplina }}</td>
+                    <td>
+                        <a class="btn btn-success btn-sm"
+                           href="{% url 'mini_pauta_exportar_excel' %}?turma={{ atribuicao.turma_id }}&disciplina={{ atribuicao.disciplina_id }}&ano_letivo={{ atribuicao.ano_letivo_id }}">
+                            Excel
+                        </a>
+                    </td>
+                    <td>
+                        <a class="btn btn-danger btn-sm"
+                           href="{% url 'mini_pauta_exportar_pdf' %}?turma={{ atribuicao.turma_id }}&disciplina={{ atribuicao.disciplina_id }}&ano_letivo={{ atribuicao.ano_letivo_id }}">
+                            PDF
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4">Nenhuma atribuição docente ativa.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

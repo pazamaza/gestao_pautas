@@ -26,6 +26,7 @@ from notificacoes.services import notificar_erro_pauta
 from .forms import (
     AvaliacaoForm,
     ImportarNotasExcelForm,
+    LancamentoNotaFormSet,
     NotaForm,
     ObservacoesValidacaoForm,
     ResultadoDisciplinaForm,
@@ -33,13 +34,17 @@ from .forms import (
 from .models import Avaliacao, Nota, ResultadoDisciplina
 from .services.excel import (
     criar_modelo_excel,
+    exportar_mini_pauta_excel,
     exportar_pauta_excel,
     exportar_pauta_final_excel,
     importar_notas_excel,
 )
-from .services.pdf import exportar_pauta_final_pdf, exportar_pauta_pdf
+from .services.pdf import exportar_mini_pauta_pdf, exportar_pauta_final_pdf, exportar_pauta_pdf
+from .services.periodos import campo_periodo
 from .services.resultados import (
+    atualizar_resultado_disciplina,
     gerar_resultados_finais,
+    montar_mini_pauta_disciplina,
     montar_pauta_final_turma,
     verificar_transicao_aluno,
 )
@@ -74,6 +79,136 @@ def _pode_ver_pauta_final(user, turma, ano_letivo):
     if eh_administrador(user):
         return True
     return bool(ano_letivo and _eh_diretor_da_turma(user, turma, ano_letivo))
+
+
+@admin_ou_professor_requerido
+def lancamento_notas(request):
+    atribuicoes = AtribuicaoDocente.objects.filter(ativo=True).select_related(
+        'disciplina', 'turma', 'ano_letivo'
+    )
+    if not eh_administrador(request.user):
+        atribuicoes = atribuicoes.filter(professor__user=request.user)
+    atribuicoes = atribuicoes.order_by('turma__classe__nome', 'turma__nome', 'disciplina__nome')
+
+    contexto = {'atribuicoes': atribuicoes, 'atribuicao': None, 'periodo': None, 'periodos': []}
+
+    if not atribuicoes.exists():
+        messages.warning(request, 'Não existe nenhuma atribuição docente ativa associada a si.')
+        return render(request, 'pautas/lancamento_notas.html', contexto)
+
+    atribuicao_id = request.GET.get('atribuicao') or request.POST.get('atribuicao')
+    atribuicao = atribuicoes.filter(pk=atribuicao_id).first() if atribuicao_id else None
+    atribuicao = atribuicao or atribuicoes.first()
+    contexto['atribuicao'] = atribuicao
+
+    periodos = PeriodoAcademico.objects.filter(ano_letivo=atribuicao.ano_letivo).order_by('nome')
+    contexto['periodos'] = periodos
+
+    periodo_id = request.GET.get('periodo') or request.POST.get('periodo')
+    periodo = periodos.filter(pk=periodo_id).first() if periodo_id else None
+    periodo = periodo or periodos.filter(aberto=True).first() or periodos.first()
+    contexto['periodo'] = periodo
+
+    if not periodo:
+        messages.warning(request, 'Não existe nenhum período académico configurado para este ano letivo.')
+        return render(request, 'pautas/lancamento_notas.html', contexto)
+
+    avaliacao, _ = Avaliacao.objects.get_or_create(atribuicao=atribuicao, periodo=periodo)
+
+    if not _pode_ver_avaliacao(request.user, avaliacao):
+        return render(request, 'dashboards/sem_permissao.html', status=403)
+
+    pode_editar = eh_administrador(request.user) or _eh_professor_titular(request.user, avaliacao)
+    periodo_ativo = periodo.periodo_lancamento_ativo()
+
+    alunos = list(
+        Aluno.objects.filter(turma=atribuicao.turma, estado=Aluno.ESTADO_ATIVO).order_by('nome')
+    )
+
+    if request.method == 'POST':
+        if not pode_editar:
+            return render(request, 'dashboards/sem_permissao.html', status=403)
+        if not periodo_ativo:
+            messages.error(request, 'Fora do período de lançamento de notas para este trimestre.')
+            return redirect(f"{reverse('lancamento_notas')}?atribuicao={atribuicao.id}&periodo={periodo.id}")
+
+        formset = LancamentoNotaFormSet(request.POST)
+        if formset.is_valid():
+            erros = []
+            gravados = 0
+            for form in formset:
+                aluno_id = form.cleaned_data['aluno_id']
+                mac = form.cleaned_data.get('mac')
+                npt = form.cleaned_data.get('npt')
+                if mac is None or npt is None:
+                    continue
+                try:
+                    nota, _ = Nota.objects.update_or_create(
+                        avaliacao=avaliacao, aluno_id=aluno_id,
+                        defaults={'mac': mac, 'npt': npt},
+                    )
+                except ValueError as exc:
+                    aluno = next((a for a in alunos if a.id == aluno_id), None)
+                    erros.append(f"{aluno}: {exc}" if aluno else str(exc))
+                    continue
+                atualizar_resultado_disciplina(nota.aluno, atribuicao.disciplina, atribuicao.ano_letivo)
+                gravados += 1
+
+            if gravados:
+                messages.success(request, f'{gravados} nota(s) gravada(s) com sucesso.')
+            if erros:
+                messages.warning(request, 'Não foi possível gravar: ' + '; '.join(erros))
+
+            return redirect(f"{reverse('lancamento_notas')}?atribuicao={atribuicao.id}&periodo={periodo.id}")
+    else:
+        notas_existentes = {
+            nota.aluno_id: nota
+            for nota in Nota.objects.filter(avaliacao=avaliacao, aluno__in=alunos)
+        }
+        initial = [
+            {
+                'aluno_id': aluno.id,
+                'mac': notas_existentes[aluno.id].mac if aluno.id in notas_existentes else None,
+                'npt': notas_existentes[aluno.id].npt if aluno.id in notas_existentes else None,
+            }
+            for aluno in alunos
+        ]
+        formset = LancamentoNotaFormSet(initial=initial)
+
+    linhas = list(zip(alunos, formset))
+
+    contexto.update({
+        'avaliacao': avaliacao,
+        'formset': formset,
+        'linhas': linhas,
+        'pode_editar': pode_editar,
+        'periodo_ativo': periodo_ativo,
+        'eh_terceiro_trimestre': campo_periodo(periodo) == 'mt3' if periodo else False,
+    })
+    return render(request, 'pautas/lancamento_notas.html', contexto)
+
+
+@admin_ou_professor_requerido
+def relatorios_professor(request):
+    atribuicoes = AtribuicaoDocente.objects.filter(ativo=True).select_related(
+        'disciplina', 'turma', 'ano_letivo'
+    )
+    if not eh_administrador(request.user):
+        atribuicoes = atribuicoes.filter(professor__user=request.user)
+    atribuicoes = atribuicoes.order_by('turma__classe__nome', 'turma__nome', 'disciplina__nome')
+
+    turmas = (
+        Turma.objects
+        .filter(atribuicaodocente__in=atribuicoes)
+        .distinct()
+        .order_by('classe__nome', 'nome')
+    )
+
+    return render(
+        request,
+        'pautas/relatorios.html',
+        {'atribuicoes': atribuicoes, 'turmas': turmas},
+    )
 
 
 class NotaListView(AdminOuProfessorRequeridoMixin, ListView):
@@ -369,6 +504,95 @@ def pauta_final_exportar_pdf(request):
     disciplinas, linhas = montar_pauta_final_turma(turma, ano_letivo)
     arquivo = exportar_pauta_final_pdf(turma, ano_letivo, disciplinas, linhas)
     nome = f'pauta_final_{turma.id}_{ano_letivo.id}.pdf'
+    return FileResponse(
+        arquivo,
+        as_attachment=True,
+        filename=nome,
+        content_type='application/pdf',
+    )
+
+
+def _turma_disciplina_e_ano_da_mini_pauta(request):
+    turma_id = request.GET.get('turma')
+    disciplina_id = request.GET.get('disciplina')
+    ano_letivo_id = request.GET.get('ano_letivo')
+
+    turma = get_object_or_404(Turma, pk=turma_id) if turma_id else None
+    disciplina = get_object_or_404(Disciplina, pk=disciplina_id) if disciplina_id else None
+    ano_letivo = (
+        get_object_or_404(AnoLetivo, pk=ano_letivo_id)
+        if ano_letivo_id
+        else AnoLetivo.objects.filter(ativo=True).first()
+    )
+    return turma, disciplina, ano_letivo
+
+
+def _pode_ver_mini_pauta(user, turma, disciplina, ano_letivo):
+    if eh_administrador(user):
+        return True
+    if AtribuicaoDocente.objects.filter(
+        professor__user=user, turma=turma, disciplina=disciplina, ano_letivo=ano_letivo
+    ).exists():
+        return True
+    return _eh_diretor_da_turma(user, turma, ano_letivo)
+
+
+@admin_ou_professor_requerido
+def mini_pauta_trimestral(request):
+    turma, disciplina, ano_letivo = _turma_disciplina_e_ano_da_mini_pauta(request)
+
+    contexto = {
+        'turma': turma,
+        'disciplina': disciplina,
+        'ano_letivo': ano_letivo,
+        'turmas': Turma.objects.filter(ativo=True).order_by('classe__nome', 'nome'),
+        'disciplinas': Disciplina.objects.filter(ativa=True).order_by('nome'),
+        'anos_letivos': AnoLetivo.objects.all(),
+        'linhas': [],
+    }
+
+    if not (turma and disciplina and ano_letivo):
+        return render(request, 'pautas/mini_pauta_trimestral.html', contexto)
+
+    if not _pode_ver_mini_pauta(request.user, turma, disciplina, ano_letivo):
+        return render(request, 'dashboards/sem_permissao.html', status=403)
+
+    contexto['linhas'] = montar_mini_pauta_disciplina(disciplina, turma, ano_letivo)
+    return render(request, 'pautas/mini_pauta_trimestral.html', contexto)
+
+
+@admin_ou_professor_requerido
+def mini_pauta_exportar_excel(request):
+    turma, disciplina, ano_letivo = _turma_disciplina_e_ano_da_mini_pauta(request)
+
+    if not (turma and disciplina and ano_letivo):
+        return render(request, 'dashboards/sem_permissao.html', status=403)
+    if not _pode_ver_mini_pauta(request.user, turma, disciplina, ano_letivo):
+        return render(request, 'dashboards/sem_permissao.html', status=403)
+
+    linhas = montar_mini_pauta_disciplina(disciplina, turma, ano_letivo)
+    arquivo = exportar_mini_pauta_excel(turma, disciplina, ano_letivo, linhas)
+    nome = f'mini_pauta_{disciplina.id}_{turma.id}_{ano_letivo.id}.xlsx'
+    return FileResponse(
+        arquivo,
+        as_attachment=True,
+        filename=nome,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+
+
+@admin_ou_professor_requerido
+def mini_pauta_exportar_pdf(request):
+    turma, disciplina, ano_letivo = _turma_disciplina_e_ano_da_mini_pauta(request)
+
+    if not (turma and disciplina and ano_letivo):
+        return render(request, 'dashboards/sem_permissao.html', status=403)
+    if not _pode_ver_mini_pauta(request.user, turma, disciplina, ano_letivo):
+        return render(request, 'dashboards/sem_permissao.html', status=403)
+
+    linhas = montar_mini_pauta_disciplina(disciplina, turma, ano_letivo)
+    arquivo = exportar_mini_pauta_pdf(turma, disciplina, ano_letivo, linhas)
+    nome = f'mini_pauta_{disciplina.id}_{turma.id}_{ano_letivo.id}.pdf'
     return FileResponse(
         arquivo,
         as_attachment=True,

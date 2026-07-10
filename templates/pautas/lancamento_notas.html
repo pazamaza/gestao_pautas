@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+
+{% block title %}
+Lançamento de Notas
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+
+    <div class="d-flex justify-content-between flex-wrap gap-2 align-items-center">
+        <h2>Lançamento de Notas</h2>
+        {% if atribuicao %}
+        <div class="dropdown">
+            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                Pauta
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li>
+                    <a class="dropdown-item"
+                       href="{% url 'mini_pauta_exportar_excel' %}?turma={{ atribuicao.turma_id }}&disciplina={{ atribuicao.disciplina_id }}&ano_letivo={{ atribuicao.ano_letivo_id }}">
+                        Mini-Pauta (Excel)
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item"
+                       href="{% url 'pauta_final_exportar_excel' %}?turma={{ atribuicao.turma_id }}&ano_letivo={{ atribuicao.ano_letivo_id }}">
+                        Pauta-Geral (Excel)
+                    </a>
+                </li>
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if atribuicoes|length > 1 %}
+    <form method="get" class="row g-2 align-items-end mt-3">
+        <div class="col-md-4">
+            <label class="form-label">Turma / Disciplina</label>
+            <select name="atribuicao" class="form-select" onchange="this.form.submit()">
+                {% for a in atribuicoes %}
+                <option value="{{ a.id }}" {% if atribuicao.id == a.id %}selected{% endif %}>
+                    {{ a.turma }} — {{ a.disciplina }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        {% if periodos %}
+        <div class="col-md-3">
+            <label class="form-label">Período</label>
+            <select name="periodo" class="form-select" onchange="this.form.submit()">
+                {% for p in periodos %}
+                <option value="{{ p.id }}" {% if periodo.id == p.id %}selected{% endif %}>
+                    {{ p.nome }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+    </form>
+    {% elif periodos|length > 1 %}
+    <form method="get" class="row g-2 align-items-end mt-3">
+        <input type="hidden" name="atribuicao" value="{{ atribuicao.id }}">
+        <div class="col-md-3">
+            <label class="form-label">Período</label>
+            <select name="periodo" class="form-select" onchange="this.form.submit()">
+                {% for p in periodos %}
+                <option value="{{ p.id }}" {% if periodo.id == p.id %}selected{% endif %}>
+                    {{ p.nome }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+    {% endif %}
+
+    {% if not atribuicao %}
+    <div class="alert alert-info mt-4">
+        Não existe nenhuma atribuição docente ativa associada a si.
+    </div>
+    {% elif not periodo %}
+    <div class="alert alert-warning mt-4">
+        Não existe nenhum período académico configurado para este ano letivo.
+    </div>
+    {% else %}
+
+    <div class="card mt-3">
+        <div class="card-body text-center">
+            <h5 class="mb-1">{{ atribuicao.disciplina }} — {{ atribuicao.turma }}</h5>
+            <div class="text-muted">{{ periodo.nome }} | {{ atribuicao.ano_letivo }}</div>
+        </div>
+    </div>
+
+    {% if not pode_editar %}
+    <div class="alert alert-secondary mt-3">
+        Apenas pode consultar esta pauta — o lançamento é feito pelo professor titular da disciplina.
+    </div>
+    {% elif not periodo_ativo %}
+    <div class="alert alert-warning mt-3">
+        Fora do período de lançamento de notas para este trimestre. A pauta é apresentada apenas para consulta.
+    </div>
+    {% endif %}
+
+    <form method="post" class="mt-3">
+        {% csrf_token %}
+        <input type="hidden" name="atribuicao" value="{{ atribuicao.id }}">
+        <input type="hidden" name="periodo" value="{{ periodo.id }}">
+        {{ formset.management_form }}
+
+        <div class="table-responsive">
+            <table class="table table-bordered table-sm align-middle">
+                <thead class="table-primary">
+                    <tr>
+                        <th>Nº</th>
+                        <th>Aluno</th>
+                        <th style="width: 120px;">MAC</th>
+                        <th style="width: 120px;">
+                            NPT
+                            {% if eh_terceiro_trimestre %}
+                            <small class="d-block text-muted fw-normal">calculado automaticamente</small>
+                            {% endif %}
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for aluno, form in linhas %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td class="text-start">{{ aluno.nome }}</td>
+                        <td>
+                            {{ form.aluno_id }}
+                            {{ form.mac }}
+                            {% if form.mac.errors %}<div class="text-danger small">{{ form.mac.errors }}</div>{% endif %}
+                        </td>
+                        <td>
+                            {{ form.npt }}
+                            {% if form.npt.errors %}<div class="text-danger small">{{ form.npt.errors }}</div>{% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4">Nenhum aluno ativo nesta turma.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if pode_editar and periodo_ativo and linhas %}
+        <button type="submit" class="btn btn-success">Gravar Notas</button>
+        {% endif %}
+    </form>
+
+    {% endif %}
+</div>
+{% endblock %}

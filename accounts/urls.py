@@ -3,7 +3,8 @@ from django.urls import path
 from .views import (
     login_view,
     logout_view,
-    dashboard
+    dashboard,
+    perfil,
 )
 
 urlpatterns = [
@@ -24,5 +25,11 @@ urlpatterns = [
         'dashboard/',
         dashboard,
         name='dashboard'
+    ),
+
+    path(
+        'perfil/',
+        perfil,
+        name='perfil'
     ),
 ]

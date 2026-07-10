@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block title %}
-Pauta Final da Turma
+Mini-Pauta Trimestral
 {% endblock %}
 
 {% block content %}
@@ -9,14 +9,14 @@ Pauta Final da Turma
 <div class="container-fluid mt-4">
 
     <div class="d-flex justify-content-between flex-wrap gap-2">
-        <h2>Pauta Final da Turma</h2>
+        <h2>Mini-Pauta Trimestral</h2>
         <a href="{% url 'resultado_lista' %}" class="btn btn-outline-secondary">
             Voltar
         </a>
     </div>
 
     <form method="get" class="row g-2 align-items-end mt-2">
-        <div class="col-md-4">
+        <div class="col-md-3">
             <label class="form-label">Turma</label>
             <select name="turma" class="form-select">
                 <option value="">Selecione a turma</option>
@@ -27,7 +27,18 @@ Pauta Final da Turma
                 {% endfor %}
             </select>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
+            <label class="form-label">Disciplina</label>
+            <select name="disciplina" class="form-select">
+                <option value="">Selecione a disciplina</option>
+                {% for d in disciplinas %}
+                <option value="{{ d.id }}" {% if disciplina.id == d.id %}selected{% endif %}>
+                    {{ d }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
             <label class="form-label">Ano Letivo</label>
             <select name="ano_letivo" class="form-select">
                 <option value="">Selecione o ano letivo</option>
@@ -38,14 +49,14 @@ Pauta Final da Turma
                 {% endfor %}
             </select>
         </div>
-        <div class="col-md-4">
-            <button type="submit" class="btn btn-outline-primary">Ver Pauta</button>
+        <div class="col-md-3">
+            <button type="submit" class="btn btn-outline-primary">Ver Mini-Pauta</button>
         </div>
     </form>
 
-    {% if not turma %}
+    {% if not turma or not disciplina %}
     <div class="alert alert-info mt-4">
-        Seleciona uma turma e um ano letivo para ver a pauta final.
+        Seleciona uma turma, uma disciplina e um ano letivo para ver a mini-pauta.
     </div>
     {% elif not ano_letivo %}
     <div class="alert alert-warning mt-4">
@@ -55,20 +66,19 @@ Pauta Final da Turma
 
     <div class="card mt-4">
         <div class="card-body text-center">
-            <h5 class="mb-1">Pauta Final — {{ turma }}</h5>
+            <h5 class="mb-1">MINI-PAUTA — {{ disciplina }}</h5>
             <div class="text-muted">
-                {% if turma.numero_pauta %}Pauta Nº {{ turma.numero_pauta }} &nbsp;|&nbsp; {% endif %}
-                Sala: {{ turma.sala|default:"—" }}
-                &nbsp;|&nbsp; Período: {{ turma.get_periodo_display|default:"—" }}
+                Turma: {{ turma }}
+                &nbsp;|&nbsp; Sala: {{ turma.sala|default:"—" }}
                 &nbsp;|&nbsp; Ano Letivo: {{ ano_letivo }}
             </div>
-            {% if disciplinas %}
+            {% if linhas %}
             <div class="d-flex justify-content-center gap-2 mt-3">
-                <a href="{% url 'pauta_final_exportar_excel' %}?turma={{ turma.id }}&ano_letivo={{ ano_letivo.id }}"
+                <a href="{% url 'mini_pauta_exportar_excel' %}?turma={{ turma.id }}&disciplina={{ disciplina.id }}&ano_letivo={{ ano_letivo.id }}"
                    class="btn btn-success btn-sm">
                     Exportar Excel
                 </a>
-                <a href="{% url 'pauta_final_exportar_pdf' %}?turma={{ turma.id }}&ano_letivo={{ ano_letivo.id }}"
+                <a href="{% url 'mini_pauta_exportar_pdf' %}?turma={{ turma.id }}&disciplina={{ disciplina.id }}&ano_letivo={{ ano_letivo.id }}"
                    class="btn btn-danger btn-sm">
                     Exportar PDF
                 </a>
@@ -83,17 +93,17 @@ Pauta Final da Turma
                 <tr>
                     <th rowspan="2">Nº</th>
                     <th rowspan="2">Aluno</th>
-                    {% for disciplina in disciplinas %}
-                    <th colspan="4">{{ disciplina }}</th>
-                    {% endfor %}
-                    <th rowspan="2">Situação Geral</th>
+                    <th rowspan="2">Faltas</th>
+                    <th colspan="3">I Trimestre</th>
+                    <th colspan="3">II Trimestre</th>
+                    <th colspan="3">III Trimestre</th>
+                    <th rowspan="2">MFD</th>
                 </tr>
                 <tr>
-                    {% for disciplina in disciplinas %}
-                    <th>MFD</th>
-                    <th>NE</th>
-                    <th>MF</th>
-                    <th>NER</th>
+                    {% for _ in "123" %}
+                    <th>MAC</th>
+                    <th>NPT</th>
+                    <th>MT</th>
                     {% endfor %}
                 </tr>
             </thead>
@@ -102,45 +112,39 @@ Pauta Final da Turma
                 <tr>
                     <td>{{ forloop.counter }}</td>
                     <td class="text-start">{{ linha.aluno }}</td>
-                    {% for resultado in linha.celulas %}
-                    {% if resultado %}
-                    <td>{{ resultado.mf }}</td>
-                    <td>{{ resultado.exame|default_if_none:"—" }}</td>
-                    <td>{{ resultado.nota_final|default_if_none:"—" }}</td>
-                    <td>{{ resultado.nota_recurso|default_if_none:"—" }}</td>
+                    <td>{{ linha.faltas }}</td>
+                    {% if linha.mt1 %}
+                    <td>{{ linha.mt1.mac }}</td>
+                    <td>{{ linha.mt1.npt }}</td>
+                    <td>{{ linha.mt1.mt }}</td>
                     {% else %}
-                    <td>—</td>
-                    <td>—</td>
-                    <td>—</td>
-                    <td>—</td>
+                    <td>—</td><td>—</td><td>—</td>
                     {% endif %}
-                    {% endfor %}
-                    <td>
-                        {% if linha.situacao_anual.situacao == 'Aprovado' %}
-                        <span class="badge bg-success">Aprovado</span>
-                        {% elif linha.situacao_anual.situacao == 'Aprovado por Compensação' %}
-                        <span class="badge bg-warning text-dark">Aprovado por Compensação</span>
-                        {% elif linha.situacao_anual.situacao == 'Reprovado' %}
-                        <span class="badge bg-danger">Reprovado</span>
-                        {% else %}
-                        —
-                        {% endif %}
-                    </td>
+                    {% if linha.mt2 %}
+                    <td>{{ linha.mt2.mac }}</td>
+                    <td>{{ linha.mt2.npt }}</td>
+                    <td>{{ linha.mt2.mt }}</td>
+                    {% else %}
+                    <td>—</td><td>—</td><td>—</td>
+                    {% endif %}
+                    {% if linha.mt3 %}
+                    <td>{{ linha.mt3.mac }}</td>
+                    <td>{{ linha.mt3.npt }}</td>
+                    <td>{{ linha.mt3.mt }}</td>
+                    {% else %}
+                    <td>—</td><td>—</td><td>—</td>
+                    {% endif %}
+                    <td>{{ linha.resultado.mf|default_if_none:"—" }}</td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="50">
+                    <td colspan="12">
                         Nenhum aluno ativo nesta turma.
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
-        {% if not disciplinas %}
-        <div class="alert alert-info">
-            Não há disciplinas atribuídas a esta turma neste ano letivo.
-        </div>
-        {% endif %}
     </div>
 
     {% endif %}

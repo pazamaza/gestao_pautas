@@ -166,9 +166,6 @@ class Nota(models.Model):
     mac = models.DecimalField(max_digits=4, decimal_places=1,
         validators=[MinValueValidator(0), MaxValueValidator(20)]
     )
-    npp = models.DecimalField(max_digits=4, decimal_places=1,
-        validators=[MinValueValidator(0), MaxValueValidator(20)
-        ])
     npt = models.DecimalField(max_digits=4, decimal_places=1,
         validators=[MinValueValidator(0), MaxValueValidator(20)
         ])
@@ -178,14 +175,44 @@ class Nota(models.Model):
     criado_em = models.DateTimeField(auto_now_add=True )
     atualizado_em = models.DateTimeField(auto_now=True)
 
+    def eh_terceiro_trimestre(self):
+        from pautas.services.periodos import campo_periodo
+        return campo_periodo(self.avaliacao.periodo) == 'mt3'
+
+    def calcular_npt_terceiro_trimestre(self):
+        from pautas.services.periodos import campo_periodo
+
+        atribuicao = self.avaliacao.atribuicao
+        notas_anteriores = Nota.objects.filter(
+            aluno=self.aluno,
+            avaliacao__atribuicao__disciplina=atribuicao.disciplina,
+            avaliacao__atribuicao__turma=atribuicao.turma,
+            avaliacao__atribuicao__ano_letivo=atribuicao.ano_letivo,
+        ).exclude(pk=self.pk).select_related('avaliacao__periodo')
+
+        medias = {}
+        for nota in notas_anteriores:
+            campo = campo_periodo(nota.avaliacao.periodo)
+            if campo in ('mt1', 'mt2'):
+                medias[campo] = nota.mt
+
+        if 'mt1' not in medias or 'mt2' not in medias:
+            raise ValueError(
+                'É necessário lançar as notas do 1º e 2º trimestre antes do 3º.'
+            )
+
+        return (medias['mt1'] + medias['mt2']) / Decimal('2')
+
     def calcular_mt(self):
-        media = (self.mac + self.npp + self.npt) / Decimal('3')
+        media = (self.mac + self.npt) / Decimal('2')
         return media.quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
 
     def save(self, *args, **kwargs):
+        if self.eh_terceiro_trimestre():
+            self.npt = self.calcular_npt_terceiro_trimestre()
         self.mt = self.calcular_mt()
         super().save(*args, **kwargs)
-    
+
     class Meta:
         unique_together = ('avaliacao','aluno')
 
@@ -276,9 +303,7 @@ class ResultadoDisciplina(StatusValidacaoMixin, models.Model):
         )
 
     def calcular_mf(self):
-        valor = ((self.mt1 * Decimal('0.25')) + (self.mt2 * Decimal('0.35')) +
-            (self.mt3 * Decimal('0.40'))    )
-        return self.arredondar_nota(valor)
+        return self.arredondar_nota(self.mt3)
 
     def calcular_nota_final(self):
         if self.nota_recurso is not None:

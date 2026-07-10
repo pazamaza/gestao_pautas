@@ -16,7 +16,7 @@ class ObservacoesValidacaoForm(forms.Form):
 class ImportarNotasExcelForm(forms.Form):
     arquivo = forms.FileField(
         label='Arquivo Excel',
-        help_text='Use o modelo da pauta e preencha as colunas MAC, NPP e NPT.',
+        help_text='Use o modelo da pauta e preencha as colunas MAC e NPT.',
         widget=forms.ClearableFileInput(
             attrs={
                 'class': 'form-control',
@@ -52,10 +52,6 @@ class NotaForm(forms.ModelForm):
                 attrs={'class': 'form-control'}
             ),
 
-            'npp': forms.NumberInput(
-                attrs={'class': 'form-control'}
-            ),
-
             'npt': forms.NumberInput(
                 attrs={'class': 'form-control'}
             ),
@@ -68,16 +64,57 @@ class NotaForm(forms.ModelForm):
             ),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['npt'].help_text = (
+            'No 3º trimestre este valor é substituído automaticamente pela '
+            'média dos trimestres anteriores.'
+        )
+
     def clean(self):
         cleaned_data = super().clean()
         avaliacao = cleaned_data.get('avaliacao')
+        aluno = cleaned_data.get('aluno')
 
         if avaliacao and not avaliacao.periodo.periodo_lancamento_ativo():
             raise forms.ValidationError(
                 'Fora do período de lançamento de notas para este trimestre.'
             )
 
+        if avaliacao and aluno:
+            nota_provisoria = Nota(
+                pk=self.instance.pk, avaliacao=avaliacao, aluno=aluno
+            )
+            if nota_provisoria.eh_terceiro_trimestre():
+                try:
+                    nota_provisoria.calcular_npt_terceiro_trimestre()
+                except ValueError as exc:
+                    raise forms.ValidationError(str(exc))
+
         return cleaned_data
+
+class LancamentoNotaForm(forms.Form):
+    aluno_id = forms.IntegerField(widget=forms.HiddenInput())
+    mac = forms.DecimalField(
+        max_digits=4, decimal_places=1,
+        min_value=0, max_value=20,
+        required=False,
+        widget=forms.NumberInput(
+            attrs={'class': 'form-control form-control-sm', 'step': '0.1'}
+        ),
+    )
+    npt = forms.DecimalField(
+        max_digits=4, decimal_places=1,
+        min_value=0, max_value=20,
+        required=False,
+        widget=forms.NumberInput(
+            attrs={'class': 'form-control form-control-sm', 'step': '0.1'}
+        ),
+    )
+
+
+LancamentoNotaFormSet = forms.formset_factory(LancamentoNotaForm, extra=0)
+
 
 class ResultadoDisciplinaForm(forms.ModelForm):
 

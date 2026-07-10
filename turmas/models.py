@@ -113,6 +113,12 @@ class Turma(models.Model):
         choices=PERIODO_CHOICES,
         blank=True
     )
+    numero_pauta = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name='Nº da Pauta',
+        help_text='Ex.: 03/2026 — usado no cabeçalho da pauta final impressa.'
+    )
     ativo = models.BooleanField(
         default=True,
         verbose_name="Ativa"

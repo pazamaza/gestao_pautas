@@ -14,7 +14,6 @@ CABECALHOS = [
     'numero_processo',
     'aluno',
     'mac',
-    'npp',
     'npt',
     'observacao',
 ]
@@ -63,7 +62,6 @@ def criar_modelo_excel(avaliacao):
             aluno.numero_processo,
             aluno.nome,
             nota.mac if nota else '',
-            nota.npp if nota else '',
             nota.npt if nota else '',
             nota.observacao if nota else '',
         ])
@@ -94,7 +92,6 @@ def exportar_pauta_excel(avaliacao, notas):
         'Nº Processo',
         'Aluno',
         'MAC',
-        'NPP',
         'NPT',
         'MT',
         'Situacao',
@@ -112,14 +109,13 @@ def exportar_pauta_excel(avaliacao, notas):
             nota.aluno.numero_processo,
             nota.aluno.nome,
             nota.mac,
-            nota.npp,
             nota.npt,
             nota.mt,
             situacao_por_media(nota.mt),
             nota.observacao or '',
         ])
 
-    larguras = [8, 18, 34, 10, 10, 10, 10, 16, 36]
+    larguras = [8, 18, 34, 10, 10, 10, 16, 36]
     for index, largura in enumerate(larguras, start=1):
         sheet.column_dimensions[get_column_letter(index)].width = largura
 
@@ -138,7 +134,7 @@ def importar_notas_excel(avaliacao, arquivo):
     ]
 
     indices = {nome: cabecalhos.index(nome) for nome in CABECALHOS if nome in cabecalhos}
-    obrigatorios = {'numero_processo', 'mac', 'npp', 'npt'}
+    obrigatorios = {'numero_processo', 'mac', 'npt'}
     faltando = obrigatorios - set(indices)
     if faltando:
         return {
@@ -174,7 +170,6 @@ def importar_notas_excel(avaliacao, arquivo):
 
             try:
                 mac = converter_nota(row[indices['mac']])
-                npp = converter_nota(row[indices['npp']])
                 npt = converter_nota(row[indices['npt']])
             except ValueError as exc:
                 erros.append(f'Linha {numero_linha}: {exc}')
@@ -184,16 +179,19 @@ def importar_notas_excel(avaliacao, arquivo):
             if 'observacao' in indices and row[indices['observacao']] is not None:
                 observacao = str(row[indices['observacao']]).strip()
 
-            _, criado = Nota.objects.update_or_create(
-                avaliacao=avaliacao,
-                aluno=aluno,
-                defaults={
-                    'mac': mac,
-                    'npp': npp,
-                    'npt': npt,
-                    'observacao': observacao,
-                },
-            )
+            try:
+                _, criado = Nota.objects.update_or_create(
+                    avaliacao=avaliacao,
+                    aluno=aluno,
+                    defaults={
+                        'mac': mac,
+                        'npt': npt,
+                        'observacao': observacao,
+                    },
+                )
+            except ValueError as exc:
+                erros.append(f'Linha {numero_linha}: {exc}')
+                continue
 
             if criado:
                 criados += 1
@@ -208,21 +206,45 @@ def importar_notas_excel(avaliacao, arquivo):
 
 
 def exportar_pauta_final_excel(turma, ano_letivo, disciplinas, linhas):
+    from core.models import Escola
+
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = 'Pauta Final'
 
-    sheet['A1'] = 'Gestao de Pautas'
-    sheet['A1'].font = Font(bold=True, size=14)
-    sheet['A2'] = f'Pauta Final - {turma}'
-    sheet['A3'] = (
-        f'Sala: {turma.sala or "-"}  |  '
-        f'Periodo: {turma.get_periodo_display() or "-"}  |  '
-        f'Ano Letivo: {ano_letivo}'
-    )
+    escola = Escola.obter_configuracao()
 
-    linha_disciplinas = 5
-    linha_subcabecalhos = 6
+    linha_atual = 1
+    if escola:
+        for texto in (escola.ministerio, escola.governo_provincial, escola.administracao_municipal):
+            if texto:
+                sheet.cell(row=linha_atual, column=1, value=texto)
+                linha_atual += 1
+        sheet.cell(row=linha_atual, column=1, value=escola.nome)
+        sheet.cell(row=linha_atual, column=1).font = Font(bold=True, size=14)
+        linha_atual += 1
+        if turma.numero_pauta:
+            sheet.cell(row=linha_atual, column=1, value=f'PAUTA Nº {turma.numero_pauta}')
+            linha_atual += 1
+    else:
+        sheet.cell(row=linha_atual, column=1, value='Gestao de Pautas')
+        sheet.cell(row=linha_atual, column=1).font = Font(bold=True, size=14)
+        linha_atual += 1
+
+    sheet.cell(row=linha_atual, column=1, value=f'Pauta Final - {turma}')
+    linha_atual += 1
+    sheet.cell(
+        row=linha_atual, column=1,
+        value=(
+            f'Sala: {turma.sala or "-"}  |  '
+            f'Periodo: {turma.get_periodo_display() or "-"}  |  '
+            f'Ano Letivo: {ano_letivo}'
+        ),
+    )
+    linha_atual += 2
+
+    linha_disciplinas = linha_atual
+    linha_subcabecalhos = linha_atual + 1
 
     sheet.cell(row=linha_disciplinas, column=1, value='Nº')
     sheet.cell(row=linha_disciplinas, column=2, value='Aluno')
@@ -276,11 +298,92 @@ def exportar_pauta_final_excel(turma, ano_letivo, disciplinas, linhas):
         valores.append(situacao_anual.situacao if situacao_anual else '')
         sheet.append(valores)
 
+    if escola and escola.nome_autoridade_visto:
+        linha_visto = sheet.max_row + 3
+        sheet.cell(row=linha_visto, column=1, value=f'VISTO DA {escola.cargo_autoridade_visto.upper()}')
+        sheet.cell(row=linha_visto + 1, column=1, value=escola.nome_autoridade_visto)
+
     sheet.column_dimensions['A'].width = 6
     sheet.column_dimensions['B'].width = 30
     for coluna_indice in range(3, total_colunas):
         sheet.column_dimensions[get_column_letter(coluna_indice)].width = 8
     sheet.column_dimensions[get_column_letter(total_colunas)].width = 24
+
+    output = BytesIO()
+    workbook.save(output)
+    output.seek(0)
+    return output
+
+
+def exportar_mini_pauta_excel(turma, disciplina, ano_letivo, linhas):
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = 'Mini-Pauta'
+
+    sheet['A1'] = 'Gestao de Pautas'
+    sheet['A1'].font = Font(bold=True, size=14)
+    sheet['A2'] = f'MINI-PAUTA - {disciplina}'
+    sheet['A3'] = (
+        f'Turma: {turma}  |  Sala: {turma.sala or "-"}  |  Ano Letivo: {ano_letivo}'
+    )
+
+    linha_trimestres = 5
+    linha_subcabecalhos = 6
+
+    sheet.cell(row=linha_trimestres, column=1, value='Nº')
+    sheet.cell(row=linha_trimestres, column=2, value='Nome do Aluno')
+    sheet.cell(row=linha_trimestres, column=3, value='Faltas')
+    for coluna in (1, 2, 3):
+        sheet.merge_cells(
+            start_row=linha_trimestres, start_column=coluna,
+            end_row=linha_subcabecalhos, end_column=coluna,
+        )
+
+    coluna = 4
+    for nome_trimestre in ('I TRIMESTRE', 'II TRIMESTRE', 'III TRIMESTRE'):
+        sheet.cell(row=linha_trimestres, column=coluna, value=nome_trimestre)
+        sheet.merge_cells(
+            start_row=linha_trimestres, start_column=coluna,
+            end_row=linha_trimestres, end_column=coluna + 2,
+        )
+        for indice, rotulo in enumerate(['MAC', 'NPT', 'MT']):
+            sheet.cell(row=linha_subcabecalhos, column=coluna + indice, value=rotulo)
+        coluna += 3
+
+    sheet.cell(row=linha_trimestres, column=coluna, value='MFD')
+    sheet.merge_cells(
+        start_row=linha_trimestres, start_column=coluna,
+        end_row=linha_subcabecalhos, end_column=coluna,
+    )
+    total_colunas = coluna
+
+    header_fill = PatternFill('solid', fgColor='D9EAF7')
+    for linha_cabecalho in sheet.iter_rows(
+        min_row=linha_trimestres, max_row=linha_subcabecalhos, min_col=1, max_col=total_colunas
+    ):
+        for cell in linha_cabecalho:
+            cell.font = Font(bold=True)
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+
+    for indice, linha in enumerate(linhas, start=1):
+        valores = [indice, str(linha['aluno']), linha['faltas']]
+        for campo in ('mt1', 'mt2', 'mt3'):
+            nota = linha[campo]
+            if nota:
+                valores.extend([nota.mac, nota.npt, nota.mt])
+            else:
+                valores.extend(['', '', ''])
+        resultado = linha['resultado']
+        valores.append(resultado.mf if resultado else '')
+        sheet.append(valores)
+
+    sheet.column_dimensions['A'].width = 6
+    sheet.column_dimensions['B'].width = 32
+    sheet.column_dimensions['C'].width = 9
+    for coluna_indice in range(4, total_colunas):
+        sheet.column_dimensions[get_column_letter(coluna_indice)].width = 8
+    sheet.column_dimensions[get_column_letter(total_colunas)].width = 10
 
     output = BytesIO()
     workbook.save(output)

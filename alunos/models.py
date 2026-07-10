@@ -123,6 +123,18 @@ class Aluno(models.Model):
     def total_faltas(self):
         return self.frequencia_set.filter(estado='F').count()
 
+    def contar_faltas_injustificadas(self, ano_letivo=None, disciplina=None, turma=None):
+        qs = self.frequencia_set.filter(estado='F').select_related(
+            'justificacaofalta', 'atribuicao'
+        )
+        if ano_letivo:
+            qs = qs.filter(atribuicao__ano_letivo=ano_letivo)
+        if disciplina:
+            qs = qs.filter(atribuicao__disciplina=disciplina)
+        if turma:
+            qs = qs.filter(atribuicao__turma=turma)
+        return sum(1 for frequencia in qs if frequencia.esta_injustificada())
+
 class Matricula(models.Model):
 
     aluno = models.ForeignKey(

@@ -20,7 +20,11 @@ from .views import (
     exportar_pdf,
     gerar_resultados,
     importar_excel,
+    lancamento_notas,
     meus_dependentes,
+    mini_pauta_exportar_excel,
+    mini_pauta_exportar_pdf,
+    mini_pauta_trimestral,
     minhas_notas,
     notas_dependente,
     pauta_final_exportar_excel,
@@ -28,6 +32,7 @@ from .views import (
     pauta_final_turma,
     pauta_trimestral,
     pauta_turma,
+    relatorios_professor,
     resultado_reportar_erro,
     resultado_validar,
 )
@@ -62,6 +67,13 @@ urlpatterns = [
     path('resultados/pauta-final/', pauta_final_turma, name='pauta_final_turma'),
     path('resultados/pauta-final/exportar-excel/', pauta_final_exportar_excel, name='pauta_final_exportar_excel'),
     path('resultados/pauta-final/exportar-pdf/', pauta_final_exportar_pdf, name='pauta_final_exportar_pdf'),
+
+    path('mini-pauta/', mini_pauta_trimestral, name='mini_pauta_trimestral'),
+    path('mini-pauta/exportar-excel/', mini_pauta_exportar_excel, name='mini_pauta_exportar_excel'),
+    path('mini-pauta/exportar-pdf/', mini_pauta_exportar_pdf, name='mini_pauta_exportar_pdf'),
+
+    path('lancamento/', lancamento_notas, name='lancamento_notas'),
+    path('relatorios/', relatorios_professor, name='relatorios_professor'),
 
     path('minhas-notas/', minhas_notas, name='minhas_notas'),
     path('dependentes/', meus_dependentes, name='meus_dependentes'),

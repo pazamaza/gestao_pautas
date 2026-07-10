@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}
 Dashboard do Professor
@@ -13,16 +14,21 @@ Dashboard do Professor
                 Gestão de turmas, avaliações, notas e pautas.
             </p>
         </div>
-        <a href="{% url 'avaliacao_nova' %}" class="btn btn-primary">
-            Nova Avaliação
-        </a>
     </div>
 
     <div class="row g-3 mb-4">
         <div class="col-md-3">
             <div class="card shadow-sm">
                 <div class="card-body text-center">
-                    <h6 class="text-muted">Minhas Turmas</h6>
+                    <h6 class="text-muted">Disciplinas</h6>
+                    <h3>{{ total_disciplinas }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Turmas</h6>
                     <h3>{{ total_turmas }}</h3>
                 </div>
             </div>
@@ -30,45 +36,113 @@ Dashboard do Professor
         <div class="col-md-3">
             <div class="card shadow-sm">
                 <div class="card-body text-center">
-                    <h6 class="text-muted">Minhas Disciplinas</h6>
-                    <h3>{{ total_disciplinas }}</h3>
+                    <h6 class="text-muted">Alunos</h6>
+                    <h3>{{ total_alunos }}</h3>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
             <div class="card shadow-sm border-warning">
                 <div class="card-body text-center">
-                    <h6 class="text-muted">Pautas Com Erros</h6>
-                    <h3 class="text-warning">{{ avaliacoes_com_erros }}</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm border-success">
-                <div class="card-body text-center">
-                    <h6 class="text-muted">Pautas Validadas</h6>
-                    <h3 class="text-success">{{ avaliacoes_validadas }}</h3>
+                    <h6 class="text-muted">Pautas por Finalizar</h6>
+                    <h3 class="text-warning">{{ pautas_por_finalizar }}</h3>
                 </div>
             </div>
         </div>
     </div>
 
+    <h5 class="mb-3">Ações Rápidas</h5>
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <a href="{% url 'lancamento_notas' %}" class="btn btn-primary w-100 py-3">
+                Lançar Notas
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a href="{% url 'avaliacao_lista' %}?status=rascunho" class="btn btn-outline-success w-100 py-3">
+                Fechar Pauta
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a href="{% url 'frequencia_form' %}{% if atribuicao_padrao %}?atribuicao={{ atribuicao_padrao.id }}{% endif %}"
+               class="btn btn-outline-secondary w-100 py-3">
+                Registar Frequência
+            </a>
+        </div>
+        <div class="col-md-3">
+            {% if atribuicao_padrao %}
+            <div class="dropdown h-100">
+                <button class="btn btn-outline-primary w-100 h-100 py-3 dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    Pauta
+                </button>
+                <ul class="dropdown-menu w-100">
+                    <li>
+                        <a class="dropdown-item"
+                           href="{% url 'mini_pauta_exportar_excel' %}?turma={{ atribuicao_padrao.turma_id }}&disciplina={{ atribuicao_padrao.disciplina_id }}&ano_letivo={{ atribuicao_padrao.ano_letivo_id }}">
+                            Mini-Pauta (Excel)
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item"
+                           href="{% url 'pauta_final_exportar_excel' %}?turma={{ atribuicao_padrao.turma_id }}&ano_letivo={{ atribuicao_padrao.ano_letivo_id }}">
+                            Pauta-Geral (Excel)
+                        </a>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <a class="dropdown-item"
+                           href="{% url 'pauta_final_exportar_pdf' %}?turma={{ atribuicao_padrao.turma_id }}&ano_letivo={{ atribuicao_padrao.ano_letivo_id }}">
+                            Imprimir Pauta (PDF)
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-md-6">
+            <h5 class="text-center">Média por Turma</h5>
+            <canvas id="grafico-medias" height="200"></canvas>
+            {{ grafico_medias_labels|json_script:"grafico-medias-labels" }}
+            {{ grafico_medias_dados|json_script:"grafico-medias-dados" }}
+        </div>
+        <div class="col-md-6">
+            <h5 class="text-center">Aprovados vs. Reprovados</h5>
+            <canvas id="grafico-resultado" height="200"></canvas>
+            {{ grafico_resultado_labels|json_script:"grafico-resultado-labels" }}
+            {{ grafico_resultado_dados|json_script:"grafico-resultado-dados" }}
+        </div>
+    </div>
+
+    <hr class="my-4">
     <div class="row g-3">
-        <div class="col-md-4">
+        <div class="col-md-3">
             <a href="{% url 'avaliacao_lista' %}" class="btn btn-outline-primary w-100 py-3">
                 Avaliações e Pautas
             </a>
         </div>
-        <div class="col-md-4">
-            <a href="{% url 'nota_lista' %}" class="btn btn-outline-success w-100 py-3">
-                Lançamento de Notas
+        <div class="col-md-3">
+            <a href="{% url 'aluno_lista' %}" class="btn btn-outline-secondary w-100 py-3">
+                Alunos
             </a>
         </div>
-        <div class="col-md-4">
-            <a href="{% url 'resultado_lista' %}" class="btn btn-outline-secondary w-100 py-3">
-                Resultados Finais
+        <div class="col-md-3">
+            <a href="{% url 'justificacao_lista' %}" class="btn btn-outline-secondary w-100 py-3">
+                Justificações
+            </a>
+        </div>
+        <div class="col-md-3">
+            <a href="{% url 'relatorios_professor' %}" class="btn btn-outline-secondary w-100 py-3">
+                Relatórios
             </a>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/vendor/chart.min.js' %}"></script>
+<script src="{% static 'js/professor_dashboard_charts.js' %}"></script>
 {% endblock %}

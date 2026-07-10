@@ -17,6 +17,10 @@ Resultados Finais
                class="btn btn-outline-primary">
                 Ver Pauta da Turma
             </a>
+            <a href="{% url 'mini_pauta_trimestral' %}"
+               class="btn btn-outline-secondary">
+                Ver Mini-Pauta Trimestral
+            </a>
             {% if eh_administrador %}
             <a href="{% url 'gerar_resultados' %}"
                class="btn btn-success">

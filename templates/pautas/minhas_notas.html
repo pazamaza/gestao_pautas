@@ -25,7 +25,6 @@ Minhas Notas
                             <tr>
                                 <th>Trimestre</th>
                                 <th>MAC</th>
-                                <th>NPP</th>
                                 <th>NPT</th>
                                 <th>MT</th>
                             </tr>
@@ -35,13 +34,12 @@ Minhas Notas
                             <tr>
                                 <td>{{ nota.avaliacao.periodo.nome }}</td>
                                 <td>{{ nota.mac }}</td>
-                                <td>{{ nota.npp }}</td>
                                 <td>{{ nota.npt }}</td>
                                 <td>{{ nota.mt }}</td>
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="5">Ainda não há notas trimestrais validadas.</td>
+                                <td colspan="4">Ainda não há notas trimestrais validadas.</td>
                             </tr>
                             {% endfor %}
                         </tbody>

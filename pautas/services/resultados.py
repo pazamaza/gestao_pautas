@@ -3,29 +3,14 @@ from decimal import Decimal
 from alunos.models import Aluno
 from disciplinas.models import Disciplina
 from pautas.models import Nota, ResultadoDisciplina, SituacaoAnual
+from pautas.services.periodos import campo_periodo
 
 DISCIPLINAS_EM_ANDAMENTO = (
     ResultadoDisciplina.RESULTADO_RECURSO,
     ResultadoDisciplina.RESULTADO_DEFICIENCIA,
 )
 
-
-NOMES_PERIODOS = {
-    'Iº Trimestre': 'mt1',
-    '1º Trimestre': 'mt1',
-    'I Trimestre': 'mt1',
-    'IIº Trimestre': 'mt2',
-    '2º Trimestre': 'mt2',
-    'II Trimestre': 'mt2',
-    'IIIº Trimestre': 'mt3',
-    '3º Trimestre': 'mt3',
-    'III Trimestre': 'mt3',
-}
-
-
-def campo_periodo(periodo):
-    nome = periodo.nome.strip()
-    return NOMES_PERIODOS.get(nome)
+LIMITE_FALTAS_INJUSTIFICADAS = 9
 
 
 def gerar_resultados_finais():
@@ -74,7 +59,42 @@ def gerar_resultados_finais():
     return criados
 
 
+def atualizar_resultado_disciplina(aluno, disciplina, ano_letivo):
+    """Recalcula mt1/mt2/mt3 de UM ResultadoDisciplina a partir das Notas
+    existentes, sem apagar/recriar as restantes linhas nem alterar o
+    status de validação já atribuído (ao contrário de gerar_resultados_finais)."""
+    notas = Nota.objects.filter(
+        aluno=aluno,
+        avaliacao__atribuicao__disciplina=disciplina,
+        avaliacao__atribuicao__ano_letivo=ano_letivo,
+    ).select_related('avaliacao__periodo')
+
+    valores = {'mt1': Decimal('0'), 'mt2': Decimal('0'), 'mt3': Decimal('0')}
+    for nota in notas:
+        campo = campo_periodo(nota.avaliacao.periodo)
+        if campo:
+            valores[campo] = nota.mt
+
+    resultado, _ = ResultadoDisciplina.objects.get_or_create(
+        aluno=aluno, disciplina=disciplina, ano_letivo=ano_letivo,
+    )
+    resultado.mt1 = valores['mt1']
+    resultado.mt2 = valores['mt2']
+    resultado.mt3 = valores['mt3']
+    resultado.save()
+    return resultado
+
+
 def verificar_transicao_aluno(aluno, ano_letivo):
+    if aluno.contar_faltas_injustificadas(ano_letivo=ano_letivo) >= LIMITE_FALTAS_INJUSTIFICADAS:
+        situacao_anual, _ = SituacaoAnual.objects.update_or_create(
+            aluno=aluno,
+            ano_letivo=ano_letivo,
+            defaults={'situacao': SituacaoAnual.SITUACAO_REPROVADO},
+        )
+        situacao_anual.disciplinas_em_deficiencia.clear()
+        return situacao_anual
+
     resultados = list(
         ResultadoDisciplina.objects
         .filter(aluno=aluno, ano_letivo=ano_letivo)
@@ -147,6 +167,50 @@ def montar_pauta_final_turma(turma, ano_letivo):
     ]
 
     return disciplinas, linhas
+
+
+def montar_mini_pauta_disciplina(disciplina, turma, ano_letivo):
+    alunos = Aluno.objects.filter(turma=turma, estado=Aluno.ESTADO_ATIVO).order_by('nome')
+
+    notas = (
+        Nota.objects
+        .filter(
+            aluno__turma=turma,
+            avaliacao__atribuicao__disciplina=disciplina,
+            avaliacao__atribuicao__ano_letivo=ano_letivo,
+        )
+        .select_related('avaliacao__periodo')
+    )
+
+    notas_por_aluno = {}
+    for nota in notas:
+        campo = campo_periodo(nota.avaliacao.periodo)
+        if not campo:
+            continue
+        notas_por_aluno.setdefault(nota.aluno_id, {})[campo] = nota
+
+    resultados = {
+        resultado.aluno_id: resultado
+        for resultado in ResultadoDisciplina.objects.filter(
+            aluno__turma=turma, disciplina=disciplina, ano_letivo=ano_letivo
+        )
+    }
+
+    linhas = []
+    for aluno in alunos:
+        dados_periodos = notas_por_aluno.get(aluno.id, {})
+        linhas.append({
+            'aluno': aluno,
+            'faltas': aluno.contar_faltas_injustificadas(
+                ano_letivo=ano_letivo, disciplina=disciplina, turma=turma
+            ),
+            'mt1': dados_periodos.get('mt1'),
+            'mt2': dados_periodos.get('mt2'),
+            'mt3': dados_periodos.get('mt3'),
+            'resultado': resultados.get(aluno.id),
+        })
+
+    return linhas
 
 
 def gerar_situacoes_anuais(ano_letivo):

@@ -65,7 +65,7 @@ class PautasTestBase(TestCase):
         )
 
         self.nota = Nota.objects.create(
-            avaliacao=self.avaliacao, aluno=self.aluno, mac=10, npp=10, npt=10
+            avaliacao=self.avaliacao, aluno=self.aluno, mac=10, npt=10
         )
 
 
@@ -81,7 +81,6 @@ class PeriodoLancamentoTests(PautasTestBase):
                 'avaliacao': self.avaliacao.pk,
                 'aluno': self.aluno.pk,
                 'mac': 15,
-                'npp': 15,
                 'npt': 15,
                 'observacao': '',
             },
@@ -99,7 +98,6 @@ class PeriodoLancamentoTests(PautasTestBase):
                 'avaliacao': self.avaliacao.pk,
                 'aluno': self.aluno.pk,
                 'mac': 15,
-                'npp': 15,
                 'npt': 15,
                 'observacao': '',
             },
@@ -230,7 +228,7 @@ class ConsultaPautasTests(PautasTestBase):
             atribuicao=self.atribuicao, periodo=outro_periodo, status=Avaliacao.STATUS_COM_ERROS
         )
         Nota.objects.create(
-            avaliacao=self.avaliacao_com_erros, aluno=self.aluno, mac=5, npp=5, npt=5
+            avaliacao=self.avaliacao_com_erros, aluno=self.aluno, mac=5, npt=5
         )
 
         outro_encarregado_user = User.objects.create_user(username='encarregado2', password='senha123')

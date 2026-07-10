@@ -34,7 +34,7 @@ class ClasseAdmin(admin.ModelAdmin):
 @admin.register(Turma)
 class TurmaAdmin(admin.ModelAdmin):
     list_display = (
-        'nome', 'classe', 'ano_letivo', 'sala', 'periodo', 'numero_alunos', 'ativo'
+        'nome', 'classe', 'ano_letivo', 'sala', 'periodo', 'numero_pauta', 'numero_alunos', 'ativo'
     )
     list_filter = ('classe', 'ano_letivo', 'periodo', 'ativo')
     search_fields = ('nome', 'sala')
