@@ -1,76 +1,181 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}
 Relatórios
 {% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container-fluid mt-4">
     <h2>Relatórios</h2>
 
-    <h5 class="mt-4">Pautas Gerais por Turma</h5>
-    <div class="table-responsive">
-        <table class="table table-sm table-striped align-middle">
-            <thead>
-                <tr>
-                    <th>Turma</th>
-                    <th>Excel</th>
-                    <th>PDF</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for turma in turmas %}
-                <tr>
-                    <td>{{ turma }}</td>
-                    <td>
-                        <a class="btn btn-success btn-sm"
-                           href="{% url 'pauta_final_exportar_excel' %}?turma={{ turma.id }}&ano_letivo={{ turma.ano_letivo_id }}">
-                            Excel
-                        </a>
-                    </td>
-                    <td>
-                        <a class="btn btn-danger btn-sm"
-                           href="{% url 'pauta_final_exportar_pdf' %}?turma={{ turma.id }}&ano_letivo={{ turma.ano_letivo_id }}">
-                            PDF
-                        </a>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="3">Nenhuma turma associada.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="row g-3 mt-1">
+        <div class="col-md-3 col-6">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Alunos</h6>
+                    <h3>{{ total_alunos }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Turmas</h6>
+                    <h3>{{ total_turmas }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Média Geral</h6>
+                    <h3>{{ media_geral|default:"—" }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Aprovação / Reprovação</h6>
+                    <h3><span class="text-success">{{ taxa_aprovacao }}%</span> / <span class="text-danger">{{ taxa_reprovacao }}%</span></h3>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <h5 class="mt-4">Mini-Pautas por Disciplina/Turma</h5>
+    <div class="row g-4 mt-1">
+        <div class="col-md-6">
+            <h5 class="text-center">Evolução da Média por Trimestre</h5>
+            <canvas id="grafico-evolucao" height="200"></canvas>
+            {{ evolucao_labels|json_script:"evolucao-labels" }}
+            {{ evolucao_dados|json_script:"evolucao-dados" }}
+        </div>
+        <div class="col-md-6">
+            <h5 class="text-center">Desempenho por Disciplina</h5>
+            <canvas id="grafico-disciplinas" height="200"></canvas>
+            {{ disciplinas_labels|json_script:"disciplinas-labels" }}
+            {{ disciplinas_dados|json_script:"disciplinas-dados" }}
+        </div>
+    </div>
+
+    <div class="row g-4 mt-1">
+        <div class="col-md-6">
+            <h5>Alunos em Risco Académico</h5>
+            <div class="table-responsive">
+                <table class="table table-sm table-striped align-middle">
+                    <thead>
+                        <tr>
+                            <th>Aluno</th>
+                            <th>Turma</th>
+                            <th>Média</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in alunos_risco %}
+                        <tr class="table-danger">
+                            <td>{{ item.aluno }}</td>
+                            <td>{{ item.turma }}</td>
+                            <td>{{ item.media }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3">Nenhum aluno em risco identificado.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <h5>Melhores Médias</h5>
+            <div class="table-responsive">
+                <table class="table table-sm table-striped align-middle">
+                    <thead>
+                        <tr>
+                            <th>Aluno</th>
+                            <th>Turma</th>
+                            <th>Média</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in melhores_medias %}
+                        <tr class="table-success">
+                            <td>{{ item.aluno }}</td>
+                            <td>{{ item.turma }}</td>
+                            <td>{{ item.media }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3">Sem notas lançadas.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <h5 class="mt-4">Pautas</h5>
     <div class="table-responsive">
         <table class="table table-sm table-striped align-middle">
             <thead>
                 <tr>
                     <th>Turma</th>
                     <th>Disciplina</th>
-                    <th>Excel</th>
-                    <th>PDF</th>
+                    <th>Pauta-Geral</th>
+                    <th>Mini-Pauta</th>
                 </tr>
             </thead>
             <tbody>
-                {% for atribuicao in atribuicoes %}
+                {% regroup atribuicoes by turma as turmas_agrupadas %}
+                {% for grupo in turmas_agrupadas %}
+                {% for atribuicao in grupo.list %}
                 <tr>
-                    <td>{{ atribuicao.turma }}</td>
+                    {% if forloop.first %}
+                    <td rowspan="{{ grupo.list|length }}">{{ grupo.grouper }}</td>
+                    <td rowspan="{{ grupo.list|length }}">
+                        <div class="dropdown">
+                            <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                Ver
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li>
+                                    <a class="dropdown-item"
+                                       href="{% url 'pauta_final_exportar_excel' %}?turma={{ grupo.grouper.id }}&ano_letivo={{ grupo.grouper.ano_letivo_id }}">
+                                        Excel
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item"
+                                       href="{% url 'pauta_final_exportar_pdf' %}?turma={{ grupo.grouper.id }}&ano_letivo={{ grupo.grouper.ano_letivo_id }}">
+                                        PDF
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </td>
+                    {% endif %}
                     <td>{{ atribuicao.disciplina }}</td>
                     <td>
-                        <a class="btn btn-success btn-sm"
-                           href="{% url 'mini_pauta_exportar_excel' %}?turma={{ atribuicao.turma_id }}&disciplina={{ atribuicao.disciplina_id }}&ano_letivo={{ atribuicao.ano_letivo_id }}">
-                            Excel
-                        </a>
-                    </td>
-                    <td>
-                        <a class="btn btn-danger btn-sm"
-                           href="{% url 'mini_pauta_exportar_pdf' %}?turma={{ atribuicao.turma_id }}&disciplina={{ atribuicao.disciplina_id }}&ano_letivo={{ atribuicao.ano_letivo_id }}">
-                            PDF
-                        </a>
+                        <div class="dropdown">
+                            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                Ver
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li>
+                                    <a class="dropdown-item"
+                                       href="{% url 'mini_pauta_exportar_excel' %}?turma={{ atribuicao.turma_id }}&disciplina={{ atribuicao.disciplina_id }}&ano_letivo={{ atribuicao.ano_letivo_id }}">
+                                        Excel
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item"
+                                       href="{% url 'mini_pauta_exportar_pdf' %}?turma={{ atribuicao.turma_id }}&disciplina={{ atribuicao.disciplina_id }}&ano_letivo={{ atribuicao.ano_letivo_id }}">
+                                        PDF
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
                     </td>
                 </tr>
+                {% endfor %}
                 {% empty %}
                 <tr><td colspan="4">Nenhuma atribuição docente ativa.</td></tr>
                 {% endfor %}
@@ -78,4 +183,9 @@ Relatórios
         </table>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/vendor/chart.min.js' %}"></script>
+<script src="{% static 'js/relatorios_charts.js' %}"></script>
 {% endblock %}

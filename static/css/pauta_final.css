@@ -1,0 +1,20 @@
+.pauta-final-wrap {
+    font-size: 0.85rem;
+}
+
+.pauta-final-table th.vertical {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    white-space: nowrap;
+    vertical-align: bottom;
+    padding: 6px 4px;
+}
+
+.pauta-final-table td.aluno-nome,
+.pauta-final-table th.aluno-col {
+    white-space: nowrap;
+}
+
+.pauta-zoom-controls .btn {
+    min-width: 40px;
+}

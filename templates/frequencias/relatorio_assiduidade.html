@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}
+Relatório de Assiduidade
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2>Relatório de Assiduidade</h2>
+
+    <form method="get" class="row g-2 align-items-end mt-2">
+        <div class="col-md-3">
+            <label class="form-label">Mês</label>
+            <input type="month" name="mes" class="form-control" value="{{ mes }}">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Turma</label>
+            <select name="turma" class="form-select">
+                <option value="">Todas as turmas</option>
+                {% for turma in turmas %}
+                <option value="{{ turma.id }}" {% if turma_id == turma.id|stringformat:"s" %}selected{% endif %}>
+                    {{ turma }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <button type="submit" class="btn btn-outline-primary">Filtrar</button>
+            <a href="{% url 'relatorio_assiduidade' %}" class="btn btn-outline-secondary">Limpar</a>
+        </div>
+    </form>
+
+    <div class="row g-3 mt-1">
+        <div class="col-md-3 col-6">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Presenças</h6>
+                    <h3 class="text-success">{{ presencas }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Faltas</h6>
+                    <h3 class="text-danger">{{ faltas }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Justificadas</h6>
+                    <h3 class="text-primary">{{ justificadas }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Taxa de Absentismo</h6>
+                    <h3>{{ taxa_absentismo }}%</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mt-1">
+        <div class="col-md-5">
+            <h5 class="text-center">Distribuição de Presenças</h5>
+            <canvas id="grafico-estados" height="220"></canvas>
+            {{ estados_labels|json_script:"estados-labels" }}
+            {{ estados_dados|json_script:"estados-dados" }}
+        </div>
+        <div class="col-md-7">
+            <h5 class="text-center">Absentismo por Turma</h5>
+            <canvas id="grafico-turmas" height="220"></canvas>
+            {{ turma_labels|json_script:"turma-labels" }}
+            {{ turma_presentes|json_script:"turma-presentes" }}
+            {{ turma_ausentes|json_script:"turma-ausentes" }}
+            {{ turma_justificadas|json_script:"turma-justificadas" }}
+        </div>
+    </div>
+
+    <div class="row g-4 mt-1">
+        <div class="col-md-6">
+            <h5>Absentismo por Turma</h5>
+            <div class="table-responsive">
+                <table class="table table-sm table-striped align-middle">
+                    <thead>
+                        <tr>
+                            <th>Turma</th>
+                            <th>Presentes</th>
+                            <th>Ausentes</th>
+                            <th>Justificadas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in absentismo_por_turma %}
+                        <tr>
+                            <td>{{ item.turma }}</td>
+                            <td>{{ item.presentes }}</td>
+                            <td>{{ item.ausentes }}</td>
+                            <td>{{ item.justificadas }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4">Sem registos de frequência neste período.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <h5>Alunos com Mais Faltas/Justificações</h5>
+            <div class="table-responsive">
+                <table class="table table-sm table-striped align-middle">
+                    <thead>
+                        <tr>
+                            <th>Nº</th>
+                            <th>Nome</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in alunos_mais_faltas %}
+                        <tr>
+                            <td>{{ item.aluno.numero_processo }}</td>
+                            <td>{{ item.aluno.nome }}</td>
+                            <td>{{ item.total }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3">Sem faltas registadas neste período.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/vendor/chart.min.js' %}"></script>
+<script src="{% static 'js/assiduidade_charts.js' %}"></script>
+{% endblock %}

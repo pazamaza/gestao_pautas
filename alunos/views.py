@@ -11,6 +11,7 @@ from django.shortcuts import (render, redirect,
 from django.views import View
 from accounts.utils import eh_administrador, eh_professor
 from professores.models import AtribuicaoDocente
+from turmas.models import Turma
 
 
 class AlunoCreateView(SuccessMessageMixin, CreateView):
@@ -42,26 +43,37 @@ class AlunoListView(LoginRequiredMixin, ListView):
     template_name = 'alunos/lista.html'
     context_object_name = 'alunos'
     paginate_by = 10
+    def get_turmas_permitidas(self):
+        user = self.request.user
+        if eh_administrador(user):
+            return Turma.objects.filter(ativo=True).order_by('classe__nome', 'nome')
+        if eh_professor(user):
+            turmas_ids = AtribuicaoDocente.objects.filter(
+                professor__user=user, ativo=True
+            ).values_list('turma_id', flat=True)
+            return Turma.objects.filter(id__in=turmas_ids).order_by('classe__nome', 'nome')
+        return Turma.objects.none()
+
     def get_queryset(self):
         pesquisa = self.request.GET.get('q')
-        queryset = Aluno.objects.all().order_by('nome')
+        turma_id = self.request.GET.get('turma')
+        turmas_permitidas = self.get_turmas_permitidas()
+        queryset = Aluno.objects.filter(turma__in=turmas_permitidas).order_by('nome')
 
-        user = self.request.user
-        if not eh_administrador(user):
-            if eh_professor(user):
-                turmas_ids = AtribuicaoDocente.objects.filter(
-                    professor__user=user, ativo=True
-                ).values_list('turma_id', flat=True)
-                queryset = queryset.filter(turma_id__in=turmas_ids)
-            else:
-                queryset = queryset.none()
+        if turma_id:
+            queryset = queryset.filter(turma_id=turma_id)
 
         if pesquisa:
             queryset = queryset.filter(
                 nome__icontains=pesquisa
             )
         return queryset
-    
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['turmas'] = self.get_turmas_permitidas()
+        return context
+
 class EncarregadoListView(ListView):
     model = Encarregado
     template_name = 'encarregados/lista.html'

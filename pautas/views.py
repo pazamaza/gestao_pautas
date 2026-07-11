@@ -188,6 +188,13 @@ def lancamento_notas(request):
     return render(request, 'pautas/lancamento_notas.html', contexto)
 
 
+def _media(valores):
+    valores = list(valores)
+    if not valores:
+        return None
+    return round(sum(valores) / len(valores), 1)
+
+
 @admin_ou_professor_requerido
 def relatorios_professor(request):
     atribuicoes = AtribuicaoDocente.objects.filter(ativo=True).select_related(
@@ -204,11 +211,90 @@ def relatorios_professor(request):
         .order_by('classe__nome', 'nome')
     )
 
-    return render(
-        request,
-        'pautas/relatorios.html',
-        {'atribuicoes': atribuicoes, 'turmas': turmas},
+    pares = {(a.turma_id, a.disciplina_id, a.ano_letivo_id) for a in atribuicoes}
+    turma_ids = {p[0] for p in pares}
+    disciplina_ids = {p[1] for p in pares}
+
+    alunos_scoped = Aluno.objects.filter(
+        turma_id__in=turma_ids, estado=Aluno.ESTADO_ATIVO
+    ).select_related('turma').distinct()
+
+    resultados_todos = ResultadoDisciplina.objects.filter(
+        aluno__turma_id__in=turma_ids, disciplina_id__in=disciplina_ids,
+    ).select_related('aluno', 'aluno__turma', 'disciplina')
+    resultados = [
+        r for r in resultados_todos
+        if (r.aluno.turma_id, r.disciplina_id, r.ano_letivo_id) in pares
+    ]
+    resultados_com_notas = [r for r in resultados if r.mf and r.mf > 0]
+
+    total_alunos = alunos_scoped.count()
+    total_turmas = turmas.count()
+    media_geral = _media(r.mf for r in resultados_com_notas)
+
+    aprovados = sum(1 for r in resultados_com_notas if r.resultado == ResultadoDisciplina.RESULTADO_APROVADO)
+    reprovados = sum(
+        1 for r in resultados_com_notas
+        if r.resultado in (ResultadoDisciplina.RESULTADO_REPROVADO, ResultadoDisciplina.RESULTADO_DEFICIENCIA)
     )
+    total_avaliados = len(resultados_com_notas)
+    taxa_aprovacao = round(aprovados / total_avaliados * 100, 1) if total_avaliados else 0
+    taxa_reprovacao = round(reprovados / total_avaliados * 100, 1) if total_avaliados else 0
+
+    disciplinas_labels = []
+    disciplinas_dados = []
+    por_disciplina = {}
+    for r in resultados_com_notas:
+        por_disciplina.setdefault(r.disciplina.nome, []).append(float(r.mf))
+    for nome, valores in sorted(por_disciplina.items()):
+        disciplinas_labels.append(nome)
+        disciplinas_dados.append(_media(valores))
+
+    evolucao_labels = ['1º Trimestre', '2º Trimestre', '3º Trimestre']
+    evolucao_dados = [
+        _media(float(r.mt1) for r in resultados_com_notas if r.mt1 and r.mt1 > 0) or 0,
+        _media(float(r.mt2) for r in resultados_com_notas if r.mt2 and r.mt2 > 0) or 0,
+        _media(float(r.mt3) for r in resultados_com_notas if r.mt3 and r.mt3 > 0) or 0,
+    ]
+
+    medias_por_aluno = {}
+    for r in resultados_com_notas:
+        medias_por_aluno.setdefault(r.aluno, []).append(float(r.mf))
+
+    alunos_risco = sorted(
+        (
+            {'aluno': aluno, 'turma': aluno.turma, 'media': _media(valores)}
+            for aluno, valores in medias_por_aluno.items()
+            if _media(valores) is not None and _media(valores) < 10
+        ),
+        key=lambda item: item['media'],
+    )[:10]
+
+    melhores_medias = sorted(
+        (
+            {'aluno': aluno, 'turma': aluno.turma, 'media': _media(valores)}
+            for aluno, valores in medias_por_aluno.items()
+        ),
+        key=lambda item: item['media'],
+        reverse=True,
+    )[:5]
+
+    contexto = {
+        'atribuicoes': atribuicoes,
+        'turmas': turmas,
+        'total_alunos': total_alunos,
+        'total_turmas': total_turmas,
+        'media_geral': media_geral,
+        'taxa_aprovacao': taxa_aprovacao,
+        'taxa_reprovacao': taxa_reprovacao,
+        'disciplinas_labels': disciplinas_labels,
+        'disciplinas_dados': disciplinas_dados,
+        'evolucao_labels': evolucao_labels,
+        'evolucao_dados': evolucao_dados,
+        'alunos_risco': alunos_risco,
+        'melhores_medias': melhores_medias,
+    }
+    return render(request, 'pautas/relatorios.html', contexto)
 
 
 class NotaListView(AdminOuProfessorRequeridoMixin, ListView):

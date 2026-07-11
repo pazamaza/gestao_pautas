@@ -1,18 +1,35 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="container mt-4">
-    <div class="d-flex justify-content-between">
+    <div class="d-flex justify-content-between flex-wrap gap-2">
         <h2>Frequências</h2>
         {% if pode_gerir %}
-        <a href="{% url 'frequencia_form' %}"
-           class="btn btn-primary">Nova Frequência </a>
+        <a href="{% url 'lancamento_frequencia' %}"
+           class="btn btn-primary">Registar Frequência </a>
         {% endif %}
     </div>
+
+    <form method="get" class="row g-2 align-items-end mt-3">
+        <div class="col-md-3">
+            <label class="form-label">Filtrar por dia</label>
+            <input type="date" name="data" class="form-control" value="{{ data_filtro }}" onchange="this.form.submit()">
+        </div>
+        <div class="col-md-3">
+            <button type="submit" class="btn btn-outline-primary">Filtrar</button>
+            <a href="{% url 'frequencia_lista' %}" class="btn btn-outline-secondary">Limpar</a>
+        </div>
+    </form>
+
     <table class="table table-striped mt-3">
         <thead>
             <tr>
                 <th>Aluno</th>
-                <th>Data</th>
+                <th>
+                    <a class="link-dark text-decoration-none"
+                       href="?data={{ data_filtro }}&ordenar={% if ordenacao == '-data' %}data{% else %}-data{% endif %}">
+                        Data {% if ordenacao == '-data' %}&#9660;{% else %}&#9650;{% endif %}
+                    </a>
+                </th>
                 <th>Estado</th>
                 {% if pode_gerir %}
                 <th>Ações</th>

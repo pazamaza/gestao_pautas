@@ -96,7 +96,13 @@
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end"
                         aria-labelledby="menuEnsino">
-                        <li><a class="dropdown-item" href="{% url 'aluno_lista' %}">Alunos</a></li>
+                        <li><a class="dropdown-item" href="{% url 'aluno_lista' %}">Todos os Alunos</a></li>
+                        {% if turmas_professor_nav %}
+                        <li><hr class="dropdown-divider"></li>
+                        {% for turma in turmas_professor_nav %}
+                        <li><a class="dropdown-item" href="{% url 'aluno_lista' %}?turma={{ turma.id }}">{{ turma }}</a></li>
+                        {% endfor %}
+                        {% endif %}
                     </ul>
                 </li>
                 <li class="nav-item dropdown">
@@ -111,8 +117,9 @@
                     <ul class="dropdown-menu dropdown-menu-end"
                         aria-labelledby="menuAvaliacoes">
                         <li><a class="dropdown-item" href="{% url 'lancamento_notas' %}">Lançar Notas</a></li>
-                        <li><a class="dropdown-item" href="{% url 'avaliacao_lista' %}">Avaliações / Pautas</a></li>
                         <li><a class="dropdown-item" href="{% url 'pauta_final_turma' %}">Pauta-Geral</a></li>
+                        <li><a class="dropdown-item" href="{% url 'resultado_lista' %}">Resultados Finais</a></li>
+                        <li><a class="dropdown-item" href="{% url 'mini_pauta_trimestral' %}">Mini-Pauta Trimestral</a></li>
                     </ul>
                 </li>
                 <li class="nav-item dropdown">
@@ -130,8 +137,20 @@
                         <li><a class="dropdown-item" href="{% url 'justificacao_lista' %}">Justificações</a></li>
                     </ul>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'relatorios_professor' %}">Relatórios</a>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle"
+                       href="#"
+                       id="menuRelatorios"
+                       role="button"
+                       data-bs-toggle="dropdown"
+                       aria-expanded="false">
+                        Relatórios
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end"
+                        aria-labelledby="menuRelatorios">
+                        <li><a class="dropdown-item" href="{% url 'relatorios_professor' %}">Aproveitamento</a></li>
+                        <li><a class="dropdown-item" href="{% url 'relatorio_assiduidade' %}">Assiduidade</a></li>
+                    </ul>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'perfil' %}">Conta</a>

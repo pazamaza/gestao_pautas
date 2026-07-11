@@ -1,18 +1,29 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}
 Pauta Final da Turma
 {% endblock %}
 
 {% block content %}
+<link rel="stylesheet" href="{% static 'css/pauta_final.css' %}">
 
 <div class="container-fluid mt-4">
 
     <div class="d-flex justify-content-between flex-wrap gap-2">
         <h2>Pauta Final da Turma</h2>
-        <a href="{% url 'resultado_lista' %}" class="btn btn-outline-secondary">
-            Voltar
-        </a>
+        <div class="d-flex gap-2">
+            {% if disciplinas %}
+            <div class="btn-group pauta-zoom-controls" role="group" aria-label="Zoom da pauta">
+                <button type="button" id="pauta-zoom-out" class="btn btn-outline-secondary btn-sm">−</button>
+                <button type="button" id="pauta-zoom-reset" class="btn btn-outline-secondary btn-sm">100%</button>
+                <button type="button" id="pauta-zoom-in" class="btn btn-outline-secondary btn-sm">+</button>
+            </div>
+            {% endif %}
+            <a href="{% url 'resultado_lista' %}" class="btn btn-outline-secondary">
+                Voltar
+            </a>
+        </div>
     </div>
 
     <form method="get" class="row g-2 align-items-end mt-2">
@@ -77,12 +88,12 @@ Pauta Final da Turma
         </div>
     </div>
 
-    <div class="table-responsive mt-3">
-        <table class="table table-bordered table-sm text-center align-middle">
+    <div id="pauta-zoom-wrap" class="table-responsive mt-3">
+        <table class="table table-bordered table-sm text-center align-middle pauta-final-table">
             <thead class="table-primary">
                 <tr>
                     <th rowspan="2">Nº</th>
-                    <th rowspan="2">Aluno</th>
+                    <th rowspan="2" class="aluno-col">Aluno</th>
                     {% for disciplina in disciplinas %}
                     <th colspan="4">{{ disciplina }}</th>
                     {% endfor %}
@@ -90,10 +101,10 @@ Pauta Final da Turma
                 </tr>
                 <tr>
                     {% for disciplina in disciplinas %}
-                    <th>MFD</th>
-                    <th>NE</th>
-                    <th>MF</th>
-                    <th>NER</th>
+                    <th class="vertical">MFD</th>
+                    <th class="vertical">NE</th>
+                    <th class="vertical">MF</th>
+                    <th class="vertical">NER</th>
                     {% endfor %}
                 </tr>
             </thead>
@@ -101,7 +112,7 @@ Pauta Final da Turma
                 {% for linha in linhas %}
                 <tr>
                     <td>{{ forloop.counter }}</td>
-                    <td class="text-start">{{ linha.aluno }}</td>
+                    <td class="text-start aluno-nome">{{ linha.aluno }}</td>
                     {% for resultado in linha.celulas %}
                     {% if resultado %}
                     <td>{{ resultado.mf }}</td>
@@ -147,4 +158,8 @@ Pauta Final da Turma
 
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/pauta_final_zoom.js' %}"></script>
 {% endblock %}
