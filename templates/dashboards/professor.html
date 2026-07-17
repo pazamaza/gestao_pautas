@@ -5,144 +5,344 @@
 Dashboard do Professor
 {% endblock %}
 
+{% block navbar %}{% endblock %}
+
 {% block content %}
-<div class="container py-4">
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-        <div>
-            <h2 class="mb-1">Dashboard do Professor</h2>
-            <p class="text-muted mb-0">
-                Gestão de turmas, avaliações, notas e pautas.
-            </p>
-        </div>
-    </div>
-
-    <div class="row g-3 mb-4">
-        <div class="col-md-3">
-            <div class="card shadow-sm">
-                <div class="card-body text-center">
-                    <h6 class="text-muted">Disciplinas</h6>
-                    <h3>{{ total_disciplinas }}</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm">
-                <div class="card-body text-center">
-                    <h6 class="text-muted">Turmas</h6>
-                    <h3>{{ total_turmas }}</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm">
-                <div class="card-body text-center">
-                    <h6 class="text-muted">Alunos</h6>
-                    <h3>{{ total_alunos }}</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm border-warning">
-                <div class="card-body text-center">
-                    <h6 class="text-muted">Pautas por Finalizar</h6>
-                    <h3 class="text-warning">{{ pautas_por_finalizar }}</h3>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <h5 class="mb-3">Ações Rápidas</h5>
-    <div class="row g-3 mb-4">
-        <div class="col-md-3">
-            <a href="{% url 'lancamento_notas' %}" class="btn btn-primary w-100 py-3">
-                Lançar Notas
-            </a>
-        </div>
-        <div class="col-md-3">
-            <a href="{% url 'avaliacao_lista' %}?status=rascunho" class="btn btn-outline-success w-100 py-3">
-                Fechar Pauta
-            </a>
-        </div>
-        <div class="col-md-3">
-            <a href="{% url 'lancamento_frequencia' %}{% if atribuicao_padrao %}?atribuicao={{ atribuicao_padrao.id }}{% endif %}"
-               class="btn btn-outline-secondary w-100 py-3">
-                Registar Frequência
-            </a>
-        </div>
-        <div class="col-md-3">
-            {% if atribuicao_padrao %}
-            <div class="dropdown h-100">
-                <button class="btn btn-outline-primary w-100 h-100 py-3 dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                    Pauta
-                </button>
-                <ul class="dropdown-menu w-100">
-                    <li>
-                        <a class="dropdown-item"
-                           href="{% url 'mini_pauta_exportar_excel' %}?turma={{ atribuicao_padrao.turma_id }}&disciplina={{ atribuicao_padrao.disciplina_id }}&ano_letivo={{ atribuicao_padrao.ano_letivo_id }}">
-                            Mini-Pauta (Excel)
-                        </a>
-                    </li>
-                    <li>
-                        <a class="dropdown-item"
-                           href="{% url 'pauta_final_exportar_excel' %}?turma={{ atribuicao_padrao.turma_id }}&ano_letivo={{ atribuicao_padrao.ano_letivo_id }}">
-                            Pauta-Geral (Excel)
-                        </a>
-                    </li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li>
-                        <a class="dropdown-item"
-                           href="{% url 'pauta_final_exportar_pdf' %}?turma={{ atribuicao_padrao.turma_id }}&ano_letivo={{ atribuicao_padrao.ano_letivo_id }}">
-                            Imprimir Pauta (PDF)
-                        </a>
-                    </li>
-                </ul>
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+<div class="prof-dash">
+    <aside class="prof-dash-sidebar">
+        <div class="prof-dash-perfil">
+            {% if request.user.perfil.foto %}
+            <img src="{{ request.user.perfil.foto.url }}" alt="Foto de {{ request.user.get_full_name|default:request.user.username }}" class="rounded-circle">
+            {% else %}
+            <div class="rounded-circle prof-dash-perfil-iniciais">
+                {{ request.user.get_full_name|default:request.user.username|slice:":1"|upper }}
             </div>
             {% endif %}
+            <h6 class="mb-0 mt-2">{{ request.user.get_full_name|default:request.user.username|upper }}</h6>
+            <small class="text-muted">
+                PROFESSOR
+                {% if atribuicao_selecionada %}- {{ atribuicao_selecionada.disciplina|upper }}{% endif %}
+            </small>
         </div>
-    </div>
+        <nav class="prof-dash-nav">
+            <a href="{% url 'dashboard' %}" class="active">Início</a>
+            <a href="{% url 'aluno_lista' %}">Turmas</a>
+            <a href="{% url 'lancamento_notas' %}{% if atribuicao_selecionada %}?atribuicao={{ atribuicao_selecionada.id }}{% endif %}">Caderneta</a>
+            <a href="{% url 'relatorios_professor' %}">Relatórios</a>
+            <a href="{% url 'justificacao_lista' %}">Justificações</a>
+            <a href="{% url 'perfil' %}">Configurações</a>
+        </nav>
+        <a href="{% url 'logout' %}" class="prof-dash-sair">Sair</a>
+    </aside>
 
-    <div class="row g-4">
-        <div class="col-md-6">
-            <h5 class="text-center">Média por Turma</h5>
-            <canvas id="grafico-medias" height="200"></canvas>
-            {{ grafico_medias_labels|json_script:"grafico-medias-labels" }}
-            {{ grafico_medias_dados|json_script:"grafico-medias-dados" }}
-        </div>
-        <div class="col-md-6">
-            <h5 class="text-center">Aprovados vs. Reprovados</h5>
-            <canvas id="grafico-resultado" height="200"></canvas>
-            {{ grafico_resultado_labels|json_script:"grafico-resultado-labels" }}
-            {{ grafico_resultado_dados|json_script:"grafico-resultado-dados" }}
-        </div>
-    </div>
+    <main class="prof-dash-main">
+        <header class="prof-dash-header">
+            <div>
+                <span class="prof-dash-marca">Gestão de Pautas</span>
+                <h5 class="mb-0">Caderneta Digital do Professor</h5>
+            </div>
+        </header>
 
-    <hr class="my-4">
-    <div class="row g-3">
-        <div class="col-md-3">
-            <a href="{% url 'avaliacao_lista' %}" class="btn btn-outline-primary w-100 py-3">
-                Avaliações e Pautas
-            </a>
+        {% if not atribuicao_selecionada %}
+        <div class="alert alert-warning mt-3">
+            Não existe nenhuma atribuição docente ativa associada a si.
         </div>
-        <div class="col-md-3">
-            <a href="{% url 'aluno_lista' %}" class="btn btn-outline-secondary w-100 py-3">
-                Alunos
-            </a>
+        {% else %}
+
+        <form method="get" class="card shadow-sm mt-3 mb-3 prof-dash-filtros">
+            <div class="card-body row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label small text-uppercase text-muted">Minhas Turmas</label>
+                    <select name="turma" class="form-select" onchange="this.form.submit()">
+                        {% regroup atribuicoes_professor by turma as grupos_turma %}
+                        {% for grupo in grupos_turma %}
+                        <option value="{{ grupo.grouper.id }}" {% if atribuicao_selecionada.turma_id == grupo.grouper.id %}selected{% endif %}>
+                            {{ grupo.grouper }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small text-uppercase text-muted">Disciplina</label>
+                    <select name="disciplina" class="form-select" onchange="this.form.submit()">
+                        {% for atrib in atribuicoes_professor %}
+                        {% if atrib.turma_id == atribuicao_selecionada.turma_id %}
+                        <option value="{{ atrib.disciplina_id }}" {% if atribuicao_selecionada.disciplina_id == atrib.disciplina_id %}selected{% endif %}>
+                            {{ atrib.disciplina }}
+                        </option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small text-uppercase text-muted">Período</label>
+                    <select name="periodo" class="form-select" onchange="this.form.submit()">
+                        {% for periodo in periodos_disponiveis %}
+                        <option value="{{ periodo.id }}" {% if periodo_selecionado.id == periodo.id %}selected{% endif %}>
+                            {{ periodo.nome }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </form>
+
+        <div class="row g-3 mb-3">
+            <div class="col-lg-8">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h6 class="text-uppercase text-muted mb-3">Ações Rápidas</h6>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a href="{% url 'lancamento_notas' %}?atribuicao={{ atribuicao_selecionada.id }}" class="btn btn-primary">Lançar Nota</a>
+                            <a href="{% url 'lancamento_frequencia' %}?atribuicao={{ atribuicao_selecionada.id }}" class="btn btn-outline-secondary">Registar Frequência</a>
+                            <a href="{% url 'avaliacao_lista' %}?status=rascunho" class="btn btn-outline-success">Fechar Pauta</a>
+                            <div class="dropdown">
+                                <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                    Gerar Pauta
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li>
+                                        <a class="dropdown-item"
+                                           href="{% url 'mini_pauta_exportar_excel' %}?turma={{ atribuicao_selecionada.turma_id }}&disciplina={{ atribuicao_selecionada.disciplina_id }}&ano_letivo={{ atribuicao_selecionada.ano_letivo_id }}">
+                                            Mini-Pauta (Excel)
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item"
+                                           href="{% url 'pauta_final_exportar_excel' %}?turma={{ atribuicao_selecionada.turma_id }}&ano_letivo={{ atribuicao_selecionada.ano_letivo_id }}">
+                                            Pauta-Geral (Excel)
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <a class="dropdown-item"
+                                           href="{% url 'pauta_final_exportar_pdf' %}?turma={{ atribuicao_selecionada.turma_id }}&ano_letivo={{ atribuicao_selecionada.ano_letivo_id }}">
+                                            Imprimir Pauta (PDF)
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="card shadow-sm h-100 border-warning">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted mb-1">Pautas por Finalizar</h6>
+                        <h3 class="text-warning mb-0">{{ pautas_por_finalizar }}</h3>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="col-md-3">
-            <a href="{% url 'justificacao_lista' %}" class="btn btn-outline-secondary w-100 py-3">
-                Justificações
-            </a>
+
+        <div class="row g-3 mb-3">
+            <div class="col-md-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body text-center">
+                        <h6 class="text-uppercase text-muted small mb-2">Frequência Média da Turma</h6>
+                        <canvas id="grafico-frequencia-gauge" height="140"></canvas>
+                        <div class="small text-muted mt-1">
+                            {% if frequencia_media_turma is not None %}
+                            {{ alunos_turma|length }} alunos na turma
+                            {% else %}
+                            Sem registos de frequência.
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body text-center">
+                        <h6 class="text-uppercase text-muted small mb-2">Desempenho da Turma</h6>
+                        <canvas id="grafico-desempenho-gauge" height="140"></canvas>
+                        <div class="small text-muted mt-1">
+                            Média do período · {{ periodo_selecionado.nome|default:"—" }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h6 class="text-uppercase text-muted small mb-3 text-center">Pendências</h6>
+                        <div class="prof-dash-pendencias-bar">
+                            {% if notas_a_lancar > 0 %}
+                            <div class="bg-primary" style="flex-grow:{{ notas_a_lancar }};" title="Notas a lançar"></div>
+                            {% endif %}
+                            {% if justificacoes_pendentes > 0 %}
+                            <div class="bg-danger" style="flex-grow:{{ justificacoes_pendentes }};" title="Justificações pendentes"></div>
+                            {% endif %}
+                            {% if notas_a_lancar == 0 and justificacoes_pendentes == 0 %}
+                            <div class="bg-success" style="flex-grow:1;"></div>
+                            {% endif %}
+                        </div>
+                        <ul class="list-unstyled small mt-3 mb-0">
+                            <li><span class="prof-dash-legenda bg-primary"></span> Notas a lançar ({{ notas_a_lancar }})</li>
+                            <li><span class="prof-dash-legenda bg-danger"></span> Justificações pendentes ({{ justificacoes_pendentes }})</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="col-md-3">
-            <a href="{% url 'relatorios_professor' %}" class="btn btn-outline-secondary w-100 py-3">
-                Relatórios
-            </a>
+
+        <div class="card shadow-sm mb-3">
+            <div class="card-body">
+                <h6 class="mb-3">Detalhamento da Turma: {{ atribuicao_selecionada.turma }}</h6>
+
+                <ul class="nav nav-tabs" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-notas" type="button">Notas</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-frequencia" type="button">Frequência</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-alunos" type="button">Alunos</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content pt-3">
+                    <div class="tab-pane fade show active" id="tab-notas">
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Aluno</th>
+                                        <th>MAC</th>
+                                        <th>NPT</th>
+                                        <th>Média (MT)</th>
+                                        <th>Tendência</th>
+                                        <th>Situação</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for linha in linhas_turma %}
+                                    <tr>
+                                        <td>{{ linha.aluno.nome }}</td>
+                                        <td>{% if linha.nota %}{{ linha.nota.mac }}{% else %}—{% endif %}</td>
+                                        <td>{% if linha.nota %}{{ linha.nota.npt }}{% else %}—{% endif %}</td>
+                                        <td>{% if linha.nota %}{{ linha.nota.mt }}{% else %}—{% endif %}</td>
+                                        <td style="width:100px;">
+                                            <canvas class="prof-dash-sparkline" height="28" data-valores="{{ linha.tendencia|join:',' }}"></canvas>
+                                        </td>
+                                        <td>
+                                            {% if linha.situacao == 'aprovado' %}
+                                            <span class="badge bg-success">Aprov.</span>
+                                            {% elif linha.situacao == 'exame' %}
+                                            <span class="badge bg-warning text-dark">Exame</span>
+                                            {% elif linha.situacao == 'reprovado' %}
+                                            <span class="badge bg-danger">Reprov.</span>
+                                            {% else %}
+                                            <span class="badge bg-secondary">Pendente</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <a href="{% url 'lancamento_notas' %}?atribuicao={{ atribuicao_selecionada.id }}" class="link-primary small">Editar</a>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr><td colspan="7" class="text-center text-muted">Sem alunos ativos nesta turma.</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-frequencia">
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Aluno</th>
+                                        <th>Presença</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for linha in linhas_turma %}
+                                    <tr>
+                                        <td>{{ linha.aluno.nome }}</td>
+                                        <td>{{ linha.frequencia_pct|default_if_none:"—" }}{% if linha.frequencia_pct is not None %}%{% endif %}</td>
+                                        <td style="width:40%;">
+                                            {% if linha.frequencia_pct is not None %}
+                                            <div class="progress" style="height:6px;">
+                                                <div class="progress-bar {% if linha.frequencia_pct < 75 %}bg-danger{% else %}bg-success{% endif %}"
+                                                     style="width:{{ linha.frequencia_pct }}%;"></div>
+                                            </div>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr><td colspan="3" class="text-center text-muted">Sem alunos ativos nesta turma.</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-alunos">
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Aluno</th>
+                                        <th>Nº Processo</th>
+                                        <th>Sexo</th>
+                                        <th>Encarregado</th>
+                                        <th>Contacto</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for linha in linhas_turma %}
+                                    <tr>
+                                        <td>{{ linha.aluno.nome }}</td>
+                                        <td>{{ linha.aluno.numero_processo }}</td>
+                                        <td>{{ linha.aluno.get_sexo_display }}</td>
+                                        <td>{{ linha.aluno.encarregado }}</td>
+                                        <td>{{ linha.aluno.encarregado.telefone|default:"—" }}</td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr><td colspan="5" class="text-center text-muted">Sem alunos ativos nesta turma.</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h6 class="mb-3">Distribuição de Notas {% if periodo_selecionado %}- {{ periodo_selecionado.nome }}{% endif %}</h6>
+                <div class="prof-dash-distribuicao-bar">
+                    <div class="bg-success" style="width:{{ distribuicao_situacao_pct.aprovado }}%;"></div>
+                    <div class="bg-warning" style="width:{{ distribuicao_situacao_pct.exame }}%;"></div>
+                    <div class="bg-danger" style="width:{{ distribuicao_situacao_pct.reprovado }}%;"></div>
+                </div>
+                <div class="d-flex justify-content-between small text-muted mt-2">
+                    <span>Aprovado ({{ distribuicao_situacao.aprovado }})</span>
+                    <span>Exame ({{ distribuicao_situacao.exame }})</span>
+                    <span>Reprovado ({{ distribuicao_situacao.reprovado }})</span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </main>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script src="{% static 'js/vendor/chart.min.js' %}"></script>
 <script src="{% static 'js/professor_dashboard_charts.js' %}"></script>
+<script>
+    window.PROF_DASHBOARD_DADOS = {
+        frequenciaMedia: {{ frequencia_media_turma|default_if_none:"null" }},
+        desempenhoMedia: {{ desempenho_turma|default_if_none:"null" }},
+    };
+</script>
 {% endblock %}

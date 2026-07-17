@@ -1,0 +1,17 @@
+<div class="card shadow-sm mb-3">
+    <div class="card-body d-flex flex-wrap align-items-center gap-4">
+        {% if request.user.perfil.foto %}
+        <img src="{{ request.user.perfil.foto.url }}" alt="Foto de {{ request.user.get_full_name|default:request.user.username }}"
+             class="rounded-circle shadow-sm" style="width:80px;height:80px;object-fit:cover;">
+        {% else %}
+        <div class="rounded-circle bg-secondary bg-opacity-25 d-inline-flex align-items-center justify-content-center"
+             style="width:80px;height:80px;">
+            <span class="fs-3 text-secondary">{{ request.user.get_full_name|default:request.user.username|slice:":1"|upper }}</span>
+        </div>
+        {% endif %}
+        <div>
+            <h3 class="mb-1">Bem-vindo, {{ request.user.get_full_name|default:request.user.username }}!</h3>
+            {% if subtitulo %}<p class="text-muted mb-0">{{ subtitulo }}</p>{% endif %}
+        </div>
+    </div>
+</div>

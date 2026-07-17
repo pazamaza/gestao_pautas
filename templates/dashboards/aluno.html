@@ -6,24 +6,25 @@ Dashboard do Aluno
 {% endblock %}
 
 {% block content %}
-<div class="container py-4">
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+<div class="container-fluid py-4">
 
     {% if aluno %}
-    <div class="card shadow-sm mb-4">
+    <div class="card shadow-sm mb-3">
         <div class="card-body d-flex flex-wrap align-items-center gap-4">
             {% if aluno.foto %}
             <img src="{{ aluno.foto.url }}" alt="Foto de {{ aluno.nome }}"
                  class="rounded-circle shadow-sm"
-                 style="width:100px;height:100px;object-fit:cover;">
+                 style="width:80px;height:80px;object-fit:cover;">
             {% else %}
             <div class="rounded-circle bg-secondary bg-opacity-25 d-inline-flex align-items-center justify-content-center"
-                 style="width:100px;height:100px;">
-                <i class="fas fa-user fa-2x text-secondary"></i>
+                 style="width:80px;height:80px;">
+                <span class="fs-3 text-secondary">{{ aluno.nome|slice:":1" }}</span>
             </div>
             {% endif %}
 
             <div>
-                <h3 class="mb-1">{{ aluno.nome }}</h3>
+                <h3 class="mb-1">Bem-vindo, {{ aluno.nome }}!</h3>
                 <p class="text-muted mb-1">
                     Nº Processo: {{ aluno.numero_processo }} &bull;
                     Idade: {{ aluno.calcular_idade }} anos &bull;
@@ -40,48 +41,155 @@ Dashboard do Aluno
     <div class="alert
         {% if mensagem.tipo == 'sucesso' %}alert-success
         {% elif mensagem.tipo == 'alerta' %}alert-danger
-        {% else %}alert-info{% endif %}">
+        {% else %}alert-info{% endif %} py-2">
         {{ mensagem.texto }}
     </div>
     {% endfor %}
 
-    <div class="row g-3 mb-4">
-        <div class="col-md-4">
-            <div class="card shadow-sm">
-                <div class="card-body text-center">
-                    <h6 class="text-muted">Média Geral</h6>
-                    <h3>{{ media_geral|default:"—" }}</h3>
+    <div class="row g-3">
+        <div class="col-lg-8">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h6>Resumo Académico</h6>
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div style="height:140px;">
+                                <canvas id="anel-media"></canvas>
+                            </div>
+                            <div class="text-muted small mt-1">Média Global</div>
+                            {{ media_geral|default:0|json_script:"media-geral-valor" }}
+                        </div>
+                        <div class="col-6">
+                            <div style="height:140px;">
+                                <canvas id="anel-frequencia"></canvas>
+                            </div>
+                            <div class="text-muted small mt-1">Frequência</div>
+                            {{ frequencia|json_script:"frequencia-valor" }}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card shadow-sm">
-                <div class="card-body text-center">
-                    <h6 class="text-muted">Frequência</h6>
-                    <h3>{{ frequencia }}%</h3>
+        <div class="col-lg-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h6>
+                        Avaliações do Período Atual
+                        {% if periodo_atual %}<span class="text-muted small">({{ periodo_atual.nome }})</span>{% endif %}
+                    </h6>
+                    <ul class="list-group list-group-flush">
+                        {% for avaliacao in avaliacoes_periodo %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                            <span>{{ avaliacao.atribuicao.disciplina }}</span>
+                            {% if avaliacao.status == 'validada' %}
+                            <span class="badge bg-success">Validada</span>
+                            {% elif avaliacao.status == 'com_erros' %}
+                            <span class="badge bg-warning text-dark">Com Erros</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Em Curso</span>
+                            {% endif %}
+                        </li>
+                        {% empty %}
+                        <li class="list-group-item px-0 text-muted">Sem avaliações neste período.</li>
+                        {% endfor %}
+                    </ul>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+    </div>
+
+    <div class="row g-3 mt-1">
+        <div class="col-lg-8">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h6>Últimas Notas Publicadas</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Disciplina</th>
+                                    <th>Professor</th>
+                                    <th>Nota</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in ultimas_notas %}
+                                <tr>
+                                    <td>{{ item.disciplina }}</td>
+                                    <td>{{ item.professor }}</td>
+                                    <td>{{ item.nota }}</td>
+                                    <td>
+                                        {% if item.aprovado %}
+                                        <span class="badge bg-success">Aprovado</span>
+                                        {% else %}
+                                        <span class="badge bg-warning text-dark">Em Recuperação</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr><td colspan="4">Sem notas publicadas ainda.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 d-flex flex-column gap-3">
             <div class="card shadow-sm">
-                <div class="card-body text-center">
-                    <h6 class="text-muted">Nº de Faltas</h6>
-                    <h3>{{ faltas }}</h3>
+                <div class="card-body">
+                    <h6>Detalhamento de Assiduidade</h6>
+                    <p class="mb-1 small">Dias Letivos: <strong>{{ dias_letivos }}</strong></p>
+                    <p class="mb-1 small">Dias Presentes: <strong>{{ dias_presentes }}</strong></p>
+                    <div class="progress mb-2" style="height:6px;">
+                        <div class="progress-bar bg-success" style="width:{{ frequencia }}%"></div>
+                    </div>
+                    <p class="mb-1 small">Dias Ausentes: <strong>{{ dias_ausentes }}</strong></p>
+                    <div class="progress mb-2" style="height:6px;">
+                        <div class="progress-bar bg-danger" style="width:{{ dias_ausentes }}%;max-width:100%"></div>
+                    </div>
+                    <p class="mb-0 small">Status: <strong>{{ status_assiduidade }}</strong></p>
+                </div>
+            </div>
+            <div class="card shadow-sm dashboard-chart-card">
+                <div class="card-body">
+                    <h6>Gráfico de Evolução</h6>
+                    <canvas id="grafico-evolucao-aluno"></canvas>
+                    {{ evolucao_labels|json_script:"evolucao-aluno-labels" }}
+                    {{ evolucao_dados|json_script:"evolucao-aluno-dados" }}
                 </div>
             </div>
         </div>
     </div>
 
     {% if grafico_disciplinas_labels %}
-    <div class="card shadow-sm mb-4">
+    <div class="card shadow-sm mt-3">
         <div class="card-body">
-            <h5 class="text-center mb-3">Notas por Disciplina e Trimestre</h5>
-            <canvas id="grafico-notas-aluno" height="250"></canvas>
+            <h6 class="text-center mb-3">Notas por Disciplina e Trimestre</h6>
+            <canvas id="grafico-notas-aluno" height="220"></canvas>
             {{ grafico_disciplinas_labels|json_script:"grafico-notas-labels" }}
             {{ grafico_mt1|json_script:"grafico-notas-mt1" }}
             {{ grafico_mt2|json_script:"grafico-notas-mt2" }}
             {{ grafico_mt3|json_script:"grafico-notas-mt3" }}
         </div>
+    </div>
+    {% endif %}
+
+    {% if pautas_recentes %}
+    <h6 class="mt-4">Minhas Pautas Recentes</h6>
+    <div class="d-flex flex-wrap gap-3">
+        {% for item in pautas_recentes %}
+        <div class="card shadow-sm" style="width:160px;">
+            <div class="card-body text-center">
+                <div class="small text-muted text-truncate">{{ item.disciplina }}</div>
+                <div class="fs-5 fw-bold">{{ item.mf }}/20</div>
+                <div class="small text-muted">
+                    {% if item.frequencia is not None %}{{ item.frequencia }}% Frequência{% else %}—{% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
     </div>
     {% endif %}
 
@@ -91,7 +199,7 @@ Dashboard do Aluno
     </div>
     {% endif %}
 
-    <div class="row g-3">
+    <div class="row g-3 mt-3">
         <div class="col-md-4">
             <a href="{% url 'minhas_notas' %}" class="text-decoration-none">
                 <div class="card shadow-sm h-100">
@@ -117,7 +225,26 @@ Dashboard do Aluno
                 </div>
             </a>
         </div>
+
+        <div class="col-md-4">
+            <a href="{% url 'solicitar_documento' %}" class="text-decoration-none">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">Boletim / Certificado</h5>
+                        <p class="card-text text-muted">
+                            Solicite o Boletim de Notas ou o Certificado.
+                        </p>
+                    </div>
+                </div>
+            </a>
+        </div>
     </div>
+
+    {% if aluno %}
+    <div class="mt-3">
+        <a href="{% url 'meus_pedidos_documentos' %}">Ver os meus pedidos de documentos</a>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}
 

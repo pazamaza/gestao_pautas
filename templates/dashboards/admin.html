@@ -4,60 +4,183 @@
 Dashboard
 {% endblock %}
 {% block content %}
-<style>
-    .atalho-btn{
-    width: 180px;
-    height: 80px;
-
-    display: flex;
-    justify-content: center;
-    align-items: center;
-
-    font-size: 1.3rem;
-    font-weight: bold;
-
-    white-space: nowrap;
-}
-</style>
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
 
 <div class="container-fluid mt-3">
 
-<div class="d-flex justify-content-center gap-3 overflow-auto pb-2">
-    <div class="col-md-3">
-        <div class="card shadow-sm">
-            <div class="card-body text-center">
-                <h5>Alunos</h5>
-                <h2>{{ total_alunos }}</h2>
+{% include 'includes/perfil_header.html' with subtitulo="Administração do Sistema de Gestão de Pautas." %}
+
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <h2 class="mb-0">Painel de Relatórios e Estatísticas</h2>
+    <form method="get" class="d-flex align-items-center gap-2">
+        <label class="form-label mb-0 small text-muted">Ano Letivo</label>
+        <select name="ano_letivo" class="form-select form-select-sm" onchange="this.form.submit()">
+            {% for ano in anos_letivos %}
+            <option value="{{ ano.id }}" {% if ano_letivo_selecionado.id == ano.id %}selected{% endif %}>
+                {{ ano.descricao }}
+            </option>
+            {% endfor %}
+        </select>
+    </form>
+</div>
+
+<div class="row g-3">
+    <div class="col-md col-6">
+        <div class="card shadow-sm kpi-card">
+            <div class="card-body">
+                <h6 class="text-muted">Total Alunos</h6>
+                <h3>{{ total_alunos }}</h3>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card shadow-sm">
-            <div class="card-body text-center">
-                <h5>Professores</h5>
-                <h2>{{ total_professores }}</h2>
+    <div class="col-md col-6">
+        <div class="card shadow-sm kpi-card">
+            <div class="card-body">
+                <h6 class="text-muted">Turmas Ativas</h6>
+                <h3>{{ total_turmas }}</h3>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card shadow-sm">
-            <div class="card-body text-center">
-                <h5>Turmas</h5>
-                <h2>{{ total_turmas }}</h2>
+    <div class="col-md col-6">
+        <div class="card shadow-sm kpi-card">
+            <div class="card-body">
+                <h6 class="text-muted">Média Geral</h6>
+                <h3>{{ media_geral|default:"—" }}</h3>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card shadow-sm">
-            <div class="card-body text-center">
-                <h5>Disciplinas</h5>
-                <h2>{{ total_disciplinas }}</h2>
+    <div class="col-md col-6">
+        <div class="card shadow-sm kpi-card">
+            <div class="card-body">
+                <h6 class="text-muted">Taxa de Aprovação</h6>
+                <h3 class="text-success">{{ taxa_aprovacao }}%</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md col-6">
+        <div class="card shadow-sm kpi-card">
+            <div class="card-body">
+                <h6 class="text-muted">Taxa de Reprovação</h6>
+                <h3 class="text-danger">{{ taxa_reprovacao }}%</h3>
             </div>
         </div>
     </div>
 </div>
-<hr class="my-4"><br>
-<h2 class="text-center mb-4" style="color: red;">Atalhos Rápidos</h2>
+
+<div class="row g-3 mt-1">
+    <div class="col-lg-4">
+        <div class="card shadow-sm dashboard-chart-card h-100">
+            <div class="card-body">
+                <h6>Evolução da Média Escolar</h6>
+                <canvas id="grafico-evolucao"></canvas>
+                {{ evolucao_labels|json_script:"evolucao-labels" }}
+                {{ evolucao_dados|json_script:"evolucao-dados" }}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card shadow-sm dashboard-chart-card h-100">
+            <div class="card-body">
+                <h6>Distribuição de Resultados</h6>
+                <canvas id="grafico-resultados"></canvas>
+                {{ resultado_labels|json_script:"resultado-labels" }}
+                {{ resultado_dados|json_script:"resultado-dados" }}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card shadow-sm dashboard-chart-card h-100">
+            <div class="card-body">
+                <h6>Frequência Mensal (%)</h6>
+                <canvas id="grafico-frequencia"></canvas>
+                {{ frequencia_labels|json_script:"frequencia-labels" }}
+                {{ frequencia_dados|json_script:"frequencia-dados" }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mt-1">
+    <div class="col-lg-4">
+        <div class="card shadow-sm dashboard-chart-card chart-tall h-100">
+            <div class="card-body">
+                <h6>Desempenho por Disciplina</h6>
+                <canvas id="grafico-disciplinas"></canvas>
+                {{ disciplina_labels|json_script:"disciplina-labels" }}
+                {{ disciplina_dados|json_script:"disciplina-dados" }}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4 d-flex flex-column gap-3">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h6>Alunos em Risco Académico</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr><th>Nome</th><th>Turma</th><th>Média</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for item in alunos_risco %}
+                            <tr class="table-danger">
+                                <td>{{ item.aluno }}</td>
+                                <td>{{ item.turma }}</td>
+                                <td>{{ item.media }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="3">Nenhum aluno em risco.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="card shadow-sm dashboard-chart-card">
+            <div class="card-body">
+                <h6>Top 5 Turmas</h6>
+                <canvas id="grafico-turmas"></canvas>
+                {{ turma_labels|json_script:"turma-labels" }}
+                {{ turma_dados|json_script:"turma-dados" }}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4 d-flex flex-column gap-3">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h6>Alunos com Melhores Médias</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr><th>Nome</th><th>Média</th><th>Turma</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for item in melhores_medias %}
+                            <tr class="table-success">
+                                <td>{{ item.aluno }}</td>
+                                <td>{{ item.media }}</td>
+                                <td>{{ item.turma }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="3">Sem notas lançadas.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="card shadow-sm dashboard-chart-card">
+            <div class="card-body">
+                <h6>Distribuição por Género</h6>
+                <canvas id="grafico-genero"></canvas>
+                {{ genero_labels|json_script:"genero-labels" }}
+                {{ genero_dados|json_script:"genero-dados" }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<hr class="my-4">
+<h2 class="text-center mb-4">Atalhos Rápidos</h2>
 
 <div class="d-flex flex-wrap justify-content-center gap-4">
 
@@ -123,19 +246,21 @@ Dashboard
 </div>
 
 <hr class="my-4">
-<div class="row g-4">
-    <div class="col-md-6">
-        <h4 class="text-center">Distribuição das Avaliações por Estado</h4>
-        <canvas id="grafico-avaliacoes" height="200"></canvas>
-        {{ grafico_avaliacoes_labels|json_script:"grafico-avaliacoes-labels" }}
-        {{ grafico_avaliacoes_dados|json_script:"grafico-avaliacoes-dados" }}
-    </div>
-    <div class="col-md-6">
-        <h4 class="text-center">Turmas Ativas por Classe</h4>
-        <canvas id="grafico-turmas" height="200"></canvas>
-        {{ grafico_turmas_labels|json_script:"grafico-turmas-labels" }}
-        {{ grafico_turmas_dados|json_script:"grafico-turmas-dados" }}
-    </div>
+<h2 class="text-center mb-4">Boletins e Certificados</h2>
+
+<div class="d-flex flex-wrap justify-content-center gap-3">
+    <a href="{% url 'pedidos_documentos_pendentes' %}" class="card shadow-sm text-decoration-none text-dark border-info" style="width: 220px;">
+        <div class="card-body text-center">
+            <h5>Pedidos Pendentes de Autorização</h5>
+            <h2 class="text-info">{{ pedidos_documentos_pendentes }}</h2>
+        </div>
+    </a>
+    <a href="{% url 'pedidos_pagamento' %}" class="card shadow-sm text-decoration-none text-dark border-primary" style="width: 220px;">
+        <div class="card-body text-center">
+            <h5>Pagamentos por Confirmar</h5>
+            <h2 class="text-primary">{{ pedidos_pagamento_pendentes }}</h2>
+        </div>
+    </a>
 </div>
 
 <hr class="my-4">

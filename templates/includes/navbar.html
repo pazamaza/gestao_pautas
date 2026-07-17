@@ -74,7 +74,6 @@
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end"
                         aria-labelledby="menuAcademico">
-                        <li><a class="dropdown-item" href="{% url 'avaliacao_lista' %}">Avaliações / Pautas</a></li>
                         <li><a class="dropdown-item" href="{% url 'nota_lista' %}">Notas</a></li>
                         <li><a class="dropdown-item" href="{% url 'atribuicao_lista' %}">Atribuições Docentes</a></li>
                         <li><a class="dropdown-item" href="{% url 'resultado_lista' %}">Resultados Finais</a></li>
@@ -160,6 +159,9 @@
                 {% if eh_aluno_nav %}
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'minhas_notas' %}">Minhas Pautas</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'meus_pedidos_documentos' %}">Boletim / Certificado</a>
                 </li>
                 {% endif %}
 
