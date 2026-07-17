@@ -41,8 +41,35 @@ class EncarregadoAdmin(admin.ModelAdmin):
     search_fields = ('user__first_name', 'user__last_name', 'user__username')
 
 
+class AlunoAdminForm(forms.ModelForm):
+    class Meta:
+        model = Aluno
+        fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['user'].queryset = User.objects.filter(
+            groups__name='Aluno'
+        ).order_by('first_name', 'last_name')
+        self.fields['user'].required = True
+
+        self.fields['encarregado'].queryset = Encarregado.objects.filter(
+            user__groups__name='Encarregado'
+        ).select_related('user').order_by('user__first_name', 'user__last_name')
+
+    def clean_user(self):
+        user = self.cleaned_data['user']
+        if not user.get_full_name():
+            raise forms.ValidationError(
+                'Este utilizador não tem nome preenchido. '
+                'Preencha o nome e apelido antes de o associar como aluno.'
+            )
+        return user
+
+
 @admin.register(Aluno)
 class AlunoAdmin(admin.ModelAdmin):
+    form = AlunoAdminForm
     list_display = (
         'numero_processo', 'nome', 'idade_calculada', 'turma', 'encarregado', 'estado',
         'foto_preview'
@@ -50,16 +77,16 @@ class AlunoAdmin(admin.ModelAdmin):
     list_filter = ('turma', 'estado', 'sexo')
     search_fields = ('nome', 'numero_processo')
     autocomplete_fields = ('encarregado', 'turma')
-    readonly_fields = ('foto_preview', 'idade_calculada', 'criado_em', 'atualizado_em')
+    readonly_fields = ('nome', 'foto_preview', 'idade_calculada', 'criado_em', 'atualizado_em')
     fieldsets = (
         (None, {
             'fields': (
-                'nome', 'numero_processo', 'data_nascimento', 'idade_calculada', 'sexo',
+                'user', 'nome', 'numero_processo', 'data_nascimento', 'idade_calculada', 'sexo',
                 'foto', 'foto_preview'
             )
         }),
         ('Vínculos', {
-            'fields': ('user', 'turma', 'encarregado', 'estado')
+            'fields': ('turma', 'encarregado', 'estado')
         }),
         ('Registo', {
             'fields': ('criado_em', 'atualizado_em')
@@ -78,6 +105,11 @@ class AlunoAdmin(admin.ModelAdmin):
     def idade_calculada(self, obj):
         return obj.calcular_idade()
     idade_calculada.short_description = 'Idade'
+
+    def save_model(self, request, obj, form, change):
+        if obj.user_id:
+            obj.nome = obj.user.get_full_name() or obj.user.username
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(Matricula)

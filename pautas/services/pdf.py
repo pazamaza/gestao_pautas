@@ -261,3 +261,158 @@ def exportar_pauta_final_pdf(turma, ano_letivo, disciplinas, linhas):
     documento.build(elementos)
     output.seek(0)
     return output
+
+
+def _cabecalho_escola(elementos, estilos, escola):
+    from reportlab.platypus import Paragraph
+
+    if escola:
+        for texto in (escola.ministerio, escola.governo_provincial, escola.administracao_municipal):
+            if texto:
+                elementos.append(Paragraph(texto, estilos['Normal']))
+        elementos.append(Paragraph(escola.nome, estilos['Title']))
+    else:
+        elementos.append(Paragraph('Gestao de Pautas', estilos['Title']))
+
+
+def exportar_boletim_pdf(aluno, ano_letivo, resultados):
+    from core.models import Escola
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+    output = BytesIO()
+    documento = SimpleDocTemplate(
+        output,
+        pagesize=A4,
+        rightMargin=36,
+        leftMargin=36,
+        topMargin=36,
+        bottomMargin=36,
+        title='Boletim de Notas',
+    )
+
+    escola = Escola.obter_configuracao()
+    estilos = getSampleStyleSheet()
+    elementos = []
+    _cabecalho_escola(elementos, estilos, escola)
+
+    elementos.append(Paragraph('Boletim de Notas', estilos['Heading2']))
+    elementos.append(
+        Paragraph(
+            f'Aluno: {aluno.nome} | Nº Processo: {aluno.numero_processo}',
+            estilos['Normal'],
+        )
+    )
+    elementos.append(
+        Paragraph(
+            f'Turma: {aluno.turma} | Ano Letivo: {ano_letivo}',
+            estilos['Normal'],
+        )
+    )
+    elementos.append(Spacer(1, 14))
+
+    dados = [['Disciplina', '1º Trimestre', '2º Trimestre', '3º Trimestre', 'Média Final', 'Situação']]
+    for resultado in resultados:
+        dados.append([
+            resultado.disciplina.nome,
+            resultado.mt1 if resultado.mt1 else '-',
+            resultado.mt2 if resultado.mt2 else '-',
+            resultado.mt3 if resultado.mt3 else '-',
+            resultado.mf if resultado.mf else '-',
+            resultado.resultado or '-',
+        ])
+
+    tabela = Table(dados, repeatRows=1, colWidths=[160, 70, 70, 70, 70, 80])
+    tabela.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#d9eaf7')),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
+        ('GRID', (0, 0), (-1, -1), 0.4, colors.grey),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f7f7f7')]),
+    ]))
+    elementos.append(tabela)
+
+    elementos.append(Spacer(1, 24))
+    elementos.append(Paragraph(
+        f'Documento emitido automaticamente pelo sistema de gestão de pautas.',
+        estilos['Normal'],
+    ))
+
+    documento.build(elementos)
+    output.seek(0)
+    return output
+
+
+def exportar_certificado_pdf(aluno, ano_letivo, resultados, media_geral):
+    from core.models import Escola
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+    output = BytesIO()
+    documento = SimpleDocTemplate(
+        output,
+        pagesize=A4,
+        rightMargin=48,
+        leftMargin=48,
+        topMargin=48,
+        bottomMargin=48,
+        title='Certificado',
+    )
+
+    escola = Escola.obter_configuracao()
+    estilos = getSampleStyleSheet()
+    elementos = []
+    _cabecalho_escola(elementos, estilos, escola)
+
+    elementos.append(Paragraph('CERTIFICADO', estilos['Heading1']))
+    elementos.append(Spacer(1, 10))
+
+    encarregado = aluno.encarregado
+    texto = (
+        f'Certifica-se que o(a) aluno(a) <b>{aluno.nome}</b>, portador(a) do número de processo '
+        f'<b>{aluno.numero_processo}</b>, educando(a) do(a) encarregado(a) de educação '
+        f'<b>{encarregado}</b>, matriculado(a) na turma <b>{aluno.turma}</b>, frequentou o ano '
+        f'letivo de <b>{ano_letivo}</b>, tendo obtido as médias anuais discriminadas na tabela abaixo.'
+    )
+    elementos.append(Paragraph(texto, estilos['Normal']))
+    elementos.append(Spacer(1, 16))
+
+    dados = [['Disciplina', 'Média Anual']]
+    for resultado in resultados:
+        dados.append([resultado.disciplina.nome, resultado.mf if resultado.mf else '-'])
+
+    tabela = Table(dados, repeatRows=1, colWidths=[300, 120])
+    tabela.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#d9eaf7')),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('ALIGN', (1, 0), (1, -1), 'CENTER'),
+        ('GRID', (0, 0), (-1, -1), 0.4, colors.grey),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f7f7f7')]),
+    ]))
+    elementos.append(tabela)
+    elementos.append(Spacer(1, 10))
+    elementos.append(Paragraph(f'Média Geral: <b>{media_geral if media_geral is not None else "-"}</b>', estilos['Normal']))
+
+    elementos.append(Spacer(1, 10))
+    elementos.append(Paragraph(
+        'Documento simplificado, gerado automaticamente pelo sistema de gestão de pautas, com base '
+        'nos dados académicos disponíveis.',
+        estilos['Italic'],
+    ))
+
+    if escola and escola.nome_autoridade_visto:
+        elementos.append(Spacer(1, 30))
+        elementos.append(Paragraph(f'{escola.cargo_autoridade_visto.upper()}', estilos['Normal']))
+        elementos.append(Paragraph(escola.nome_autoridade_visto, estilos['Normal']))
+
+    documento.build(elementos)
+    output.seek(0)
+    return output

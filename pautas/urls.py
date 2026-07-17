@@ -36,6 +36,19 @@ from .views import (
     resultado_reportar_erro,
     resultado_validar,
 )
+from .views_documentos import (
+    meus_pedidos_documentos,
+    pedido_autorizar,
+    pedido_carregar_comprovativo,
+    pedido_confirmar_pagamento,
+    pedido_emitir_pdf,
+    pedido_marcar_levantado,
+    pedido_recusar,
+    pedido_rejeitar_pagamento,
+    pedidos_documentos_pendentes,
+    pedidos_pagamento,
+    solicitar_documento,
+)
 
 
 urlpatterns = [
@@ -78,4 +91,28 @@ urlpatterns = [
     path('minhas-notas/', minhas_notas, name='minhas_notas'),
     path('dependentes/', meus_dependentes, name='meus_dependentes'),
     path('dependentes/<int:aluno_id>/notas/', notas_dependente, name='notas_dependente'),
+
+    path('documentos/solicitar/', solicitar_documento, name='solicitar_documento'),
+    path('documentos/meus-pedidos/', meus_pedidos_documentos, name='meus_pedidos_documentos'),
+    path(
+        'documentos/<int:pk>/comprovativo/',
+        pedido_carregar_comprovativo,
+        name='pedido_carregar_comprovativo',
+    ),
+    path('documentos/<int:pk>/pdf/', pedido_emitir_pdf, name='pedido_emitir_pdf'),
+    path('documentos/pendentes/', pedidos_documentos_pendentes, name='pedidos_documentos_pendentes'),
+    path('documentos/<int:pk>/autorizar/', pedido_autorizar, name='pedido_autorizar'),
+    path('documentos/<int:pk>/recusar/', pedido_recusar, name='pedido_recusar'),
+    path('documentos/pagamentos/', pedidos_pagamento, name='pedidos_pagamento'),
+    path(
+        'documentos/<int:pk>/confirmar-pagamento/',
+        pedido_confirmar_pagamento,
+        name='pedido_confirmar_pagamento',
+    ),
+    path(
+        'documentos/<int:pk>/rejeitar-pagamento/',
+        pedido_rejeitar_pagamento,
+        name='pedido_rejeitar_pagamento',
+    ),
+    path('documentos/<int:pk>/levantado/', pedido_marcar_levantado, name='pedido_marcar_levantado'),
 ]

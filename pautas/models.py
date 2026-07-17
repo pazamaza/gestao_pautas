@@ -500,3 +500,140 @@ class SituacaoAnual(models.Model):
             f"{self.ano_letivo} - "
             f"{self.situacao}"
         )
+
+
+class PedidoDocumento(models.Model):
+
+    TIPO_BOLETIM = 'boletim'
+    TIPO_CERTIFICADO = 'certificado'
+    TIPO_CHOICES = [
+        (TIPO_BOLETIM, 'Boletim de Notas'),
+        (TIPO_CERTIFICADO, 'Certificado'),
+    ]
+
+    STATUS_PENDENTE = 'pendente'
+    STATUS_RECUSADO = 'recusado'
+    STATUS_AUTORIZADO = 'autorizado'
+    STATUS_PAGAMENTO_SUBMETIDO = 'pagamento_submetido'
+    STATUS_PRONTO = 'pronto_levantamento'
+    STATUS_LEVANTADO = 'levantado'
+
+    STATUS_CHOICES = [
+        (STATUS_PENDENTE, 'Pendente de Autorização'),
+        (STATUS_RECUSADO, 'Recusado'),
+        (STATUS_AUTORIZADO, 'Autorizado - Aguarda Pagamento'),
+        (STATUS_PAGAMENTO_SUBMETIDO, 'Comprovativo Submetido'),
+        (STATUS_PRONTO, 'Pronto para Levantamento'),
+        (STATUS_LEVANTADO, 'Levantado'),
+    ]
+
+    aluno = models.ForeignKey(
+        'alunos.Aluno',
+        on_delete=models.CASCADE
+    )
+
+    tipo = models.CharField(
+        max_length=20,
+        choices=TIPO_CHOICES
+    )
+
+    ano_letivo = models.ForeignKey(
+        'turmas.AnoLetivo',
+        on_delete=models.CASCADE
+    )
+
+    status = models.CharField(
+        max_length=25,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDENTE
+    )
+
+    solicitado_em = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    autorizado_por = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='+'
+    )
+
+    decidido_em = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+
+    motivo_recusa = models.TextField(
+        blank=True
+    )
+
+    comprovativo_pagamento = models.ImageField(
+        upload_to='pagamentos/',
+        null=True,
+        blank=True
+    )
+
+    pagamento_submetido_em = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+
+    pagamento_confirmado_por = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='+'
+    )
+
+    pagamento_confirmado_em = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+
+    class Meta:
+        ordering = ['-solicitado_em']
+        verbose_name = 'Pedido de Documento'
+        verbose_name_plural = 'Pedidos de Documentos'
+
+    def __str__(self):
+        return f"{self.get_tipo_display()} - {self.aluno} - {self.get_status_display()}"
+
+    def autorizar(self, user):
+        self.status = self.STATUS_AUTORIZADO
+        self.autorizado_por = user
+        self.decidido_em = timezone.now()
+        self.save()
+
+    def recusar(self, user, motivo):
+        self.status = self.STATUS_RECUSADO
+        self.autorizado_por = user
+        self.decidido_em = timezone.now()
+        self.motivo_recusa = motivo
+        self.save()
+
+    def submeter_pagamento(self, comprovativo):
+        self.comprovativo_pagamento = comprovativo
+        self.pagamento_submetido_em = timezone.now()
+        self.status = self.STATUS_PAGAMENTO_SUBMETIDO
+        self.save()
+
+    def confirmar_pagamento(self, user):
+        self.pagamento_confirmado_por = user
+        self.pagamento_confirmado_em = timezone.now()
+        self.status = self.STATUS_PRONTO
+        self.save()
+
+    def rejeitar_pagamento(self, user):
+        self.pagamento_confirmado_por = None
+        self.pagamento_confirmado_em = None
+        self.comprovativo_pagamento = None
+        self.pagamento_submetido_em = None
+        self.status = self.STATUS_AUTORIZADO
+        self.save()
+
+    def marcar_levantado(self):
+        self.status = self.STATUS_LEVANTADO
+        self.save()

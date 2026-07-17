@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block title %}
+Solicitar Documento
+{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width:500px;">
+    <h2>Solicitar Documento</h2>
+    <p class="text-muted">Escolha o documento que pretende solicitar.</p>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="mb-3">
+            <label class="form-label">Tipo de Documento</label>
+            {% for radio in form.tipo %}
+            <div class="form-check">
+                {{ radio.tag }}
+                <label class="form-check-label" for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label>
+            </div>
+            {% endfor %}
+            {% if form.tipo.errors %}<div class="text-danger small">{{ form.tipo.errors }}</div>{% endif %}
+        </div>
+
+        <div class="mb-3">
+            <label for="{{ form.ano_letivo.id_for_label }}" class="form-label">Ano Letivo</label>
+            {{ form.ano_letivo }}
+            {% if form.ano_letivo.errors %}<div class="text-danger small">{{ form.ano_letivo.errors }}</div>{% endif %}
+        </div>
+
+        <button type="submit" class="btn btn-primary">Submeter Pedido</button>
+        <a href="{% url 'meus_pedidos_documentos' %}" class="btn btn-outline-secondary">Ver Meus Pedidos</a>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block title %}
+Pedidos de Documentos Pendentes
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h2>Pedidos de Documentos Pendentes</h2>
+
+    <div class="row g-3 mt-1">
+        {% for pedido in pedidos %}
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">{{ pedido.get_tipo_display }}</h5>
+                    <p class="card-text mb-1">
+                        Aluno: <strong>{{ pedido.aluno.nome }}</strong> ({{ pedido.aluno.numero_processo }})
+                    </p>
+                    <p class="card-text mb-1">Turma: {{ pedido.aluno.turma }}</p>
+                    <p class="card-text mb-3">
+                        Ano Letivo: {{ pedido.ano_letivo }} &bull;
+                        Solicitado em {{ pedido.solicitado_em|date:"d/m/Y H:i" }}
+                    </p>
+
+                    <form method="post" action="{% url 'pedido_autorizar' pedido.id %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success btn-sm mb-2">Autorizar</button>
+                    </form>
+
+                    <form method="post" action="{% url 'pedido_recusar' pedido.id %}" class="mt-2">
+                        {% csrf_token %}
+                        <div class="input-group input-group-sm">
+                            <input type="text" name="observacoes_validacao" class="form-control"
+                                   placeholder="Motivo da recusa" required>
+                            <button type="submit" class="btn btn-outline-danger">Recusar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <p class="text-muted">Não há pedidos pendentes de autorização.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

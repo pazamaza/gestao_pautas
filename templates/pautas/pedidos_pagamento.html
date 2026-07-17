@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+
+{% block title %}
+Pagamentos de Documentos
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h2>Pagamentos por Confirmar</h2>
+
+    <div class="row g-3 mt-1">
+        {% for pedido in pedidos %}
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">{{ pedido.get_tipo_display }}</h5>
+                    <p class="card-text mb-1">
+                        Aluno: <strong>{{ pedido.aluno.nome }}</strong> ({{ pedido.aluno.numero_processo }})
+                    </p>
+                    <p class="card-text mb-2">
+                        Ano Letivo: {{ pedido.ano_letivo }} &bull;
+                        Comprovativo submetido em {{ pedido.pagamento_submetido_em|date:"d/m/Y H:i" }}
+                    </p>
+                    {% if pedido.comprovativo_pagamento %}
+                    <a href="{{ pedido.comprovativo_pagamento.url }}" target="_blank" class="d-block mb-2">
+                        Ver comprovativo
+                    </a>
+                    {% endif %}
+                    <form method="post" action="{% url 'pedido_confirmar_pagamento' pedido.id %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success btn-sm">Confirmar Pagamento</button>
+                    </form>
+                    <form method="post" action="{% url 'pedido_rejeitar_pagamento' pedido.id %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-danger btn-sm">Rejeitar Comprovativo</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <p class="text-muted">Não há comprovativos por confirmar.</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <h4 class="mt-4">Prontos para Levantamento</h4>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr>
+                    <th>Aluno</th>
+                    <th>Tipo</th>
+                    <th>Ano Letivo</th>
+                    <th>Confirmado em</th>
+                    <th>Ação</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pedido in prontos %}
+                <tr>
+                    <td>{{ pedido.aluno.nome }}</td>
+                    <td>{{ pedido.get_tipo_display }}</td>
+                    <td>{{ pedido.ano_letivo }}</td>
+                    <td>{{ pedido.pagamento_confirmado_em|date:"d/m/Y H:i" }}</td>
+                    <td>
+                        <a href="{% url 'pedido_emitir_pdf' pedido.id %}" class="btn btn-sm btn-outline-primary">PDF</a>
+                        <form method="post" action="{% url 'pedido_marcar_levantado' pedido.id %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-success">Marcar Levantado</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5">Nenhum documento pronto para levantamento.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

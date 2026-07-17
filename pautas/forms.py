@@ -1,6 +1,7 @@
 from django import forms
 from .models import Nota
 from .models import Avaliacao
+from .models import PedidoDocumento
 from .models import ResultadoDisciplina
 
 
@@ -10,6 +11,30 @@ class ObservacoesValidacaoForm(forms.Form):
         widget=forms.Textarea(
             attrs={'class': 'form-control', 'rows': 4}
         )
+    )
+
+
+class SolicitarDocumentoForm(forms.Form):
+    tipo = forms.ChoiceField(
+        choices=PedidoDocumento.TIPO_CHOICES,
+        widget=forms.RadioSelect,
+    )
+    ano_letivo = forms.ModelChoiceField(
+        queryset=None,
+        label='Ano Letivo',
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from turmas.models import AnoLetivo
+        self.fields['ano_letivo'].queryset = AnoLetivo.objects.all()
+
+
+class ComprovativoPagamentoForm(forms.Form):
+    comprovativo_pagamento = forms.ImageField(
+        label='Comprovativo de Pagamento',
+        widget=forms.ClearableFileInput(attrs={'class': 'form-control'}),
     )
 
 

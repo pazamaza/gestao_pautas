@@ -5,6 +5,7 @@ from .models import (
     Nota,
     Pauta,
     LinhaPauta,
+    PedidoDocumento,
     ResultadoDisciplina,
     ResultadoFinal,
     SituacaoAnual,
@@ -83,4 +84,14 @@ class ResultadoFinalAdmin(SomenteLeituraAdmin):
         'aluno', 'disciplina', 'ano_letivo', 'mt1', 'mt2', 'mt3', 'cf', 'exame', 'situacao'
     )
     list_filter = ('ano_letivo', 'disciplina', 'situacao')
+    search_fields = ('aluno__nome', 'aluno__numero_processo')
+
+
+@admin.register(PedidoDocumento)
+class PedidoDocumentoAdmin(SomenteLeituraAdmin):
+    list_display = (
+        'aluno', 'tipo', 'ano_letivo', 'status', 'solicitado_em',
+        'autorizado_por', 'pagamento_confirmado_por',
+    )
+    list_filter = ('tipo', 'status', 'ano_letivo')
     search_fields = ('aluno__nome', 'aluno__numero_processo')

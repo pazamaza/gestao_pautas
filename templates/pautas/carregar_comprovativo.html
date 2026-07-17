@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block title %}
+Carregar Comprovativo de Pagamento
+{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width:500px;">
+    <h2>Carregar Comprovativo de Pagamento</h2>
+    <p class="text-muted">
+        Pedido: {{ pedido.get_tipo_display }} — {{ pedido.ano_letivo }}
+    </p>
+    <p>
+        Efetue o pagamento através do GPS (Ruper - Pagamentos ao Estado) e carregue de seguida
+        uma foto ou digitalização do comprovativo bancário.
+    </p>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="mb-3">
+            {{ form.comprovativo_pagamento.label_tag }}
+            {{ form.comprovativo_pagamento }}
+            {% if form.comprovativo_pagamento.errors %}
+            <div class="text-danger small">{{ form.comprovativo_pagamento.errors }}</div>
+            {% endif %}
+        </div>
+        <button type="submit" class="btn btn-primary">Submeter Comprovativo</button>
+        <a href="{% url 'meus_pedidos_documentos' %}" class="btn btn-outline-secondary">Cancelar</a>
+    </form>
+</div>
+{% endblock %}
