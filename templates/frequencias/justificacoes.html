@@ -37,12 +37,23 @@ Justificações
                         {% endif %}
                     </td>
                     <td>
-                        {% if not justificacao.aprovada %}
-                        <form method="post" action="{% url 'justificacao_aprovar' justificacao.pk %}">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-success btn-sm">Aprovar</button>
-                        </form>
-                        {% endif %}
+                        <div class="d-flex gap-2 align-items-center">
+                            {% if justificacao.documento %}
+                            <a href="{% url 'justificacao_documento' justificacao.pk %}"
+                                target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm">
+                                Ver comprovativo
+                            </a>
+                            {% else %}
+                            <span class="badge bg-secondary">Sem documento</span>
+                            {% endif %}
+
+                            {% if not justificacao.aprovada %}
+                            <form method="post" action="{% url 'justificacao_aprovar' justificacao.pk %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-success btn-sm">Aprovar</button>
+                            </form>
+                            {% endif %}
+                        </div>
                     </td>
                 </tr>
                 {% empty %}

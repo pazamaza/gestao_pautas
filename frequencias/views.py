@@ -1,7 +1,10 @@
+import mimetypes
 from datetime import date
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
@@ -316,3 +319,42 @@ def justificacao_aprovar(request, pk):
     justificacao.save()
     messages.success(request, 'Justificação aprovada.')
     return redirect('justificacao_lista')
+
+
+def _pode_ver_justificacao(user, justificacao):
+    if eh_administrador(user):
+        return True
+    if eh_professor(user):
+        return justificacao.frequencia.atribuicao.professor.user_id == user.id
+    if eh_aluno(user):
+        aluno = getattr(user, 'aluno', None)
+        return aluno is not None and justificacao.frequencia.aluno_id == aluno.id
+    if eh_encarregado(user):
+        encarregado = getattr(user, 'encarregado', None)
+        return encarregado is not None and \
+            justificacao.frequencia.aluno.encarregado_id == encarregado.id
+    return False
+
+
+@login_required
+def justificacao_documento(request, pk):
+    justificacao = get_object_or_404(
+        JustificacaoFalta.objects.select_related(
+            'frequencia__aluno__encarregado', 'frequencia__atribuicao__professor',
+        ),
+        pk=pk,
+    )
+
+    if not _pode_ver_justificacao(request.user, justificacao):
+        return render(request, 'dashboards/sem_permissao.html', status=403)
+
+    if not justificacao.documento:
+        raise Http404('Esta justificação não tem nenhum documento anexado.')
+
+    tipo_conteudo, _ = mimetypes.guess_type(justificacao.documento.name)
+    return FileResponse(
+        justificacao.documento.open('rb'),
+        content_type=tipo_conteudo or 'application/octet-stream',
+        as_attachment=False,
+        filename=justificacao.documento.name.rsplit('/', 1)[-1],
+    )

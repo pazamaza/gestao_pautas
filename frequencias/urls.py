@@ -1,8 +1,8 @@
 from django.urls import path
 from .views import (FrequenciaListView, FrequenciaCreateView,
     FrequenciaUpdateView, FrequenciaDeleteView,
-    JustificacaoListView, justificacao_aprovar, lancamento_frequencia,
-    relatorio_assiduidade)
+    JustificacaoListView, justificacao_aprovar, justificacao_documento,
+    lancamento_frequencia, relatorio_assiduidade)
 
 urlpatterns = [
     path('', FrequenciaListView.as_view(),
@@ -21,4 +21,6 @@ urlpatterns = [
         name='justificacao_lista'),
     path('justificacoes/<int:pk>/aprovar/', justificacao_aprovar,
         name='justificacao_aprovar'),
+    path('justificacoes/<int:pk>/documento/', justificacao_documento,
+        name='justificacao_documento'),
 ]
