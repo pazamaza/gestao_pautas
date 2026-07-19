@@ -18,13 +18,19 @@ Registo de Frequência
     <form method="get" class="row g-2 align-items-end mt-3">
         <div class="col-md-5">
             <label class="form-label">Turma / Disciplina</label>
+            {% if atribuicoes_do_dia %}
             <select name="atribuicao" class="form-select" onchange="this.form.submit()">
-                {% for a in atribuicoes %}
+                {% for a in atribuicoes_do_dia %}
                 <option value="{{ a.id }}" {% if atribuicao.id == a.id %}selected{% endif %}>
                     {{ a.turma }} — {{ a.disciplina }}
                 </option>
                 {% endfor %}
             </select>
+            {% else %}
+            <select class="form-select" disabled>
+                <option>Sem aulas agendadas nesta data</option>
+            </select>
+            {% endif %}
         </div>
         <div class="col-md-3">
             <label class="form-label">Data</label>
@@ -35,7 +41,11 @@ Registo de Frequência
 
     {% if not atribuicao %}
     <div class="alert alert-info mt-4">
+        {% if atribuicoes %}
+        Não há aulas suas agendadas nesta data, de acordo com o horário semanal. Escolha outra data.
+        {% else %}
         Não existe nenhuma atribuição docente ativa associada a si.
+        {% endif %}
     </div>
     {% else %}
 

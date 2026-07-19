@@ -16,9 +16,17 @@ from accounts.mixins import AdminOuProfessorRequeridoMixin
 from accounts.utils import eh_administrador, eh_professor, eh_aluno, eh_encarregado
 from alunos.models import Aluno
 from professores.models import AtribuicaoDocente
-from turmas.models import Turma
+from turmas.models import HorarioAula, Turma
 from .models import Frequencia, JustificacaoFalta
-from .forms import FrequenciaForm, RegistoFrequenciaFormSet
+from .forms import FrequenciaForm, JustificacaoFaltaForm, RegistoFrequenciaFormSet
+
+DIA_SEMANA_POR_WEEKDAY = {
+    0: HorarioAula.SEGUNDA,
+    1: HorarioAula.TERCA,
+    2: HorarioAula.QUARTA,
+    3: HorarioAula.QUINTA,
+    4: HorarioAula.SEXTA,
+}
 
 
 class FrequenciaListView(LoginRequiredMixin, ListView):
@@ -35,7 +43,7 @@ class FrequenciaListView(LoginRequiredMixin, ListView):
         user = self.request.user
         queryset = Frequencia.objects.select_related(
             'aluno', 'atribuicao__professor__user',
-            'atribuicao__disciplina', 'atribuicao__turma'
+            'atribuicao__disciplina', 'atribuicao__turma', 'justificacaofalta'
         )
 
         if eh_administrador(user):
@@ -63,6 +71,9 @@ class FrequenciaListView(LoginRequiredMixin, ListView):
         context['ordenacao'] = self.get_ordenacao()
         context['pode_gerir'] = (
             eh_administrador(self.request.user) or eh_professor(self.request.user)
+        )
+        context['pode_justificar'] = (
+            eh_aluno(self.request.user) or eh_encarregado(self.request.user)
         )
         return context
 
@@ -122,17 +133,40 @@ def lancamento_frequencia(request):
         messages.warning(request, 'Não existe nenhuma atribuição docente ativa associada a si.')
         return render(request, 'frequencias/lancamento.html', contexto)
 
-    atribuicao_id = request.GET.get('atribuicao') or request.POST.get('atribuicao')
-    atribuicao = atribuicoes.filter(pk=atribuicao_id).first() if atribuicao_id else None
-    atribuicao = atribuicao or atribuicoes.first()
-    contexto['atribuicao'] = atribuicao
-
     data_str = request.GET.get('data') or request.POST.get('data')
     try:
         data_selecionada = date.fromisoformat(data_str) if data_str else timezone.localdate()
     except ValueError:
         data_selecionada = timezone.localdate()
     contexto['data'] = data_selecionada
+
+    dia_semana = DIA_SEMANA_POR_WEEKDAY.get(data_selecionada.weekday())
+    atribuicoes_do_dia = (
+        atribuicoes.filter(horarios__dia_semana=dia_semana).distinct()
+        if dia_semana else atribuicoes.none()
+    )
+    contexto['atribuicoes_do_dia'] = atribuicoes_do_dia
+
+    atribuicao_id = request.GET.get('atribuicao') or request.POST.get('atribuicao')
+    atribuicao = atribuicoes_do_dia.filter(pk=atribuicao_id).first() if atribuicao_id else None
+
+    if atribuicao is None:
+        if atribuicao_id and request.method == 'POST':
+            messages.error(
+                request,
+                'Esta disciplina não tem aula agendada nesta data, de acordo com o horário semanal — lançamento bloqueado.'
+            )
+            return redirect(f"{reverse('lancamento_frequencia')}?data={data_selecionada.isoformat()}")
+        atribuicao = atribuicoes_do_dia.first()
+
+    contexto['atribuicao'] = atribuicao
+
+    if atribuicao is None:
+        messages.info(
+            request,
+            'Não há aulas suas agendadas nesta data, de acordo com o horário semanal. Escolha outra data.'
+        )
+        return render(request, 'frequencias/lancamento.html', contexto)
 
     pode_editar = eh_administrador(request.user) or atribuicao.professor.user_id == request.user.id
 
@@ -358,3 +392,49 @@ def justificacao_documento(request, pk):
         as_attachment=False,
         filename=justificacao.documento.name.rsplit('/', 1)[-1],
     )
+
+
+def _pode_justificar(user, frequencia):
+    if eh_aluno(user):
+        aluno = getattr(user, 'aluno', None)
+        return aluno is not None and frequencia.aluno_id == aluno.id
+    if eh_encarregado(user):
+        encarregado = getattr(user, 'encarregado', None)
+        return encarregado is not None and frequencia.aluno.encarregado_id == encarregado.id
+    return False
+
+
+@login_required
+def justificacao_criar(request, frequencia_id):
+    frequencia = get_object_or_404(
+        Frequencia.objects.select_related('aluno__encarregado', 'atribuicao__disciplina'),
+        pk=frequencia_id,
+    )
+
+    if not _pode_justificar(request.user, frequencia):
+        return render(request, 'dashboards/sem_permissao.html', status=403)
+
+    if frequencia.estado != Frequencia.FALTA:
+        messages.error(request, 'Só é possível justificar registos marcados como falta.')
+        return redirect('frequencia_lista')
+
+    justificacao = getattr(frequencia, 'justificacaofalta', None)
+    if justificacao and justificacao.aprovada:
+        messages.info(request, 'Esta falta já tem uma justificação aprovada.')
+        return redirect('frequencia_lista')
+
+    if request.method == 'POST':
+        form = JustificacaoFaltaForm(request.POST, request.FILES, instance=justificacao)
+        if form.is_valid():
+            nova_justificacao = form.save(commit=False)
+            nova_justificacao.frequencia = frequencia
+            nova_justificacao.save()
+            messages.success(request, 'Justificação enviada com sucesso. Aguarde a aprovação do professor.')
+            return redirect('frequencia_lista')
+    else:
+        form = JustificacaoFaltaForm(instance=justificacao)
+
+    return render(request, 'frequencias/justificar.html', {
+        'form': form,
+        'frequencia': frequencia,
+    })

@@ -1,5 +1,5 @@
 from django import forms
-from .models import Frequencia
+from .models import Frequencia, JustificacaoFalta
 
 
 class RegistoFrequenciaForm(forms.Form):
@@ -34,4 +34,17 @@ class FrequenciaForm(forms.ModelForm):
                 attrs={'class': 'form-select'} ),
             'observacao': forms.Textarea(
                 attrs={'class': 'form-control', 'rows': 3 })
+        }
+
+
+class JustificacaoFaltaForm(forms.ModelForm):
+    class Meta:
+        model = JustificacaoFalta
+        fields = ['motivo', 'documento']
+        widgets = {
+            'motivo': forms.Textarea(
+                attrs={'class': 'form-control', 'rows': 4,
+                    'placeholder': 'Descreva o motivo da falta'}),
+            'documento': forms.ClearableFileInput(
+                attrs={'class': 'form-control'}),
         }

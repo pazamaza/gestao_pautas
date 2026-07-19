@@ -132,3 +132,52 @@ class Turma(models.Model):
         from alunos.models import Aluno
         return self.aluno_set.filter(estado=Aluno.ESTADO_ATIVO).count()
 
+
+class HorarioAula(models.Model):
+
+    SEGUNDA = 'SEG'
+    TERCA = 'TER'
+    QUARTA = 'QUA'
+    QUINTA = 'QUI'
+    SEXTA = 'SEX'
+
+    DIA_SEMANA_CHOICES = (
+        (SEGUNDA, 'Segunda-feira'),
+        (TERCA, 'Terça-feira'),
+        (QUARTA, 'Quarta-feira'),
+        (QUINTA, 'Quinta-feira'),
+        (SEXTA, 'Sexta-feira'),
+    )
+
+    turma = models.ForeignKey(
+        Turma,
+        on_delete=models.CASCADE,
+        related_name='horarios'
+    )
+    dia_semana = models.CharField(
+        max_length=3,
+        choices=DIA_SEMANA_CHOICES
+    )
+    tempo = models.PositiveSmallIntegerField(
+        verbose_name='Tempo'
+    )
+    atribuicao = models.ForeignKey(
+        'professores.AtribuicaoDocente',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='horarios',
+        verbose_name='Disciplina / Professor',
+        help_text='Deixe em branco para representar um tempo livre ("Borla").'
+    )
+
+    class Meta:
+        unique_together = ('turma', 'dia_semana', 'tempo')
+        ordering = ['turma', 'dia_semana', 'tempo']
+        verbose_name = 'Horário de Aula'
+        verbose_name_plural = 'Horários de Aula'
+
+    def __str__(self):
+        disciplina = self.atribuicao.disciplina if self.atribuicao else 'Livre'
+        return f"{self.turma} - {self.get_dia_semana_display()} T{self.tempo}: {disciplina}"
+

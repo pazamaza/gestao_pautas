@@ -34,6 +34,9 @@
                 {% if pode_gerir %}
                 <th>Ações</th>
                 {% endif %}
+                {% if pode_justificar %}
+                <th>Justificação</th>
+                {% endif %}
             </tr>
         </thead>
         <tbody>
@@ -52,6 +55,26 @@
                        class="btn btn-danger btn-sm">
                         Eliminar
                     </a>
+                </td>
+                {% endif %}
+                {% if pode_justificar %}
+                <td>
+                    {% if frequencia.estado == 'F' %}
+                        {% if frequencia.justificacaofalta %}
+                            {% if frequencia.justificacaofalta.aprovada %}
+                            <span class="badge bg-success">Justificada</span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark">Pendente de Aprovação</span>
+                            <a href="{% url 'justificacao_criar' frequencia.id %}"
+                               class="btn btn-outline-secondary btn-sm">Editar</a>
+                            {% endif %}
+                        {% else %}
+                        <a href="{% url 'justificacao_criar' frequencia.id %}"
+                           class="btn btn-primary btn-sm">Justificar</a>
+                        {% endif %}
+                    {% else %}
+                    <span class="text-muted">—</span>
+                    {% endif %}
                 </td>
                 {% endif %}
             </tr>

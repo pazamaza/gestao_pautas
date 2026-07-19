@@ -4,7 +4,8 @@ from .models import (
     AnoLetivo,
     PeriodoAcademico,
     Classe,
-    Turma
+    Turma,
+    HorarioAula
 )
 
 
@@ -44,3 +45,19 @@ class TurmaAdmin(admin.ModelAdmin):
     def numero_alunos(self, obj):
         return obj.contar_alunos()
     numero_alunos.short_description = 'Nº Alunos'
+
+
+@admin.register(HorarioAula)
+class HorarioAulaAdmin(admin.ModelAdmin):
+    list_display = ('turma', 'dia_semana', 'tempo', 'disciplina_nome', 'professor_nome')
+    list_filter = ('turma', 'dia_semana')
+    ordering = ('turma', 'dia_semana', 'tempo')
+    autocomplete_fields = ('turma', 'atribuicao')
+
+    def disciplina_nome(self, obj):
+        return obj.atribuicao.disciplina if obj.atribuicao else 'Livre'
+    disciplina_nome.short_description = 'Disciplina'
+
+    def professor_nome(self, obj):
+        return obj.atribuicao.professor if obj.atribuicao else '-'
+    professor_nome.short_description = 'Professor'

@@ -9,7 +9,7 @@ from disciplinas.models import Disciplina
 from professores.models import AtribuicaoDocente, Professor
 from turmas.models import AnoLetivo, Classe, Turma
 
-from .models import Frequencia
+from .models import Frequencia, JustificacaoFalta
 
 
 class FrequenciaTestBase(TestCase):
@@ -157,3 +157,74 @@ class FrequenciaGestaoTests(FrequenciaTestBase):
             reverse('frequencia_editar', args=[self.frequencia_outro_aluno.pk])
         )
         self.assertEqual(response.status_code, 200)
+
+
+class JustificacaoFaltaTests(FrequenciaTestBase):
+    def setUp(self):
+        super().setUp()
+        self.falta_aluno = Frequencia.objects.create(
+            aluno=self.aluno, atribuicao=self.atribuicao,
+            data=datetime.date(2026, 7, 14), estado='F',
+        )
+
+    def test_aluno_consegue_submeter_justificacao_da_sua_falta(self):
+        self.client.login(username='aluno1', password='senha123')
+        response = self.client.post(
+            reverse('justificacao_criar', args=[self.falta_aluno.pk]),
+            {'motivo': 'Consulta médica'},
+        )
+        self.assertRedirects(response, reverse('frequencia_lista'))
+        justificacao = JustificacaoFalta.objects.get(frequencia=self.falta_aluno)
+        self.assertEqual(justificacao.motivo, 'Consulta médica')
+        self.assertFalse(justificacao.aprovada)
+
+    def test_encarregado_consegue_submeter_justificacao_do_dependente(self):
+        self.client.login(username='encarregado1', password='senha123')
+        response = self.client.post(
+            reverse('justificacao_criar', args=[self.falta_aluno.pk]),
+            {'motivo': 'Doença'},
+        )
+        self.assertRedirects(response, reverse('frequencia_lista'))
+        self.assertTrue(JustificacaoFalta.objects.filter(frequencia=self.falta_aluno).exists())
+
+    def test_aluno_nao_justifica_falta_de_outro_aluno(self):
+        self.client.login(username='aluno1', password='senha123')
+        response = self.client.get(
+            reverse('justificacao_criar', args=[self.frequencia_outro_aluno.pk])
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_encarregado_nao_justifica_falta_de_dependente_alheio(self):
+        self.client.login(username='encarregado1', password='senha123')
+        response = self.client.get(
+            reverse('justificacao_criar', args=[self.frequencia_outro_aluno.pk])
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_professor_nao_acede_a_justificar_falta(self):
+        self.client.login(username='prof', password='senha123')
+        response = self.client.get(
+            reverse('justificacao_criar', args=[self.falta_aluno.pk])
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_nao_pode_justificar_registo_que_nao_e_falta(self):
+        self.client.login(username='aluno1', password='senha123')
+        response = self.client.get(
+            reverse('justificacao_criar', args=[self.frequencia_aluno.pk])
+        )
+        self.assertRedirects(response, reverse('frequencia_lista'))
+        self.assertFalse(JustificacaoFalta.objects.filter(frequencia=self.frequencia_aluno).exists())
+
+    def test_justificacao_aprovada_nao_pode_ser_reeditada(self):
+        justificacao = JustificacaoFalta.objects.create(
+            frequencia=self.falta_aluno, motivo='Motivo inicial', aprovada=True,
+        )
+        self.client.login(username='aluno1', password='senha123')
+        response = self.client.post(
+            reverse('justificacao_criar', args=[self.falta_aluno.pk]),
+            {'motivo': 'Tentativa de alterar'},
+        )
+        self.assertRedirects(response, reverse('frequencia_lista'))
+        justificacao.refresh_from_db()
+        self.assertEqual(justificacao.motivo, 'Motivo inicial')
