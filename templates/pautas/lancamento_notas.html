@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}
 Lançamento de Notas
@@ -9,27 +10,33 @@ Lançamento de Notas
 
     <div class="d-flex justify-content-between flex-wrap gap-2 align-items-center">
         <h2>Lançamento de Notas</h2>
-        {% if atribuicao %}
-        <div class="dropdown">
-            <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                Pauta
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="offcanvas"
+                    data-bs-target="#calculadoraNotas">
+                Calculadora
             </button>
-            <ul class="dropdown-menu dropdown-menu-end">
-                <li>
-                    <a class="dropdown-item"
-                       href="{% url 'mini_pauta_exportar_excel' %}?turma={{ atribuicao.turma_id }}&disciplina={{ atribuicao.disciplina_id }}&ano_letivo={{ atribuicao.ano_letivo_id }}">
-                        Mini-Pauta (Excel)
-                    </a>
-                </li>
-                <li>
-                    <a class="dropdown-item"
-                       href="{% url 'pauta_final_exportar_excel' %}?turma={{ atribuicao.turma_id }}&ano_letivo={{ atribuicao.ano_letivo_id }}">
-                        Pauta-Geral (Excel)
-                    </a>
-                </li>
-            </ul>
+            {% if atribuicao %}
+            <div class="dropdown">
+                <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    Pauta
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li>
+                        <a class="dropdown-item"
+                           href="{% url 'mini_pauta_exportar_excel' %}?turma={{ atribuicao.turma_id }}&disciplina={{ atribuicao.disciplina_id }}&ano_letivo={{ atribuicao.ano_letivo_id }}">
+                            Mini-Pauta (Excel)
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item"
+                           href="{% url 'pauta_final_exportar_excel' %}?turma={{ atribuicao.turma_id }}&ano_letivo={{ atribuicao.ano_letivo_id }}">
+                            Pauta-Geral (Excel)
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            {% endif %}
         </div>
-        {% endif %}
     </div>
 
     {% if atribuicoes|length > 1 %}
@@ -107,11 +114,14 @@ Lançamento de Notas
         {{ formset.management_form }}
 
         <div class="table-responsive">
-            <table class="table table-bordered table-sm align-middle">
+            <table class="table table-bordered table-sm align-middle" data-notas-tabela
+                   data-terceiro-trimestre="{% if eh_terceiro_trimestre %}true{% else %}false{% endif %}">
                 <thead class="table-primary">
                     <tr>
                         <th>Nº</th>
                         <th>Aluno</th>
+                        {% if mostrar_mt1 %}<th style="width: 110px;">Média 1º Trim.</th>{% endif %}
+                        {% if mostrar_mt2 %}<th style="width: 110px;">Média 2º Trim.</th>{% endif %}
                         <th style="width: 120px;">MAC</th>
                         <th style="width: 120px;">
                             NPT
@@ -119,26 +129,30 @@ Lançamento de Notas
                             <small class="d-block text-muted fw-normal">calculado automaticamente</small>
                             {% endif %}
                         </th>
+                        <th style="width: 100px;">MT</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for aluno, form in linhas %}
-                    <tr>
+                    {% for linha in linhas %}
+                    <tr data-linha data-mt1="{{ linha.mt1|default_if_none:'' }}" data-mt2="{{ linha.mt2|default_if_none:'' }}">
                         <td>{{ forloop.counter }}</td>
-                        <td class="text-start">{{ aluno.nome }}</td>
+                        <td class="text-start">{{ linha.aluno.nome }}</td>
+                        {% if mostrar_mt1 %}<td class="text-center text-muted">{{ linha.mt1|default_if_none:"—" }}</td>{% endif %}
+                        {% if mostrar_mt2 %}<td class="text-center text-muted">{{ linha.mt2|default_if_none:"—" }}</td>{% endif %}
                         <td>
-                            {{ form.aluno_id }}
-                            {{ form.mac }}
-                            {% if form.mac.errors %}<div class="text-danger small">{{ form.mac.errors }}</div>{% endif %}
+                            {{ linha.form.aluno_id }}
+                            {{ linha.form.mac }}
+                            {% if linha.form.mac.errors %}<div class="text-danger small">{{ linha.form.mac.errors }}</div>{% endif %}
                         </td>
                         <td>
-                            {{ form.npt }}
-                            {% if form.npt.errors %}<div class="text-danger small">{{ form.npt.errors }}</div>{% endif %}
+                            {{ linha.form.npt }}
+                            {% if linha.form.npt.errors %}<div class="text-danger small">{{ linha.form.npt.errors }}</div>{% endif %}
                         </td>
+                        <td class="text-center fw-bold" data-campo="mt">—</td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="4">Nenhum aluno ativo nesta turma.</td>
+                        <td colspan="7">Nenhum aluno ativo nesta turma.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -151,5 +165,96 @@ Lançamento de Notas
     </form>
 
     {% endif %}
+
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="calculadoraNotas">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title">Calculadora</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+        </div>
+        <div class="offcanvas-body">
+
+            <ul class="nav nav-pills nav-fill mb-3" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#calcNotaNecessaria" type="button">
+                        Nota necessária
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" data-bs-toggle="pill" data-bs-target="#calcFrequencia" type="button">
+                        Frequência
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" data-bs-toggle="pill" data-bs-target="#calcLivre" type="button">
+                        Livre
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content">
+
+                <div class="tab-pane fade show active" id="calcNotaNecessaria">
+                    <p class="text-muted small">MT = (MAC + NPT) / 2. Preenche dois valores para calcular o terceiro.</p>
+                    <div class="mb-2">
+                        <label class="form-label small">MAC</label>
+                        <input type="number" step="0.1" min="0" max="20" class="form-control" id="calcMac">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">NPT</label>
+                        <input type="number" step="0.1" min="0" max="20" class="form-control" id="calcNpt">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">Média desejada (MT)</label>
+                        <input type="number" step="0.1" min="0" max="20" class="form-control" id="calcMtDesejada">
+                    </div>
+                    <button type="button" class="btn btn-outline-primary btn-sm mt-1" id="calcNotaNecessariaBtn">
+                        Calcular
+                    </button>
+                    <div class="alert alert-info mt-2 d-none" id="calcNotaNecessariaResultado"></div>
+                </div>
+
+                <div class="tab-pane fade" id="calcFrequencia">
+                    <p class="text-muted small">
+                        Um aluno é reprovado por faltas se a frequência for inferior a 75%.
+                    </p>
+                    <div class="mb-2">
+                        <label class="form-label small">Aulas presentes</label>
+                        <input type="number" min="0" class="form-control" id="calcPresencas">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small">Total de aulas</label>
+                        <input type="number" min="0" class="form-control" id="calcTotalAulas">
+                    </div>
+                    <button type="button" class="btn btn-outline-primary btn-sm mt-1" id="calcFrequenciaBtn">
+                        Calcular
+                    </button>
+                    <div class="alert alert-info mt-2 d-none" id="calcFrequenciaResultado"></div>
+                </div>
+
+                <div class="tab-pane fade" id="calcLivre">
+                    <p class="text-muted small">Soma, subtrai, multiplica ou divide vários valores (ex.: 12+15-3).</p>
+                    <div class="input-group mb-2">
+                        <input type="text" class="form-control" id="calcLivreExpressao" placeholder="Ex.: 14+16+12">
+                        <button type="button" class="btn btn-outline-primary" id="calcLivreBtn">=</button>
+                    </div>
+                    <div class="alert alert-info mt-2 d-none" id="calcLivreResultado"></div>
+                    <div class="mt-3">
+                        <label class="form-label small">Média de vários valores (separados por vírgula)</label>
+                        <div class="input-group mb-2">
+                            <input type="text" class="form-control" id="calcMediaValores" placeholder="Ex.: 12,15,18">
+                            <button type="button" class="btn btn-outline-primary" id="calcMediaValoresBtn">Média</button>
+                        </div>
+                        <div class="alert alert-info mt-2 d-none" id="calcMediaValoresResultado"></div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/lancamento_notas.js' %}"></script>
 {% endblock %}

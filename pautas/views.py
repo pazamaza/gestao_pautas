@@ -59,6 +59,34 @@ def notas_da_avaliacao(avaliacao):
     )
 
 
+def _medias_periodos_anteriores(alunos, atribuicao, periodo):
+    """Devolve (medias, campos) com a MT dos trimestres anteriores ao `periodo`
+    para a mesma disciplina/turma/ano letivo, para exibir como referência
+    ao lançar o 2º/3º trimestre. `medias` é {aluno_id: {'mt1': Decimal, ...}}."""
+    campo_atual = campo_periodo(periodo)
+    if campo_atual == 'mt2':
+        campos = ['mt1']
+    elif campo_atual == 'mt3':
+        campos = ['mt1', 'mt2']
+    else:
+        return {}, []
+
+    notas = Nota.objects.filter(
+        aluno__in=alunos,
+        avaliacao__atribuicao__disciplina=atribuicao.disciplina,
+        avaliacao__atribuicao__turma=atribuicao.turma,
+        avaliacao__atribuicao__ano_letivo=atribuicao.ano_letivo,
+    ).select_related('avaliacao__periodo')
+
+    medias = {}
+    for nota in notas:
+        campo = campo_periodo(nota.avaliacao.periodo)
+        if campo in campos:
+            medias.setdefault(nota.aluno_id, {})[campo] = nota.mt
+
+    return medias, campos
+
+
 def _eh_professor_titular(user, avaliacao):
     return avaliacao.atribuicao.professor.user_id == user.id
 
@@ -175,7 +203,16 @@ def lancamento_notas(request):
         ]
         formset = LancamentoNotaFormSet(initial=initial)
 
-    linhas = list(zip(alunos, formset))
+    medias_anteriores, campos_anteriores = _medias_periodos_anteriores(alunos, atribuicao, periodo)
+    linhas = [
+        {
+            'aluno': aluno,
+            'form': form,
+            'mt1': medias_anteriores.get(aluno.id, {}).get('mt1'),
+            'mt2': medias_anteriores.get(aluno.id, {}).get('mt2'),
+        }
+        for aluno, form in zip(alunos, formset)
+    ]
 
     contexto.update({
         'avaliacao': avaliacao,
@@ -184,6 +221,8 @@ def lancamento_notas(request):
         'pode_editar': pode_editar,
         'periodo_ativo': periodo_ativo,
         'eh_terceiro_trimestre': campo_periodo(periodo) == 'mt3' if periodo else False,
+        'mostrar_mt1': 'mt1' in campos_anteriores,
+        'mostrar_mt2': 'mt2' in campos_anteriores,
     })
     return render(request, 'pautas/lancamento_notas.html', contexto)
 

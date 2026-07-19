@@ -1,22 +1,9 @@
 {% extends 'base.html' %}
-
 {% block content %}
-
 <div class="container-fluid mt-4">
-
     <div class="d-flex justify-content-between flex-wrap gap-2">
-
         <h2>Avaliações</h2>
-
-        {% if not eh_administrador %}
-        <a href="{% url 'avaliacao_nova' %}"
-           class="btn btn-primary">
-            Nova Avaliação
-        </a>
-        {% endif %}
-
     </div>
-
     <form method="get" class="row g-2 align-items-end mt-2">
         <div class="col-md-3">
             <label class="form-label">Turma</label>
@@ -100,22 +87,10 @@
                        class="btn btn-info btn-sm">
                         Ver Pauta
                     </a>
-                    <a href="{% url 'pauta_exportar_excel' avaliacao.id %}"
-                       class="btn btn-success btn-sm">
-                        Excel
-                    </a>
                     <a href="{% url 'pauta_exportar_pdf' avaliacao.id %}"
                        class="btn btn-danger btn-sm">
-                        PDF
+                        Imprimir em PDF
                     </a>
-                    {% if not eh_administrador %}
-                    <a href="{% url 'avaliacao_editar' avaliacao.id %}"
-                       class="btn btn-warning btn-sm">
-                        Editar</a>
-                    <a href="{% url 'avaliacao_excluir' avaliacao.id %}"
-                       class="btn btn-danger btn-sm">
-                        Eliminar </a>
-                    {% endif %}
                 </td>
             </tr>
             {% empty %}

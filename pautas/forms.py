@@ -125,7 +125,7 @@ class LancamentoNotaForm(forms.Form):
         min_value=0, max_value=20,
         required=False,
         widget=forms.NumberInput(
-            attrs={'class': 'form-control form-control-sm', 'step': '0.1'}
+            attrs={'class': 'form-control form-control-sm', 'step': '0.1', 'data-campo': 'mac'}
         ),
     )
     npt = forms.DecimalField(
@@ -133,7 +133,7 @@ class LancamentoNotaForm(forms.Form):
         min_value=0, max_value=20,
         required=False,
         widget=forms.NumberInput(
-            attrs={'class': 'form-control form-control-sm', 'step': '0.1'}
+            attrs={'class': 'form-control form-control-sm', 'step': '0.1', 'data-campo': 'npt'}
         ),
     )
 
