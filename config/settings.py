@@ -125,7 +125,12 @@ TIME_ZONE = 'Africa/Luanda'
 USE_I18N = True
 USE_TZ = True
 DATE_INPUT_FORMATS = ['%Y-%m-%d']
-USE_L10N = False
+
+# USE_L10N foi removido a partir do Django 5.0 (a localização está sempre activa).
+# O locale pt_BR usa vírgula como separador decimal, o que quebra números
+# usados directamente em CSS (ex: width:91,3%) ou JavaScript nos templates.
+# Este módulo substitui o separador decimal do locale pt_BR por ponto.
+FORMAT_MODULE_PATH = ['config.formats']
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
