@@ -14,7 +14,9 @@ from turmas.models import Turma, PeriodoAcademico, AnoLetivo
 from disciplinas.models import Disciplina
 from frequencias.models import Frequencia, JustificacaoFalta
 from pautas.models import Avaliacao, Nota, PedidoDocumento, ResultadoDisciplina
-from pautas.services.dashboard_aluno import estatisticas_aluno
+from pautas.services.dashboard_aluno import (
+    estatisticas_aluno, FREQUENCIA_MINIMA, MEDIA_MINIMA,
+)
 
 
 def _media(valores):
@@ -440,12 +442,50 @@ def dashboard(request):
     if usuario_do_grupo(user, 'Encarregado'):
 
         encarregado = getattr(user, 'encarregado', None)
+        dependentes = (
+            Aluno.objects.filter(encarregado=encarregado).select_related('turma').order_by('nome')
+            if encarregado else Aluno.objects.none()
+        )
+
+        educandos = []
+        total_em_risco = 0
+        total_faltas_por_justificar = 0
+        for dependente in dependentes:
+            stats = estatisticas_aluno(dependente)
+            em_risco = (
+                (stats['media_geral'] is not None and stats['media_geral'] < MEDIA_MINIMA)
+                or stats['frequencia'] < FREQUENCIA_MINIMA
+            )
+            faltas_por_justificar = Frequencia.objects.filter(
+                aluno=dependente, estado=Frequencia.FALTA
+            ).exclude(justificacaofalta__aprovada=True).count()
+
+            if em_risco:
+                total_em_risco += 1
+            total_faltas_por_justificar += faltas_por_justificar
+
+            educandos.append({
+                'aluno': dependente,
+                'media_geral': stats['media_geral'],
+                'frequencia': stats['frequencia'],
+                'em_risco': em_risco,
+                'faltas_por_justificar': faltas_por_justificar,
+                'mensagem_alerta': next(
+                    (m for m in stats['mensagens'] if m['tipo'] == 'alerta'), None
+                ),
+            })
 
         context.update({
-            'dependentes': (
-                Aluno.objects.filter(encarregado=encarregado).order_by('nome')
-                if encarregado else Aluno.objects.none()
-            ),
+            'dependentes': dependentes,
+            'educandos': educandos,
+            'total_educandos': len(educandos),
+            'total_em_risco': total_em_risco,
+            'total_faltas_por_justificar': total_faltas_por_justificar,
+            'grafico_educandos_labels': [e['aluno'].nome for e in educandos],
+            'grafico_medias_dados': [
+                float(e['media_geral']) if e['media_geral'] is not None else 0 for e in educandos
+            ],
+            'grafico_frequencia_dados': [e['frequencia'] for e in educandos],
         })
 
         return render(

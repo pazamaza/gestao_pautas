@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load l10n static %}
 
 {% block title %}
 Dashboard do Encarregado
@@ -6,26 +7,121 @@ Dashboard do Encarregado
 
 {% block content %}
 <div class="container py-4">
-    {% include 'includes/perfil_header.html' with subtitulo="Acompanhe as pautas validadas dos seus educandos." %}
+    {% include 'includes/perfil_header.html' with subtitulo="Acompanhe as notas e a assiduidade dos seus educandos." %}
+
+    {% if educandos %}
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100 kpi-card">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Educandos</h6>
+                    <h3>{{ total_educandos }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100 kpi-card {% if total_em_risco > 0 %}border-danger{% endif %}">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Em Risco</h6>
+                    <h3 class="{% if total_em_risco > 0 %}text-danger{% endif %}">{{ total_em_risco }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100 kpi-card {% if total_faltas_por_justificar > 0 %}border-warning{% endif %}">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Faltas por Justificar</h6>
+                    <h3 class="{% if total_faltas_por_justificar > 0 %}text-warning{% endif %}">{{ total_faltas_por_justificar }}</h3>
+                    {% if total_faltas_por_justificar > 0 %}
+                    <a href="{% url 'frequencia_lista' %}" class="small">Justificar agora</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div class="row g-3">
-        {% for aluno in dependentes %}
+        {% for educando in educandos %}
         <div class="col-md-4">
             <div class="card shadow-sm h-100">
                 <div class="card-body">
-                    <h5 class="card-title">{{ aluno.nome }}</h5>
-                    <p class="card-text text-muted">{{ aluno.turma }}</p>
-                    <a href="{% url 'notas_dependente' aluno.id %}" class="btn btn-primary btn-sm">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <h5 class="card-title mb-0">{{ educando.aluno.nome }}</h5>
+                            <p class="card-text text-muted small mb-0">{{ educando.aluno.turma }}</p>
+                        </div>
+                        {% if educando.em_risco %}
+                        <span class="badge bg-danger">Em Risco</span>
+                        {% else %}
+                        <span class="badge bg-success">Regular</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="row text-center my-3">
+                        <div class="col-6">
+                            <div class="small text-muted text-uppercase">Média Geral</div>
+                            <div class="fs-4 fw-bold">{{ educando.media_geral|default:"—" }}</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="small text-muted text-uppercase">Frequência</div>
+                            <div class="fs-4 fw-bold">{{ educando.frequencia }}%</div>
+                        </div>
+                    </div>
+                    <div class="progress mb-3" style="height:6px;">
+                        <div class="progress-bar {% if educando.frequencia < 75 %}bg-danger{% else %}bg-success{% endif %}"
+                             style="width:{{ educando.frequencia|unlocalize }}%;"></div>
+                    </div>
+
+                    {% if educando.mensagem_alerta %}
+                    <div class="alert alert-warning py-2 px-3 small mb-3">
+                        {{ educando.mensagem_alerta.texto }}
+                    </div>
+                    {% endif %}
+
+                    {% if educando.faltas_por_justificar > 0 %}
+                    <p class="small text-warning mb-3">
+                        {{ educando.faltas_por_justificar }} falta{{ educando.faltas_por_justificar|pluralize }} por justificar.
+                    </p>
+                    {% endif %}
+
+                    <a href="{% url 'notas_dependente' educando.aluno.id %}" class="btn btn-primary btn-sm">
                         Ver Pautas
                     </a>
                 </div>
             </div>
         </div>
-        {% empty %}
-        <div class="alert alert-warning">
-            Não tem educandos associados à sua conta. Contacte a secretaria.
-        </div>
         {% endfor %}
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100 dashboard-chart-card">
+                <div class="card-body">
+                    <h6 class="text-center">Médias por Educando</h6>
+                    <canvas id="grafico-medias-educandos"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100 dashboard-chart-card">
+                <div class="card-body">
+                    <h6 class="text-center">Frequência por Educando</h6>
+                    <canvas id="grafico-frequencia-educandos"></canvas>
+                </div>
+            </div>
+        </div>
     </div>
+    {{ grafico_educandos_labels|json_script:"grafico-educandos-labels" }}
+    {{ grafico_medias_dados|json_script:"grafico-medias-dados" }}
+    {{ grafico_frequencia_dados|json_script:"grafico-frequencia-dados" }}
+    {% else %}
+    <div class="alert alert-warning">
+        Não tem educandos associados à sua conta. Contacte a secretaria.
+    </div>
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{% if educandos %}
+<script src="{% static 'js/vendor/chart.min.js' %}"></script>
+<script src="{% static 'js/encarregado_dashboard_charts.js' %}"></script>
+{% endif %}
 {% endblock %}
