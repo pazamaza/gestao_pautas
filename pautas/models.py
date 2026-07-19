@@ -211,6 +211,11 @@ class Nota(models.Model):
         if self.eh_terceiro_trimestre():
             self.npt = self.calcular_npt_terceiro_trimestre()
         self.mt = self.calcular_mt()
+
+        update_fields = kwargs.get('update_fields')
+        if update_fields is not None:
+            kwargs['update_fields'] = set(update_fields) | {'mt', 'npt'}
+
         super().save(*args, **kwargs)
 
     class Meta:
@@ -303,7 +308,12 @@ class ResultadoDisciplina(StatusValidacaoMixin, models.Model):
         )
 
     def calcular_mf(self):
-        return self.arredondar_nota(self.mt3)
+        valor = (
+            (self.mt1 * Decimal('0.25'))
+            + (self.mt2 * Decimal('0.35'))
+            + (self.mt3 * Decimal('0.40'))
+        )
+        return self.arredondar_nota(valor)
 
     def calcular_nota_final(self):
         if self.nota_recurso is not None:
