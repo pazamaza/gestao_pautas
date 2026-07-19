@@ -174,3 +174,15 @@ poetry.toml
 pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python
+
+# Ficheiros pessoais e dados sensiveis (nao comitar)
+.claude/
+media/
+docs/
+tools/
+Fotos_Jair/
+VIDEOS_JAIR_2/
+Horários/
+Eliminar.png
+Reoganizar.png
+resumo_absentismo_turmas.pdf
