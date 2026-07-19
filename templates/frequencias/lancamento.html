@@ -16,21 +16,25 @@ Registo de Frequência
 
     {% if atribuicoes %}
     <form method="get" class="row g-2 align-items-end mt-3">
-        <div class="col-md-5">
-            <label class="form-label">Turma / Disciplina</label>
-            {% if atribuicoes_do_dia %}
-            <select name="atribuicao" class="form-select" onchange="this.form.submit()">
-                {% for a in atribuicoes_do_dia %}
-                <option value="{{ a.id }}" {% if atribuicao.id == a.id %}selected{% endif %}>
-                    {{ a.turma }} — {{ a.disciplina }}
+        <div class="col-md-4">
+            <label class="form-label">Turma</label>
+            <select name="turma" class="form-select" onchange="this.form.submit()">
+                {% for t in turmas_disponiveis %}
+                <option value="{{ t.id }}" {% if turma_selecionada.id == t.id %}selected{% endif %}>
+                    {{ t }}
                 </option>
                 {% endfor %}
             </select>
-            {% else %}
-            <select class="form-select" disabled>
-                <option>Sem aulas agendadas nesta data</option>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Disciplina</label>
+            <select name="disciplina" class="form-select" onchange="this.form.submit()">
+                {% for a in atribuicoes_da_turma %}
+                <option value="{{ a.disciplina_id }}" {% if atribuicao.disciplina_id == a.disciplina_id %}selected{% endif %}>
+                    {{ a.disciplina }}
+                </option>
+                {% endfor %}
             </select>
-            {% endif %}
         </div>
         <div class="col-md-3">
             <label class="form-label">Data</label>
@@ -42,7 +46,7 @@ Registo de Frequência
     {% if not atribuicao %}
     <div class="alert alert-info mt-4">
         {% if atribuicoes %}
-        Não há aulas suas agendadas nesta data, de acordo com o horário semanal. Escolha outra data.
+        Escolha uma turma e uma disciplina para lançar a frequência.
         {% else %}
         Não existe nenhuma atribuição docente ativa associada a si.
         {% endif %}
@@ -51,10 +55,17 @@ Registo de Frequência
 
     <div class="card mt-3">
         <div class="card-body text-center">
-            <h5 class="mb-1">{{ atribuicao.disciplina }} — {{ atribuicao.turma }}</h5>
+            <h5 class="mb-1">
+                {{ atribuicao.disciplina }} — {{ atribuicao.turma }}
+                {% if dia_aula_display %}
+                <span class="badge bg-primary">{{ dia_aula_display }}</span>
+                {% endif %}
+            </h5>
             <div class="text-muted">{{ data|date:'d/m/Y' }} | {{ atribuicao.ano_letivo }}</div>
         </div>
     </div>
+
+    {% if mostrar_formulario %}
 
     {% if not pode_editar %}
     <div class="alert alert-secondary mt-3">
@@ -112,6 +123,7 @@ Registo de Frequência
         {% endif %}
     </form>
 
+    {% endif %}
     {% endif %}
 </div>
 {% endblock %}

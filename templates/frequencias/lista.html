@@ -2,11 +2,20 @@
 {% block content %}
 <div class="container mt-4">
     <div class="d-flex justify-content-between flex-wrap gap-2">
-        <h2>Frequências</h2>
-        {% if pode_gerir %}
-        <a href="{% url 'lancamento_frequencia' %}"
-           class="btn btn-primary">Registar Frequência </a>
-        {% endif %}
+        <h2>
+            Frequências
+            {% if turma_selecionada %}<small class="text-muted">— {{ turma_selecionada }}</small>{% endif %}
+        </h2>
+        <div class="d-flex gap-2">
+            {% if pode_gerir and turma_id %}
+            <a href="{% url 'frequencia_lista' %}{% if mes %}?mes={{ mes }}{% endif %}"
+               class="btn btn-outline-secondary">Voltar ao Resumo</a>
+            {% endif %}
+            {% if pode_gerir %}
+            <a href="{% url 'lancamento_frequencia' %}"
+               class="btn btn-primary">Registar Frequência </a>
+            {% endif %}
+        </div>
     </div>
 
     <form method="get" class="row g-2 align-items-end mt-3">
@@ -14,6 +23,8 @@
             <label class="form-label">Filtrar por dia</label>
             <input type="date" name="data" class="form-control" value="{{ data_filtro }}" onchange="this.form.submit()">
         </div>
+        <input type="hidden" name="turma" value="{{ turma_id }}">
+        <input type="hidden" name="mes" value="{{ mes }}">
         <div class="col-md-3">
             <button type="submit" class="btn btn-outline-primary">Filtrar</button>
             <a href="{% url 'frequencia_lista' %}" class="btn btn-outline-secondary">Limpar</a>
@@ -24,9 +35,11 @@
         <thead>
             <tr>
                 <th>Aluno</th>
+                <th>Turma</th>
+                <th>Disciplina</th>
                 <th>
                     <a class="link-dark text-decoration-none"
-                       href="?data={{ data_filtro }}&ordenar={% if ordenacao == '-data' %}data{% else %}-data{% endif %}">
+                       href="?data={{ data_filtro }}&turma={{ turma_id }}&mes={{ mes }}&ordenar={% if ordenacao == '-data' %}data{% else %}-data{% endif %}">
                         Data {% if ordenacao == '-data' %}&#9660;{% else %}&#9650;{% endif %}
                     </a>
                 </th>
@@ -43,6 +56,8 @@
         {% for frequencia in frequencias %}
             <tr>
                 <td>{{ frequencia.aluno }}</td>
+                <td>{{ frequencia.atribuicao.turma }}</td>
+                <td>{{ frequencia.atribuicao.disciplina }}</td>
                 <td>{{ frequencia.data }}</td>
                 <td>{{ frequencia.get_estado_display }}</td>
                 {% if pode_gerir %}

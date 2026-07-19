@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between flex-wrap gap-2">
+        <h2>Frequências — Resumo por Turma</h2>
+        <a href="{% url 'lancamento_frequencia' %}" class="btn btn-primary">Registar Frequência</a>
+    </div>
+
+    <form method="get" class="row g-2 align-items-end mt-3">
+        <div class="col-md-3">
+            <label class="form-label">Mês</label>
+            <input type="month" name="mes" class="form-control" value="{{ mes }}" onchange="this.form.submit()">
+        </div>
+    </form>
+
+    <div class="table-responsive mt-3">
+        <table class="table table-sm table-striped align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>Turma</th>
+                    <th class="text-center">Total Alunos</th>
+                    <th class="text-center">Aulas Dadas</th>
+                    <th class="text-center">Faltas Justificadas</th>
+                    <th class="text-center">Faltas Injustificadas</th>
+                    <th class="text-center">Total Faltas</th>
+                    <th class="text-center">Taxa Assiduidade</th>
+                    <th class="text-center">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in linhas_resumo %}
+                <tr class="{% if melhor_turma and item.turma.id == melhor_turma.turma.id %}table-success{% elif turma_critica and item.turma.id == turma_critica.turma.id %}table-danger{% endif %}">
+                    <td>{{ item.turma }}</td>
+                    <td class="text-center">{{ item.total_alunos }}</td>
+                    <td class="text-center">{{ item.aulas_dadas }}</td>
+                    <td class="text-center">{{ item.faltas_justificadas }}</td>
+                    <td class="text-center">{{ item.faltas_injustificadas }}</td>
+                    <td class="text-center">{{ item.total_faltas }}</td>
+                    <td class="text-center">
+                        {% if item.taxa_assiduidade is not None %}{{ item.taxa_assiduidade }}%{% else %}—{% endif %}
+                    </td>
+                    <td class="text-center">
+                        <a href="{% url 'frequencia_lista' %}?turma={{ item.turma.id }}&mes={{ mes }}"
+                           class="btn btn-outline-primary btn-sm">Ver Turma</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="8">Sem registos de frequência neste período.</td></tr>
+                {% endfor %}
+            </tbody>
+            {% if linhas_resumo %}
+            <tfoot>
+                <tr class="table-secondary fw-bold">
+                    <td>TOTAL</td>
+                    <td class="text-center">{{ total_alunos }}</td>
+                    <td class="text-center">—</td>
+                    <td class="text-center">{{ total_faltas_justificadas }}</td>
+                    <td class="text-center">{{ total_faltas_injustificadas }}</td>
+                    <td class="text-center">{{ total_faltas }}</td>
+                    <td class="text-center">
+                        {% if taxa_geral is not None %}{{ taxa_geral }}%{% else %}—{% endif %}
+                    </td>
+                    <td></td>
+                </tr>
+            </tfoot>
+            {% endif %}
+        </table>
+    </div>
+
+    {% if turma_critica or melhor_turma %}
+    <div class="card mt-3">
+        <div class="card-header">Observações e Pontos de Atenção</div>
+        <div class="card-body">
+            <ul class="mb-0">
+                {% if turma_critica %}
+                <li>
+                    <strong>Turma Crítica:</strong> a {{ turma_critica.turma }} requer atenção imediata —
+                    {{ turma_critica.faltas_injustificadas }} falta(s) injustificada(s) e a menor taxa de
+                    assiduidade do período ({{ turma_critica.taxa_assiduidade }}%).
+                </li>
+                {% endif %}
+                {% if melhor_turma %}
+                <li>
+                    <strong>Melhor Desempenho:</strong> a {{ melhor_turma.turma }} destaca-se com a maior
+                    taxa de assiduidade do período ({{ melhor_turma.taxa_assiduidade }}%).
+                </li>
+                {% endif %}
+                {% if total_faltas_injustificadas or total_faltas_justificadas %}
+                <li>
+                    <strong>Análise Geral:</strong>
+                    {% if total_faltas_injustificadas > total_faltas_justificadas %}
+                    o volume de faltas injustificadas ({{ total_faltas_injustificadas }}) é superior ao de
+                    justificadas ({{ total_faltas_justificadas }}), sugerindo a necessidade de acompanhamento
+                    preventivo junto aos encarregados de educação.
+                    {% else %}
+                    o volume de faltas justificadas ({{ total_faltas_justificadas }}) é superior ou igual ao
+                    de injustificadas ({{ total_faltas_injustificadas }}) neste período.
+                    {% endif %}
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

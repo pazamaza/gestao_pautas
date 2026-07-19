@@ -96,15 +96,21 @@ class FrequenciaListagemTests(FrequenciaTestBase):
         response = self.client.get(reverse('frequencia_lista'))
         self.assertEqual(response.status_code, 302)
 
-    def test_admin_ve_todas_as_frequencias(self):
+    def test_admin_ve_resumo_por_turma_por_omissao(self):
         self.client.login(username='admin', password='senha123')
         response = self.client.get(reverse('frequencia_lista'))
+        self.assertTemplateUsed(response, 'frequencias/resumo_turmas.html')
+        self.assertContains(response, str(self.turma))
+
+    def test_admin_ve_todas_as_frequencias(self):
+        self.client.login(username='admin', password='senha123')
+        response = self.client.get(reverse('frequencia_lista'), {'turma': self.turma.id})
         self.assertContains(response, 'Aluno Teste')
         self.assertContains(response, 'Outro Aluno')
 
     def test_professor_ve_apenas_as_suas_atribuicoes(self):
         self.client.login(username='prof', password='senha123')
-        response = self.client.get(reverse('frequencia_lista'))
+        response = self.client.get(reverse('frequencia_lista'), {'turma': self.turma.id})
         self.assertContains(response, 'Aluno Teste')
         self.assertNotContains(response, 'Outro Aluno')
 

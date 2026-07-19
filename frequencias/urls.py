@@ -1,11 +1,11 @@
 from django.urls import path
 from .views import (FrequenciaListView, FrequenciaCreateView,
-    FrequenciaUpdateView, FrequenciaDeleteView,
+    FrequenciaUpdateView, FrequenciaDeleteView, frequencia_lista_view,
     JustificacaoListView, justificacao_aprovar, justificacao_criar,
     justificacao_documento, lancamento_frequencia, relatorio_assiduidade)
 
 urlpatterns = [
-    path('', FrequenciaListView.as_view(),
+    path('', frequencia_lista_view,
         name='frequencia_lista'),
     path('lancamento/', lancamento_frequencia,
         name='lancamento_frequencia'),
