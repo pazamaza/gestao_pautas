@@ -17,7 +17,7 @@ from django.shortcuts import ( render,  redirect,
 from django.views import View
 
 
-class ProfessorCreateView(View):
+class ProfessorCreateView(AdministradorRequeridoMixin, View):
     template_name = 'professores/cadastro.html'
     def get(self, request):
         form = ProfessorCadastroForm()
@@ -69,7 +69,7 @@ class ProfessorCreateView(View):
         )
 
 
-class ProfessorListView(ListView):
+class ProfessorListView(AdministradorRequeridoMixin, ListView):
     model = Professor
     template_name = 'professores/lista.html'
     context_object_name = 'professores'
@@ -83,7 +83,7 @@ class ProfessorListView(ListView):
             )
         )
 
-class ProfessorUpdateView(View):
+class ProfessorUpdateView(AdministradorRequeridoMixin, View):
 
     template_name = 'professores/editar.html'
 
@@ -191,20 +191,20 @@ class ProfessorUpdateView(View):
             }
         )
 
-class ProfessorDeleteView(DeleteView):
+class ProfessorDeleteView(AdministradorRequeridoMixin, DeleteView):
     model = Professor
     template_name = 'professores/excluir.html'
     success_url = reverse_lazy(
         'professor_lista'
     )
 
-class AtribuicaoDocenteListView(ListView):
+class AtribuicaoDocenteListView(AdministradorRequeridoMixin, ListView):
     model = AtribuicaoDocente
     template_name = (
         'professores/atribuicao_lista.html' )
     context_object_name = ('atribuicoes')
 
-class AtribuicaoDocenteCreateView(CreateView):
+class AtribuicaoDocenteCreateView(AdministradorRequeridoMixin, CreateView):
     model = AtribuicaoDocente
     form_class = AtribuicaoDocenteForm
     template_name = ('professores/atribuicao_form.html' )

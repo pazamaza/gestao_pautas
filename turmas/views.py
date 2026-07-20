@@ -4,10 +4,11 @@ from django.views.generic import (ListView, CreateView,
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
 from accounts.mixins import AdministradorRequeridoMixin
+from accounts.decoracors import administrador_requerido
 from .models import Turma, PeriodoAcademico, AnoLetivo
 from .forms import TurmaForm, PeriodoAcademicoForm
 
-class TurmaListView(ListView):
+class TurmaListView(AdministradorRequeridoMixin, ListView):
     model = Turma
     template_name = 'turmas/lista.html'
     context_object_name = 'turmas'
@@ -33,6 +34,7 @@ class TurmaListView(ListView):
         context['anos_letivos'] = AnoLetivo.objects.all()
         return context
 
+@administrador_requerido
 def desativar_turma(request, pk):
         turma = get_object_or_404(Turma, pk=pk)
         turma.ativo = False
@@ -40,14 +42,15 @@ def desativar_turma(request, pk):
         messages.success( request, "Turma desativada com sucesso.")
         return redirect("turma_lista")
 
+@administrador_requerido
 def reativar_turma(request, pk):
         turma = get_object_or_404(Turma, pk=pk)
         turma.ativo = True
         turma.save()
         messages.success( request, "Turma reativada com sucesso.")
         return redirect("turma_lista")
-    
-class TurmaCreateView(CreateView):
+
+class TurmaCreateView(AdministradorRequeridoMixin, CreateView):
     model = Turma
     form_class = TurmaForm
     template_name = 'turmas/form.html'
@@ -55,7 +58,7 @@ class TurmaCreateView(CreateView):
         'turma_lista'
     )
 
-class TurmaUpdateView(UpdateView):
+class TurmaUpdateView(AdministradorRequeridoMixin, UpdateView):
     model = Turma
     form_class = TurmaForm
     template_name = 'turmas/form.html'
@@ -63,7 +66,7 @@ class TurmaUpdateView(UpdateView):
         'turma_lista'
     )
 
-class TurmaInativaListView(ListView):
+class TurmaInativaListView(AdministradorRequeridoMixin, ListView):
 
     model = Turma
     template_name = "turmas/inativas.html"

@@ -57,6 +57,12 @@ class AlunoForm(forms.ModelForm):
             Q(aluno__isnull=True) | Q(pk=self.instance.user_id)
         ).distinct().order_by('first_name', 'last_name')
 
+        self.fields['data_nascimento'].input_formats = ['%Y-%m-%d']
+        if self.instance and self.instance.pk:
+            self.initial['data_nascimento'] = (
+                self.instance.data_nascimento.strftime('%Y-%m-%d')
+            )
+
     def clean_numero_processo(self):
         numero = self.cleaned_data['numero_processo' ]
         if Aluno.objects.filter(numero_processo=numero
@@ -114,15 +120,3 @@ class EncarregadoCadastroForm(forms.Form):
             attrs={'class': 'form-control'}
         )
     )
-
-def __init__(self, *args, **kwargs):
-    super().__init__(*args, **kwargs)
-
-    self.fields['data_nascimento'].input_formats = [
-        '%Y-%m-%d'
-    ]
-
-    if self.instance and self.instance.pk:
-        self.initial['data_nascimento'] = (
-            self.instance.data_nascimento.strftime('%Y-%m-%d')
-        )

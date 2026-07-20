@@ -48,7 +48,7 @@ def criar_modelo_excel(avaliacao):
 
     alunos = (
         Aluno.objects
-        .filter(turma=avaliacao.atribuicao.turma, ativo=True)
+        .filter(turma=avaliacao.atribuicao.turma, estado=Aluno.ESTADO_ATIVO)
         .order_by('nome')
     )
 

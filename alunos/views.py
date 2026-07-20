@@ -10,29 +10,30 @@ from django.shortcuts import (render, redirect,
     get_object_or_404)
 from django.views import View
 from accounts.utils import eh_administrador, eh_professor
+from accounts.mixins import AdministradorRequeridoMixin, AdminOuProfessorRequeridoMixin
 from professores.models import AtribuicaoDocente
 from turmas.models import Turma
 
 
-class AlunoCreateView(SuccessMessageMixin, CreateView):
+class AlunoCreateView(AdministradorRequeridoMixin, SuccessMessageMixin, CreateView):
     model = Aluno
     form_class = AlunoForm
     template_name = 'alunos/forms.html'
     success_url = reverse_lazy('aluno_lista' )
     success_message = ('Aluno cadastrado com sucesso.' )
 
-class AlunoUpdateView(SuccessMessageMixin, UpdateView):
+class AlunoUpdateView(AdministradorRequeridoMixin, SuccessMessageMixin, UpdateView):
     model = Aluno
     form_class = AlunoForm
     template_name = 'alunos/forms.html'
     success_url = reverse_lazy('aluno_lista' )
     success_message = ('Aluno atualizado com sucesso.' )
 
-class AlunoDetailView(DetailView):
+class AlunoDetailView(AdminOuProfessorRequeridoMixin, DetailView):
     model = Aluno
     template_name = 'alunos/detalhe.html'
 #Eliminar
-class AlunoDeleteView(DeleteView):
+class AlunoDeleteView(AdministradorRequeridoMixin, DeleteView):
     model = Aluno
     template_name = 'alunos/excluir.html'
     success_url = reverse_lazy('aluno_lista' )
@@ -74,13 +75,13 @@ class AlunoListView(LoginRequiredMixin, ListView):
         context['turmas'] = self.get_turmas_permitidas()
         return context
 
-class EncarregadoListView(ListView):
+class EncarregadoListView(AdministradorRequeridoMixin, ListView):
     model = Encarregado
     template_name = 'encarregados/lista.html'
     context_object_name = 'encarregados'
     paginate_by = 10
 
-class EncarregadoCreateView(View):
+class EncarregadoCreateView(AdministradorRequeridoMixin, View):
     template_name = 'encarregados/cadastro.html'
     def get(self, request):
         form = EncarregadoCadastroForm()

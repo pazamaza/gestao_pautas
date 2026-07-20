@@ -8,12 +8,14 @@ from django.views.generic import (
     DetailView, DetailView,
 DeleteView
 )
+from django.contrib.auth.mixins import LoginRequiredMixin
 
+from accounts.mixins import AdministradorRequeridoMixin
 from .models import Disciplina
 from .forms import DisciplinaForm
 
 
-class DisciplinaListView(ListView):
+class DisciplinaListView(LoginRequiredMixin, ListView):
 
     model = Disciplina
 
@@ -38,7 +40,7 @@ class DisciplinaListView(ListView):
         return queryset
 
 
-class DisciplinaCreateView(CreateView):
+class DisciplinaCreateView(AdministradorRequeridoMixin, CreateView):
 
     model = Disciplina
 
@@ -51,7 +53,7 @@ class DisciplinaCreateView(CreateView):
     )
 
 
-class DisciplinaUpdateView(UpdateView):
+class DisciplinaUpdateView(AdministradorRequeridoMixin, UpdateView):
 
     model = Disciplina
 
@@ -64,7 +66,7 @@ class DisciplinaUpdateView(UpdateView):
     )
 
 
-class DisciplinaDeleteView(DeleteView):
+class DisciplinaDeleteView(AdministradorRequeridoMixin, DeleteView):
 
     model = Disciplina
 
@@ -75,7 +77,7 @@ class DisciplinaDeleteView(DeleteView):
     )
 
 
-class DisciplinaDetailView(DetailView):
+class DisciplinaDetailView(LoginRequiredMixin, DetailView):
 
     model = Disciplina
 
