@@ -5,8 +5,7 @@ from django.views.generic import (
     CreateView,
     UpdateView,
     DeleteView,
-    DetailView, DetailView,
-DeleteView
+    DetailView,
 )
 from django.contrib.auth.mixins import LoginRequiredMixin
 

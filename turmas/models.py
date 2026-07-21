@@ -76,8 +76,10 @@ class Classe(models.Model):
         max_length=20,
         unique=True
     )
+
     class Meta:
         ordering = ['nome']
+
     def __str__(self):
         return self.nome
 
@@ -95,38 +97,47 @@ class Turma(models.Model):
     )
 
     nome = models.CharField(
-        max_length=20    )
+        max_length=20
+    )
+
     classe = models.ForeignKey(
         Classe,
         on_delete=models.PROTECT
     )
+
     ano_letivo = models.ForeignKey(
         AnoLetivo,
         on_delete=models.PROTECT
     )
+
     sala = models.CharField(
         max_length=20,
         blank=True
     )
+
     periodo = models.CharField(
         max_length=10,
         choices=PERIODO_CHOICES,
         blank=True
     )
+
     numero_pauta = models.CharField(
         max_length=20,
         blank=True,
         verbose_name='Nº da Pauta',
         help_text='Ex.: 03/2026 — usado no cabeçalho da pauta final impressa.'
     )
+
     ativo = models.BooleanField(
         default=True,
         verbose_name="Ativa"
     )
+
     class Meta:
-        unique_together = ('nome', 'classe', 'ano_letivo'  )
+        unique_together = ('nome', 'classe', 'ano_letivo')
+
     def __str__(self):
-        return (f"{self.classe} " f"{self.nome} - " f"{self.ano_letivo}" )
+        return f"{self.classe} {self.nome} - {self.ano_letivo}"
 
     def contar_alunos(self):
         from alunos.models import Aluno

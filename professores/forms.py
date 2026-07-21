@@ -19,13 +19,13 @@ class AtribuicaoDocenteForm(forms.ModelForm):
         fields = '__all__'
         widgets = {
             'professor': forms.Select(
-                attrs={'class': 'form-select'} ),
+                attrs={'class': 'form-select'}),
             'disciplina': forms.Select(
                 attrs={'class': 'form-select'}),
             'turma': forms.Select(
-                attrs={'class': 'form-select'} ),
+                attrs={'class': 'form-select'}),
             'ano_letivo': forms.Select(
-                attrs={'class': 'form-select'} ),
+                attrs={'class': 'form-select'}),
         }
 
 
@@ -76,79 +76,72 @@ class ProfessorCompletoForm(forms.Form):
     )
 
 
-
-
 class ProfessorCadastroForm(forms.Form):
 
     first_name = forms.CharField(
-    label='Nome',
-    widget=forms.TextInput(
-        attrs={'class': 'form-control'}
+        label='Nome',
+        widget=forms.TextInput(
+            attrs={'class': 'form-control'}
+        )
     )
-)
 
     last_name = forms.CharField(
-    label='Apelido',
-    required=False,
-    widget=forms.TextInput(
-        attrs={'class': 'form-control'}
+        label='Apelido',
+        required=False,
+        widget=forms.TextInput(
+            attrs={'class': 'form-control'}
+        )
     )
-)
 
     username = forms.CharField(
-    label='Nome de Utilizador',
-    widget=forms.TextInput(
-        attrs={'class': 'form-control'}
+        label='Nome de Utilizador',
+        widget=forms.TextInput(
+            attrs={'class': 'form-control'}
+        )
     )
-)
 
     email = forms.EmailField(
-    required=False,
-    widget=forms.EmailInput(
-        attrs={'class': 'form-control'}
+        required=False,
+        widget=forms.EmailInput(
+            attrs={'class': 'form-control'}
+        )
     )
-)
 
     password = forms.CharField(
-    label='Senha',
-    widget=forms.PasswordInput(
-        attrs={'class': 'form-control'}
+        label='Senha',
+        widget=forms.PasswordInput(
+            attrs={'class': 'form-control'}
+        )
     )
-)
 
     numero_funcionario = forms.CharField(
-    label='Nº Funcionário',
-    widget=forms.TextInput(
-        attrs={'class': 'form-control'}
+        label='Nº Funcionário',
+        widget=forms.TextInput(
+            attrs={'class': 'form-control'}
+        )
     )
-)
 
     telefone = forms.CharField(
-    required=False,
-    widget=forms.TextInput(
-        attrs={'class': 'form-control'}
+        required=False,
+        widget=forms.TextInput(
+            attrs={'class': 'form-control'}
+        )
     )
-)
+
     def clean_numero_funcionario(self):
-        numero = self.cleaned_data['numero_funcionario'    ]
-        if Professor.objects.filter(
-        numero_funcionario=numero
-    ).exists():
+        numero = self.cleaned_data['numero_funcionario']
+        if Professor.objects.filter(numero_funcionario=numero).exists():
             raise forms.ValidationError(
-            'Já existe um professor com este número.'
-        )
+                'Já existe um professor com este número.'
+            )
         return numero
-    
+
     def clean_username(self):
-        username = self.cleaned_data[
-        'username'
-    ]
-        if User.objects.filter(
-        username=username
-    ).exists():
+        username = self.cleaned_data['username']
+        if User.objects.filter(username=username).exists():
             raise forms.ValidationError(
-            'Este utilizador já existe.'
-        )
+                'Este utilizador já existe.'
+            )
         return username
 
 class ProfessorEdicaoForm(forms.Form):

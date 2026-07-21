@@ -22,6 +22,12 @@
 
         const terceiroTrimestre = tabela.dataset.terceiroTrimestre === 'true';
 
+        // Recalcula a coluna MT ao vivo (client-side) sempre que MAC/NPT
+        // mudam. Os '[data-campo="..."]' são atribuídos no template
+        // (templates/pautas/lancamento_notas.html) e correspondem aos
+        // mesmos nomes de campo usados em pautas/forms.py (NotaForm) — é só
+        // um preview visual, a gravação real e o cálculo oficial de MT
+        // acontecem no servidor, em Nota.calcular_mt() (pautas/models.py).
         function atualizarLinha(tr) {
             const macInput = tr.querySelector('[data-campo="mac"]');
             const nptInput = tr.querySelector('[data-campo="npt"]');
@@ -32,6 +38,10 @@
             let npt;
 
             if (terceiroTrimestre) {
+                // Mesma regra do 3º trimestre implementada no servidor
+                // (Nota.calcular_npt_terceiro_trimestre): o NPT não é
+                // editável — é a média de mt1/mt2, injectados no HTML via
+                // tr.dataset.mt1/mt2 (data-mt1/data-mt2 no template).
                 const mt1 = paraNumero(tr.dataset.mt1);
                 const mt2 = paraNumero(tr.dataset.mt2);
                 npt = (mt1 !== null && mt2 !== null) ? arredondar((mt1 + mt2) / 2) : null;
@@ -118,6 +128,12 @@
                 const resultado = document.getElementById('calcLivreResultado');
                 const expressao = document.getElementById('calcLivreExpressao').value.trim();
 
+                // Calculadora livre: avalia uma expressão aritmética digitada
+                // pelo utilizador. Usa Function(...) em vez de eval() directo
+                // porque cria um novo escopo isolado (sem acesso às variáveis
+                // locais desta função) — mas só é seguro porque a regex acima
+                // já rejeitou tudo o que não seja dígito, '.', ',', espaço ou
+                // um dos operadores +-*/(); não há forma de injectar código.
                 if (!/^[0-9+\-*/.,\s()]+$/.test(expressao) || expressao === '') {
                     mostrarResultado(resultado, 'Usa apenas números e os operadores + - * / ( )', 'erro');
                     return;

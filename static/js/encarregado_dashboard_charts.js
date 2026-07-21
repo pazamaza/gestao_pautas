@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const labels = lerLista('grafico-educandos-labels');
 
+    // Gráfico: Média geral de cada educando (barras, vermelho se < 10)
     const mediasEl = document.getElementById('grafico-medias-educandos');
     if (mediasEl) {
         const medias = lerLista('grafico-medias-dados');
@@ -33,6 +34,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // Gráfico: Frequência de cada educando (barras, vermelho se < 75%)
     const frequenciaEl = document.getElementById('grafico-frequencia-educandos');
     if (frequenciaEl) {
         const frequencias = lerLista('grafico-frequencia-dados');

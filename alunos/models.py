@@ -6,19 +6,19 @@ from turmas.models import Turma
 
 class Encarregado(models.Model):
     user = models.OneToOneField(
-    User,
-    on_delete=models.CASCADE
-)
+        User,
+        on_delete=models.CASCADE
+    )
 
     telefone = models.CharField(
-    max_length=20
-)
+        max_length=20
+    )
 
     profissao = models.CharField(
-    max_length=100,
-    blank=True,
-    null=True
-)
+        max_length=100,
+        blank=True,
+        null=True
+    )
 
     def __str__(self):
         nome = self.user.get_full_name()
@@ -37,65 +37,65 @@ class Aluno(models.Model):
     )
 
     user = models.OneToOneField(
-    User,
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    related_name='aluno'
-)
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='aluno'
+    )
 
     nome = models.CharField(
-    max_length=200
-)
+        max_length=200
+    )
 
     numero_processo = models.CharField(
-    max_length=30,
-    unique=True
-)
+        max_length=30,
+        unique=True
+    )
 
     data_nascimento = models.DateField()
 
     sexo = models.CharField(
-    max_length=1,
-    choices=(
-        ('M', 'Masculino'),
-        ('F', 'Feminino')
+        max_length=1,
+        choices=(
+            ('M', 'Masculino'),
+            ('F', 'Feminino')
+        )
     )
-)
 
     turma = models.ForeignKey(
-    Turma,
-    on_delete=models.PROTECT
-)
+        Turma,
+        on_delete=models.PROTECT
+    )
 
     encarregado = models.ForeignKey(
-    Encarregado,
-    on_delete=models.PROTECT
-)
+        Encarregado,
+        on_delete=models.PROTECT
+    )
 
     foto = models.ImageField(
-    upload_to='alunos/',
-    blank=True,
-    null=True
-)
+        upload_to='alunos/',
+        blank=True,
+        null=True
+    )
 
     estado = models.CharField(
-    max_length=20,
-    choices=ESTADO_CHOICES,
-    default=ESTADO_ATIVO
-)
+        max_length=20,
+        choices=ESTADO_CHOICES,
+        default=ESTADO_ATIVO
+    )
 
     criado_em = models.DateTimeField(
-    auto_now_add=True,
-    null=True,
-    blank=True
-)
+        auto_now_add=True,
+        null=True,
+        blank=True
+    )
 
     atualizado_em = models.DateTimeField(
-    auto_now=True,
-    null=True,
-    blank=True
-)
+        auto_now=True,
+        null=True,
+        blank=True
+    )
 
     def __str__(self):
         return self.nome
@@ -103,16 +103,16 @@ class Aluno(models.Model):
     def calcular_frequencia(self):
         total = self.frequencia_set.count()
         presentes = self.frequencia_set.filter(
-        estado__in=['P', 'A']
-    ).count()
+            estado__in=['P', 'A']
+        ).count()
 
         if total == 0:
             return 0
 
         return round(
-        (presentes / total) * 100,
-        2
-    )
+            (presentes / total) * 100,
+            2
+        )
 
     def calcular_idade(self):
         hoje = date.today()
@@ -138,28 +138,27 @@ class Aluno(models.Model):
 class Matricula(models.Model):
 
     aluno = models.ForeignKey(
-    Aluno,
-    on_delete=models.CASCADE
-)
+        Aluno,
+        on_delete=models.CASCADE
+    )
 
     turma = models.ForeignKey(
-    Turma,
-    on_delete=models.PROTECT
-)
+        Turma,
+        on_delete=models.PROTECT
+    )
 
     data_matricula = models.DateField(
-    auto_now_add=True
-)
+        auto_now_add=True
+    )
 
     ano_letivo = models.ForeignKey(
-    'turmas.AnoLetivo',
-    on_delete=models.PROTECT
-)
+        'turmas.AnoLetivo',
+        on_delete=models.PROTECT
+    )
 
     ativa = models.BooleanField(
-    default=True
-)
+        default=True
+    )
 
     def __str__(self):
         return f"{self.aluno} - {self.turma}"
-

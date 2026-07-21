@@ -11,10 +11,8 @@ from .forms import (ProfessorForm, ProfessorUpdateForm,
 from accounts.mixins import AdministradorRequeridoMixin
 from django.contrib.auth.models import Group, User
 from django.views import View
-from django.shortcuts import (render, redirect)
-from django.shortcuts import ( render,  redirect,
+from django.shortcuts import (render, redirect,
     get_object_or_404)
-from django.views import View
 
 
 class ProfessorCreateView(AdministradorRequeridoMixin, View):

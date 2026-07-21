@@ -8,6 +8,9 @@ document.addEventListener('DOMContentLoaded', function () {
         return '#198754';
     }
 
+    // Mesma técnica de "gauge" (doughnut + texto central desenhado à mão via
+    // plugin afterDraw) usada em static/js/aluno_charts.js:criarAnel — ver
+    // comentário lá para a explicação da técnica.
     function desenharGauge(id, valor, max, sufixo) {
         const el = document.getElementById(id);
         if (!el) return;
@@ -53,9 +56,13 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // Gauges: frequência média da turma (%) e desempenho médio (0-20)
     desenharGauge('grafico-frequencia-gauge', dados.frequenciaMedia, 100, '%');
     desenharGauge('grafico-desempenho-gauge', dados.desempenhoMedia, 20, '');
 
+    // Mini-gráficos de linha sem eixos (sparklines), um por aluno/disciplina,
+    // usados nas tabelas do dashboard do professor para mostrar a tendência
+    // de notas num relance. Os valores vêm em data-valores (CSV) no HTML.
     document.querySelectorAll('.prof-dash-sparkline').forEach(function (canvas) {
         const bruto = canvas.dataset.valores || '';
         const valores = bruto.split(',').filter(Boolean).map(Number);

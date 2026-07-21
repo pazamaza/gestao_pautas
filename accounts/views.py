@@ -239,11 +239,12 @@ def logout_view(request):
     return redirect('home')
 
 
-from django.contrib.auth.decorators import login_required
-
-
 @login_required
 def dashboard(request):
+    # Ponto de entrada único para os 4 perfis (Administrador, Professor,
+    # Aluno, Encarregado) — cada bloco 'if' monta o context e escolhe o
+    # template do respectivo dashboard. Só um dos blocos é executado por
+    # pedido, conforme o grupo do utilizador (ver accounts/utils.py).
 
     user = request.user
     context = {
@@ -255,7 +256,10 @@ def dashboard(request):
     }
 
     if eh_administrador(user):
+        # ---- Dashboard do Administrador ----
 
+        # Ano lectivo seleccionado (via querystring ?ano_letivo=) ou, por
+        # omissão, o ano activo.
         anos_letivos = AnoLetivo.objects.all()
         ano_letivo_id = request.GET.get('ano_letivo')
         ano_letivo_selecionado = (
@@ -263,6 +267,9 @@ def dashboard(request):
             else anos_letivos.filter(ativo=True).first() or anos_letivos.first()
         )
 
+        # KPIs de validação de avaliações/resultados (contadores para os
+        # cards de alerta do admin — quantas avaliações/resultados ainda
+        # precisam de ser revistos).
         avaliacoes_pendentes = Avaliacao.objects.filter(
             status=Avaliacao.STATUS_RASCUNHO
         ).count()
@@ -280,6 +287,9 @@ def dashboard(request):
             status=ResultadoDisciplina.STATUS_VALIDADA
         ).count()
 
+        # Todos os ResultadoDisciplina do ano seleccionado — base para as
+        # estatísticas de taxa de aprovação/reprovação, evolução por
+        # trimestre, distribuição por disciplina/turma, etc. abaixo.
         resultados = (
             ResultadoDisciplina.objects
             .filter(ano_letivo=ano_letivo_selecionado)
@@ -300,6 +310,7 @@ def dashboard(request):
         taxa_reprovacao = round(reprovados / total_avaliados * 100, 1) if total_avaliados else 0
         media_geral = _media(r.mf for r in resultados_com_notas)
 
+        # Evolução da média geral por trimestre (gráfico de linha).
         evolucao_labels = ['1º Trimestre', '2º Trimestre', '3º Trimestre']
         evolucao_dados = [
             _media(float(r.mt1) for r in resultados_com_notas if r.mt1 and r.mt1 > 0) or 0,
@@ -307,10 +318,14 @@ def dashboard(request):
             _media(float(r.mt3) for r in resultados_com_notas if r.mt3 and r.mt3 > 0) or 0,
         ]
 
+        # Distribuição de resultados (Aprovado/Reprovado/Exame/...) — gráfico
+        # de pizza/doughnut.
         distribuicao_resultados = {}
         for r in resultados_com_notas:
             distribuicao_resultados[r.resultado] = distribuicao_resultados.get(r.resultado, 0) + 1
 
+        # Média por disciplina (gráfico de barras) e ranking de turmas com
+        # melhor média (top 5).
         por_disciplina = {}
         for r in resultados_com_notas:
             por_disciplina.setdefault(r.disciplina.nome, []).append(float(r.mf))
@@ -325,6 +340,9 @@ def dashboard(request):
             key=lambda item: item[1], reverse=True,
         )[:5]
 
+        # Alunos em risco (média < 10, os 5 piores) e melhores médias
+        # (top 5) — listas de atalho para o admin identificar casos a
+        # acompanhar.
         medias_por_aluno = {}
         for r in resultados_com_notas:
             medias_por_aluno.setdefault(r.aluno, []).append(float(r.mf))
@@ -347,10 +365,14 @@ def dashboard(request):
             reverse=True,
         )[:5]
 
+        # Distribuição por género (gráfico) dos alunos activos.
         sexos = Aluno.objects.filter(estado=Aluno.ESTADO_ATIVO).values_list('sexo', flat=True)
         total_feminino = sum(1 for sexo in sexos if sexo == 'F')
         total_masculino = sum(1 for sexo in sexos if sexo == 'M')
 
+        # Taxa de frequência mensal (% de presenças sobre o total de
+        # registos), agregada por mês a partir de todas as Frequencia do ano
+        # lectivo seleccionado.
         frequencias_ano = (
             Frequencia.objects.filter(atribuicao__ano_letivo=ano_letivo_selecionado)
             if ano_letivo_selecionado else Frequencia.objects.none()
@@ -413,6 +435,7 @@ def dashboard(request):
         )
 
     if usuario_do_grupo(user, 'Professor'):
+        # ---- Dashboard do Professor ---- (lógica em _contexto_dashboard_professor)
 
         context.update(_contexto_dashboard_professor(request))
 
@@ -422,6 +445,8 @@ def dashboard(request):
         )
 
     if usuario_do_grupo(user, 'Aluno'):
+        # ---- Dashboard do Aluno ---- (estatísticas vêm de
+        # pautas/services/dashboard_aluno.estatisticas_aluno)
 
         aluno = getattr(user, 'aluno', None)
 
@@ -440,6 +465,8 @@ def dashboard(request):
         )
 
     if usuario_do_grupo(user, 'Encarregado'):
+        # ---- Dashboard do Encarregado ---- (agrega estatísticas de cada
+        # educando/dependente a partir de estatisticas_aluno)
 
         encarregado = getattr(user, 'encarregado', None)
         dependentes = (

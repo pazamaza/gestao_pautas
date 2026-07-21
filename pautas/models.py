@@ -180,6 +180,11 @@ class Nota(models.Model):
         return campo_periodo(self.avaliacao.periodo) == 'mt3'
 
     def calcular_npt_terceiro_trimestre(self):
+        # Regra de negócio específica do 3º trimestre: o professor não lança
+        # o NPT manualmente — ele é substituído aqui pela média das médias
+        # (mt) do 1º e 2º trimestre já lançadas para o mesmo aluno/disciplina/
+        # turma/ano letivo. Por isso levanta ValueError se essas notas
+        # anteriores ainda não existirem (não há como calcular o 3º sem elas).
         from pautas.services.periodos import campo_periodo
 
         atribuicao = self.avaliacao.atribuicao
@@ -204,14 +209,23 @@ class Nota(models.Model):
         return (medias['mt1'] + medias['mt2']) / Decimal('2')
 
     def calcular_mt(self):
+        # MT (média do trimestre) = média aritmética simples de MAC e NPT,
+        # arredondada a 1 casa decimal com "meio para cima" (ex.: 13.45 -> 13.5).
         media = (self.mac + self.npt) / Decimal('2')
         return media.quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
 
     def save(self, *args, **kwargs):
+        # No 3º trimestre, o NPT é sempre recalculado (ver
+        # calcular_npt_terceiro_trimestre) antes de gravar — mesmo que o
+        # formulário tenha enviado outro valor.
         if self.eh_terceiro_trimestre():
             self.npt = self.calcular_npt_terceiro_trimestre()
         self.mt = self.calcular_mt()
 
+        # Se a gravação vier com update_fields (ex.: form.save() que só
+        # actualiza os campos alterados), garantimos que 'mt'/'npt' entram
+        # sempre na lista — senão o Django ignora estes 2 campos recalculados
+        # acima e a média fica "congelada" no valor da 1ª gravação.
         update_fields = kwargs.get('update_fields')
         if update_fields is not None:
             kwargs['update_fields'] = set(update_fields) | {'mt', 'npt'}
@@ -308,6 +322,11 @@ class ResultadoDisciplina(StatusValidacaoMixin, models.Model):
         )
 
     def calcular_mf(self):
+        # MF (média final) = média ponderada dos 3 trimestres, com pesos
+        # oficiais 25/35/40. Esta é a fórmula em uso — não confundir com
+        # pautas/services/calculo_notas.py (removido por estar morto e
+        # desactualizado, usava pesos diferentes sobre um campo que já não
+        # existe em Nota).
         valor = (
             (self.mt1 * Decimal('0.25'))
             + (self.mt2 * Decimal('0.35'))
@@ -324,6 +343,18 @@ class ResultadoDisciplina(StatusValidacaoMixin, models.Model):
         return self.arredondar_nota(valor)
 
     def verificar_resultado(self):
+        # Cascata de decisão sobre a situação final do aluno na disciplina:
+        # 1) MF < 8       -> reprovado directamente, sem direito a exame.
+        # 2) MF >= 10      -> aprovado directamente, sem exame.
+        # 3) 8 <= MF < 10  -> vai a exame; sem nota de exame lançada ainda,
+        #    fica "Exame" (estado intermédio, à espera do professor lançar).
+        # 4) Com exame lançado, a nota final (MF+exame)/2 decide: >=10
+        #    aprova, <8 reprova.
+        # 5) Na "zona cinzenta" pós-exame (8 a <10): disciplinas nucleares
+        #    (Disciplina.nuclear) nunca têm direito a recurso -> reprovado;
+        #    as restantes vão a "Recurso" (ou, se já têm nota_recurso
+        #    preenchida, ficam em "Deficiência" — resultado sujeito a
+        #    correcção/registo manual da nota de recurso).
         if self.mf < 8:
             return self.RESULTADO_REPROVADO
         if self.mf >= 10:
@@ -349,6 +380,10 @@ class ResultadoDisciplina(StatusValidacaoMixin, models.Model):
             Decimal('0.1'),
             rounding=ROUND_HALF_UP
         )
+        # Regra de negócio (não é um bug): notas de fronteira entre 9.5 e
+        # 10 (exclusive) são arredondadas directamente para 10.0, em vez de
+        # seguirem o ROUND_HALF_UP padrão — decisão para não prejudicar o
+        # aluno numa nota tão próxima do valor máximo.
         if 9.5 <= valor < 10:
             return Decimal('10.0')
         return valor
@@ -360,6 +395,10 @@ class ResultadoDisciplina(StatusValidacaoMixin, models.Model):
         super().save(*args, **kwargs)
 
 class ResultadoFinal(models.Model):
+    # LEGADO: não é usado por nenhuma view activa (ver CLAUDE.md). O cálculo
+    # de resultado em produção é feito por ResultadoDisciplina, com pesos
+    # 25/35/40 (calcular_mf) — este modelo usa média simples dos 3 trimestres
+    # (calcular_cf) e não deve ser usado como base para código novo.
 
     aluno = models.ForeignKey(
         'alunos.Aluno',

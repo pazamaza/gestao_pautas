@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', function () {
         plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } },
     };
 
+    // Gráfico: Evolução da média geral por trimestre (linha)
     const evolucaoEl = document.getElementById('grafico-evolucao');
     if (evolucaoEl) {
         const { labels, dados } = lerDados('evolucao-labels', 'evolucao-dados');
@@ -45,6 +46,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // Gráfico: Distribuição de resultados — Aprovado/Reprovado/Exame/... (doughnut)
     const resultadosEl = document.getElementById('grafico-resultados');
     if (resultadosEl) {
         const { labels, dados } = lerDados('resultado-labels', 'resultado-dados');
@@ -61,6 +63,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // Gráfico: Taxa de presença mensal, em % (linha)
     const frequenciaEl = document.getElementById('grafico-frequencia');
     if (frequenciaEl) {
         const { labels, dados } = lerDados('frequencia-labels', 'frequencia-dados');
@@ -81,6 +84,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // Gráfico: Média por disciplina (barras)
     const disciplinasEl = document.getElementById('grafico-disciplinas');
     if (disciplinasEl) {
         const { labels, dados } = lerDados('disciplina-labels', 'disciplina-dados');
@@ -94,6 +98,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // Gráfico: Top 5 turmas com melhor média (barras)
     const turmasEl = document.getElementById('grafico-turmas');
     if (turmasEl) {
         const { labels, dados } = lerDados('turma-labels', 'turma-dados');
@@ -107,6 +112,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // Gráfico: Distribuição por género dos alunos activos (pizza)
     const generoEl = document.getElementById('grafico-genero');
     if (generoEl) {
         const { labels, dados } = lerDados('genero-labels', 'genero-dados');

@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 from disciplinas.models import Disciplina
 
 class Professor(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE    )
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
     numero_funcionario = models.CharField(
         max_length=30,
         unique=True
@@ -13,19 +13,21 @@ class Professor(models.Model):
         blank=True,
         null=True
     )
-   
+
     ativo = models.BooleanField(
         default=True
     )
     criado_em = models.DateTimeField(
         auto_now_add=True
     )
+
     def __str__(self):
         nome = self.user.get_full_name()
         if nome:
             return nome
         return self.user.username
-    
+
+
 class AtribuicaoDocente(models.Model):
 
     professor = models.ForeignKey(

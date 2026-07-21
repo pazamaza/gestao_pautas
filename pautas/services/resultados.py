@@ -14,6 +14,11 @@ LIMITE_FALTAS_INJUSTIFICADAS = 9
 
 
 def gerar_resultados_finais():
+    # ATENÇÃO: operação destrutiva — apaga TODOS os ResultadoDisciplina
+    # existentes (de todos os alunos/anos) antes de os recriar a partir das
+    # Notas actuais. É a única forma suportada de popular ResultadoDisciplina
+    # em massa; para recalcular um único aluno/disciplina sem apagar o resto,
+    # usar atualizar_resultado_disciplina() abaixo.
     ResultadoDisciplina.objects.all().delete()
     criados = 0
 
@@ -86,6 +91,21 @@ def atualizar_resultado_disciplina(aluno, disciplina, ano_letivo):
 
 
 def verificar_transicao_aluno(aluno, ano_letivo):
+    # Regra de negócio mais complexa do sistema: decide se o aluno transita
+    # de ano. Ordem de decisão:
+    # 1) Reprovação automática por faltas: >= LIMITE_FALTAS_INJUSTIFICADAS
+    #    (9) faltas injustificadas no ano letivo reprova o aluno de imediato,
+    #    independentemente das notas em qualquer disciplina.
+    # 2) Se alguma disciplina tem resultado "Reprovado" -> reprovado (sem
+    #    hipótese de compensação).
+    # 3) Caso contrário, olha-se para as disciplinas "em andamento"
+    #    (resultado 'Recurso' ou 'Deficiência' — ver DISCIPLINAS_EM_ANDAMENTO):
+    #    - 0 disciplinas em andamento -> aprovado.
+    #    - 1 ou 2 disciplinas -> aprovado por compensação directa (não é
+    #      preciso ter nota de recurso lançada).
+    #    - 3 ou 4 disciplinas -> só aprovado por compensação se pelo menos
+    #      2 delas já tiverem nota_recurso >= 10; senão reprovado.
+    #    - mais de 4 disciplinas em andamento -> reprovado.
     if aluno.contar_faltas_injustificadas(ano_letivo=ano_letivo) >= LIMITE_FALTAS_INJUSTIFICADAS:
         situacao_anual, _ = SituacaoAnual.objects.update_or_create(
             aluno=aluno,

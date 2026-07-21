@@ -36,19 +36,19 @@ class TurmaListView(AdministradorRequeridoMixin, ListView):
 
 @administrador_requerido
 def desativar_turma(request, pk):
-        turma = get_object_or_404(Turma, pk=pk)
-        turma.ativo = False
-        turma.save()
-        messages.success( request, "Turma desativada com sucesso.")
-        return redirect("turma_lista")
+    turma = get_object_or_404(Turma, pk=pk)
+    turma.ativo = False
+    turma.save()
+    messages.success(request, "Turma desativada com sucesso.")
+    return redirect("turma_lista")
 
 @administrador_requerido
 def reativar_turma(request, pk):
-        turma = get_object_or_404(Turma, pk=pk)
-        turma.ativo = True
-        turma.save()
-        messages.success( request, "Turma reativada com sucesso.")
-        return redirect("turma_lista")
+    turma = get_object_or_404(Turma, pk=pk)
+    turma.ativo = True
+    turma.save()
+    messages.success(request, "Turma reativada com sucesso.")
+    return redirect("turma_lista")
 
 class TurmaCreateView(AdministradorRequeridoMixin, CreateView):
     model = Turma

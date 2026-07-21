@@ -9,6 +9,11 @@ document.addEventListener('DOMContentLoaded', function () {
         return el ? JSON.parse(el.textContent) : [];
     }
 
+    // Desenha um "anel"/gauge (doughnut com um buraco grande, cutout: 75%,
+    // e um texto escrito no centro via um plugin custom 'afterDraw' — o
+    // Chart.js não tem texto central nativo em doughnuts, por isso o valor
+    // é desenhado manualmente no canvas depois do gráfico ser renderizado).
+    // Mesma técnica duplicada em static/js/professor_dashboard_charts.js.
     function criarAnel(canvasId, valor, max, cor, texto) {
         const el = document.getElementById(canvasId);
         if (!el) {
@@ -55,6 +60,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const frequencia = lerValor('frequencia-valor');
     criarAnel('anel-frequencia', frequencia, 100, '#0d6efd', `${frequencia}%`);
 
+    // Gráfico: Evolução da média do aluno por trimestre (linha)
     const evolucaoEl = document.getElementById('grafico-evolucao-aluno');
     if (evolucaoEl) {
         new Chart(evolucaoEl, {
@@ -78,6 +84,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // Gráfico: Notas do aluno por disciplina, uma barra por trimestre (mt1/mt2/mt3)
     const notasEl = document.getElementById('grafico-notas-aluno');
     if (notasEl) {
         const labels = lerLista('grafico-notas-labels');
