@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const estadosEl = document.getElementById('grafico-estados');
     const turmasEl = document.getElementById('grafico-turmas');
 
+    // Gráfico: Distribuição de estados de frequência — Presente/Falta/Justificada (doughnut)
     if (estadosEl) {
         const labels = JSON.parse(document.getElementById('estados-labels').textContent);
         const dados = JSON.parse(document.getElementById('estados-dados').textContent);
@@ -17,6 +18,7 @@ document.addEventListener('DOMContentLoaded', function () {
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 plugins: {
                     legend: { position: 'bottom' },
                 },
@@ -24,6 +26,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // Gráfico: Presentes/Ausentes/Justificadas por turma (barras empilhadas)
     if (turmasEl) {
         const labels = JSON.parse(document.getElementById('turma-labels').textContent);
         const presentes = JSON.parse(document.getElementById('turma-presentes').textContent);
@@ -42,6 +45,7 @@ document.addEventListener('DOMContentLoaded', function () {
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 scales: {
                     x: { stacked: true },
                     y: { stacked: true, beginAtZero: true },

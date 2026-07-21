@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const evolucaoEl = document.getElementById('grafico-evolucao');
     const disciplinasEl = document.getElementById('grafico-disciplinas');
 
+    // Gráfico: Evolução da média (MT) do professor/turma por período (linha)
     if (evolucaoEl) {
         const labels = JSON.parse(document.getElementById('evolucao-labels').textContent);
         const dados = JSON.parse(document.getElementById('evolucao-dados').textContent);
@@ -21,12 +22,14 @@ document.addEventListener('DOMContentLoaded', function () {
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 scales: { y: { beginAtZero: true, max: 20 } },
                 plugins: { legend: { display: false } },
             },
         });
     }
 
+    // Gráfico: Média final (MF) por disciplina (barras)
     if (disciplinasEl) {
         const labels = JSON.parse(document.getElementById('disciplinas-labels').textContent);
         const dados = JSON.parse(document.getElementById('disciplinas-dados').textContent);
@@ -43,6 +46,7 @@ document.addEventListener('DOMContentLoaded', function () {
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 scales: { y: { beginAtZero: true, max: 20 } },
                 plugins: { legend: { display: false } },
             },

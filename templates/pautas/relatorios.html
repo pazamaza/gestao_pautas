@@ -6,6 +6,7 @@ Relatórios
 {% endblock %}
 
 {% block content %}
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
 <div class="container-fluid mt-4">
     <h2>Relatórios</h2>
 
@@ -45,13 +46,13 @@ Relatórios
     </div>
 
     <div class="row g-4 mt-1">
-        <div class="col-md-6">
+        <div class="col-md-6 relatorio-chart-container">
             <h5 class="text-center">Evolução da Média por Trimestre</h5>
             <canvas id="grafico-evolucao" height="200"></canvas>
             {{ evolucao_labels|json_script:"evolucao-labels" }}
             {{ evolucao_dados|json_script:"evolucao-dados" }}
         </div>
-        <div class="col-md-6">
+        <div class="col-md-6 relatorio-chart-container">
             <h5 class="text-center">Desempenho por Disciplina</h5>
             <canvas id="grafico-disciplinas" height="200"></canvas>
             {{ disciplinas_labels|json_script:"disciplinas-labels" }}

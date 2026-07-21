@@ -32,6 +32,10 @@
     max-height: 320px;
 }
 
+.relatorio-chart-container canvas {
+    max-height: 220px;
+}
+
 .atalho-btn {
     width: 180px;
     height: 80px;
