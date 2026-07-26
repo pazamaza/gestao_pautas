@@ -167,6 +167,7 @@ class Nota(models.Model):
         validators=[MinValueValidator(0), MaxValueValidator(20)]
     )
     npt = models.DecimalField(max_digits=4, decimal_places=1,
+        null=True, blank=True,
         validators=[MinValueValidator(0), MaxValueValidator(20)
         ])
     mt = models.DecimalField(max_digits=4, decimal_places=1,
@@ -178,6 +179,9 @@ class Nota(models.Model):
     def eh_terceiro_trimestre(self):
         from pautas.services.periodos import campo_periodo
         return campo_periodo(self.avaliacao.periodo) == 'mt3'
+
+    def eh_segundo_ano(self):
+        return self.avaliacao.atribuicao.turma.eh_segundo_ano()
 
     def calcular_npt_terceiro_trimestre(self):
         # Regra de negócio específica do 3º trimestre: o professor não lança
@@ -210,17 +214,34 @@ class Nota(models.Model):
 
     def calcular_mt(self):
         # MT (média do trimestre) = média aritmética simples de MAC e NPT,
-        # arredondada a 1 casa decimal com "meio para cima" (ex.: 13.45 -> 13.5).
+        # arredondada à unidade mais próxima ("Base Legal" EJA — ex.: 13,5 -> 14).
         media = (self.mac + self.npt) / Decimal('2')
-        return media.quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
+        return media.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+
+    def calcular_mt_com_exame(self):
+        # IIº Ano EJA, 3º trimestre: o NPT dá lugar à NE (Nota de Exame),
+        # lançada pelo professor no mesmo ecrã que o MAC. O MT desse
+        # trimestre pondera os dois — MAC 40% / NE 60% — em vez da média
+        # simples usada nos restantes trimestres.
+        media = (self.mac * Decimal('0.40')) + (self.npt * Decimal('0.60'))
+        return media.quantize(Decimal('1'), rounding=ROUND_HALF_UP)
 
     def save(self, *args, **kwargs):
-        # No 3º trimestre, o NPT é sempre recalculado (ver
-        # calcular_npt_terceiro_trimestre) antes de gravar — mesmo que o
-        # formulário tenha enviado outro valor.
-        if self.eh_terceiro_trimestre():
+        terceiro_trimestre = self.eh_terceiro_trimestre()
+
+        if terceiro_trimestre and self.eh_segundo_ano():
+            # IIº Ano EJA: o NPT do 3º trimestre é, na prática, a NE (Nota
+            # de Exame) — continua a ser exigido no formulário, só muda o
+            # peso com que entra no MT (ver calcular_mt_com_exame).
+            self.mt = self.calcular_mt_com_exame()
+        elif terceiro_trimestre:
+            # Iº Ano (e qualquer Classe fora do IIº Ano EJA): o NPT é sempre
+            # recalculado (ver calcular_npt_terceiro_trimestre) antes de
+            # gravar — mesmo que o formulário tenha enviado outro valor.
             self.npt = self.calcular_npt_terceiro_trimestre()
-        self.mt = self.calcular_mt()
+            self.mt = self.calcular_mt()
+        else:
+            self.mt = self.calcular_mt()
 
         # Se a gravação vier com update_fields (ex.: form.save() que só
         # actualiza os campos alterados), garantimos que 'mt'/'npt' entram
@@ -286,6 +307,15 @@ class ResultadoDisciplina(StatusValidacaoMixin, models.Model):
         blank=True
     )
 
+    en = models.DecimalField(
+        max_digits=4,
+        decimal_places=1,
+        null=True,
+        blank=True,
+        verbose_name='Exame Nacional',
+        help_text='Só se aplica ao IIº Ano EJA — entra na MFED = MFD + (EN×0,40)/2.'
+    )
+
     resultado = models.CharField(
         max_length=30,
         blank=True
@@ -309,9 +339,15 @@ class ResultadoDisciplina(StatusValidacaoMixin, models.Model):
 
     RESULTADO_APROVADO = 'Aprovado'
     RESULTADO_REPROVADO = 'Reprovado'
-    RESULTADO_EXAME = 'Exame'
+    RESULTADO_REPROVADO_FALTAS = 'Reprovado por Faltas'
     RESULTADO_RECURSO = 'Recurso'
+    # Legado: produzidos por fórmulas anteriores (pesos 25/35/40 + exame
+    # escolar; depois MFD/MFED + Exame Nacional), entretanto substituídas.
+    # Mantidos só para não quebrar a leitura de resultados antigos já
+    # gravados; a lógica actual (abaixo) nunca os atribui.
+    RESULTADO_EXAME = 'Exame'
     RESULTADO_DEFICIENCIA = 'Deficiência'
+    RESULTADO_AGUARDA_EXAME_NACIONAL = 'Aguarda Exame Nacional'
 
     class Meta:
 
@@ -321,77 +357,83 @@ class ResultadoDisciplina(StatusValidacaoMixin, models.Model):
             'ano_letivo'
         )
 
+    def eh_segundo_ano(self):
+        return self.aluno.turma.eh_segundo_ano()
+
+    def excedeu_limite_faltas(self):
+        from pautas.services.faltas import aluno_excedeu_faltas_disciplina
+        return aluno_excedeu_faltas_disciplina(self.aluno, self.disciplina, self.ano_letivo)
+
     def calcular_mf(self):
-        # MF (média final) = média ponderada dos 3 trimestres, com pesos
-        # oficiais 25/35/40. Esta é a fórmula em uso — não confundir com
-        # pautas/services/calculo_notas.py (removido por estar morto e
-        # desactualizado, usava pesos diferentes sobre um campo que já não
-        # existe em Nota).
-        valor = (
-            (self.mt1 * Decimal('0.25'))
-            + (self.mt2 * Decimal('0.35'))
-            + (self.mt3 * Decimal('0.40'))
-        )
+        # MF (Iº Ano: "MFD"; IIº Ano: "MFA") = média simples das 3 médias
+        # trimestrais, sem pesos — mesma fórmula nos dois anos. A única
+        # diferença entre anos está em COMO mt3 é calculado a montante
+        # (Nota.calcular_mt vs. calcular_mt_com_exame, ver models.py:Nota).
+        valor = (self.mt1 + self.mt2 + self.mt3) / Decimal('3')
         return self.arredondar_nota(valor)
 
     def calcular_nota_final(self):
-        if self.nota_recurso is not None:
-            return self.nota_recurso
-        if self.exame is None:
-            return None
-        valor = (self.mf + self.exame) / 2
-        return self.arredondar_nota(valor)
+        # Campo legado (MFED, fórmula anterior) — já não é usado por
+        # nenhum dos dois anos; a nota_recurso (nota seca) é quem decide
+        # agora, directamente sobre a MF/MFA (ver verificar_resultado).
+        return None
 
     def verificar_resultado(self):
-        # Cascata de decisão sobre a situação final do aluno na disciplina:
-        # 1) MF < 8       -> reprovado directamente, sem direito a exame.
-        # 2) MF >= 10      -> aprovado directamente, sem exame.
-        # 3) 8 <= MF < 10  -> vai a exame; sem nota de exame lançada ainda,
-        #    fica "Exame" (estado intermédio, à espera do professor lançar).
-        # 4) Com exame lançado, a nota final (MF+exame)/2 decide: >=10
-        #    aprova, <8 reprova.
-        # 5) Na "zona cinzenta" pós-exame (8 a <10): disciplinas nucleares
-        #    (Disciplina.nuclear) nunca têm direito a recurso -> reprovado;
-        #    as restantes vão a "Recurso" (ou, se já têm nota_recurso
-        #    preenchida, ficam em "Deficiência" — resultado sujeito a
-        #    correcção/registo manual da nota de recurso).
-        if self.mf < 8:
-            return self.RESULTADO_REPROVADO
+        if self.excedeu_limite_faltas():
+            # Veto absoluto: reprova a disciplina independentemente das
+            # notas (regra de faltas por tempos lectivos semanais da "Base
+            # Legal" — ver services/faltas.py). Não entra na tolerância de
+            # aprovação nem no recurso.
+            return self.RESULTADO_REPROVADO_FALTAS
+
+        if self.eh_segundo_ano() and self.nota_recurso is not None:
+            # Nota de recurso é nota seca (substitui a MFA por completo);
+            # só conta como aprovação se >=10. O Iº Ano não tem recurso —
+            # um nota_recurso lá gravado (não deveria acontecer, o campo é
+            # só editável por superuser) é ignorado propositadamente.
+            return (
+                self.RESULTADO_APROVADO
+                if self.nota_recurso >= 10
+                else self.RESULTADO_REPROVADO
+            )
+
+        if self.eh_segundo_ano():
+            return self._verificar_resultado_segundo_ano()
+        return self._verificar_resultado_primeiro_ano()
+
+    def _verificar_resultado_primeiro_ano(self):
+        # Iº Ano: sem recurso — a MF decide sozinha por disciplina. A
+        # tolerância de até 2 disciplinas entre 8-9 (excepto
+        # Português+Matemática em simultâneo) é uma regra ANUAL, avaliada
+        # em services/resultados.py:verificar_transicao_aluno, não aqui.
         if self.mf >= 10:
             return self.RESULTADO_APROVADO
+        return self.RESULTADO_REPROVADO
 
-        if self.exame is None:
-            return self.RESULTADO_EXAME
-
-        nota_final = self.calcular_nota_final()
-        if nota_final >= 10:
-            return self.RESULTADO_APROVADO
-        if nota_final < 8:
-            return self.RESULTADO_REPROVADO
-
-        if self.disciplina.nuclear:
-            return self.RESULTADO_REPROVADO
-        if self.nota_recurso is None:
+    def _verificar_resultado_segundo_ano(self):
+        # IIº Ano: disciplinas com MFA < 8 têm direito a Exame de Recurso
+        # (NER, nota seca) — ficam "Recurso" (pendente) até essa nota ser
+        # lançada, dando oportunidade de corrigir a disciplina ANTES da
+        # verificação de tolerância anual (services/resultados.py:
+        # _transicao_segundo_ano). 8 <= MFA < 10 não precisa de recurso —
+        # entra directamente na tolerância anual, tal como no Iº Ano.
+        if self.mf < 8:
             return self.RESULTADO_RECURSO
-        return self.RESULTADO_DEFICIENCIA
+        if self.mf >= 10:
+            return self.RESULTADO_APROVADO
+        return self.RESULTADO_REPROVADO
 
     def arredondar_nota(self, valor):
-        valor = Decimal(valor).quantize(
-            Decimal('0.1'),
-            rounding=ROUND_HALF_UP
-        )
-        # Regra de negócio (não é um bug): notas de fronteira entre 9.5 e
-        # 10 (exclusive) são arredondadas directamente para 10.0, em vez de
-        # seguirem o ROUND_HALF_UP padrão — decisão para não prejudicar o
-        # aluno numa nota tão próxima do valor máximo.
-        if 9.5 <= valor < 10:
-            return Decimal('10.0')
-        return valor
-    
-    def save(self, *args, **kwargs):            
+        # "Base Legal": arredondamento à unidade mais próxima em TODAS as
+        # médias (ex.: 9,5 -> 10; HALF_UP cobre exactamente este caso) —
+        # substitui a regra anterior, que só arredondava à unidade numa
+        # banda estreita (9,5-10) e mantinha 1 casa decimal no resto.
+        return Decimal(valor).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
+
+    def save(self, *args, **kwargs):
         self.mf = self.calcular_mf()
-        self.nota_final = (self.calcular_nota_final())        
-        self.resultado = (self.verificar_resultado())
+        self.nota_final = self.calcular_nota_final()
+        self.resultado = self.verificar_resultado()
         super().save(*args, **kwargs)
 
 class ResultadoFinal(models.Model):

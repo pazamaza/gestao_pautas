@@ -161,14 +161,19 @@ def exportar_mini_pauta_pdf(turma, disciplina, ano_letivo, linhas):
 def exportar_pauta_final_pdf(turma, ano_letivo, disciplinas, linhas):
     from core.models import Escola
     from reportlab.lib import colors
-    from reportlab.lib.pagesizes import A4, landscape
-    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib.pagesizes import A3, landscape
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
+    # A pauta final tem 4 colunas de notas por disciplina — com muitas
+    # disciplinas isso facilmente ultrapassa a largura de uma A4 paisagem
+    # (a tabela ficava cortada/incompleta). A3 paisagem dá quase o dobro do
+    # espaço; as larguras de coluna abaixo são também calculadas para caber
+    # sempre na página, em vez de uma largura fixa que podia transbordar.
     output = BytesIO()
     documento = SimpleDocTemplate(
         output,
-        pagesize=landscape(A4),
+        pagesize=landscape(A3),
         rightMargin=18,
         leftMargin=18,
         topMargin=18,
@@ -200,53 +205,96 @@ def exportar_pauta_final_pdf(turma, ano_letivo, disciplinas, linhas):
     )
     elementos.append(Spacer(1, 10))
 
+    # "Aprovado por Compensação" (e a Observação) não cabem numa linha com
+    # texto simples (que não quebra linha em Tables do reportlab) — por
+    # isso usa-se Paragraph, que quebra automaticamente.
+    estilo_situacao = ParagraphStyle(
+        'SituacaoGeral', parent=estilos['Normal'], fontSize=6.5, leading=8, alignment=1,
+    )
+    estilo_observacao = ParagraphStyle(
+        'Observacao', parent=estilos['Normal'], fontSize=6, leading=7.5, alignment=0,
+    )
+
+    segundo_ano = turma.eh_segundo_ano()
+    rotulos_disciplina = (
+        ['M1ºT', 'M2ºT', 'M3ºT', 'MFA', 'NER'] if segundo_ano else ['M1ºT', 'M2ºT', 'M3ºT', 'MFD']
+    )
+    n_cols_disciplina = len(rotulos_disciplina)
+
     linha_disciplinas = ['Nº', 'Aluno']
     linha_subcabecalhos = ['', '']
     for disciplina in disciplinas:
-        linha_disciplinas.extend([str(disciplina), '', '', ''])
-        linha_subcabecalhos.extend(['MFD', 'NE', 'MF', 'NER'])
-    linha_disciplinas.append('Situação Geral')
-    linha_subcabecalhos.append('')
+        linha_disciplinas.extend([str(disciplina)] + [''] * (n_cols_disciplina - 1))
+        linha_subcabecalhos.extend(rotulos_disciplina)
+    linha_disciplinas.extend(['Situação Geral', 'Observação'])
+    linha_subcabecalhos.extend(['', ''])
 
     dados = [linha_disciplinas, linha_subcabecalhos]
+    # (linha_na_tabela, coluna) das células MFD/MFA, para colorir a
+    # azul/vermelho consoante aprovação.
+    celulas_mfd = []
 
     for indice, linha in enumerate(linhas, start=1):
         valores = [indice, str(linha['aluno'])]
+        coluna_atual = 2
         for resultado in linha['celulas']:
             if resultado:
-                valores.extend([
-                    resultado.mf,
-                    resultado.exame if resultado.exame is not None else '-',
-                    resultado.nota_final if resultado.nota_final is not None else '-',
-                    resultado.nota_recurso if resultado.nota_recurso is not None else '-',
-                ])
+                valores.extend([resultado.mt1, resultado.mt2, resultado.mt3, resultado.mf])
+                celulas_mfd.append((len(dados), coluna_atual + 3, resultado.mf >= 10))
+                if segundo_ano:
+                    valores.append(resultado.nota_recurso if resultado.nota_recurso is not None else '-')
             else:
-                valores.extend(['-', '-', '-', '-'])
+                valores.extend(['-'] * n_cols_disciplina)
+            coluna_atual += n_cols_disciplina
         situacao_anual = linha['situacao_anual']
-        valores.append(situacao_anual.situacao if situacao_anual else '-')
+        if situacao_anual:
+            texto_situacao = situacao_anual.situacao
+        elif linha.get('aguarda_recurso'):
+            texto_situacao = 'Recurso'
+        else:
+            texto_situacao = '-'
+        valores.append(Paragraph(texto_situacao, estilo_situacao))
+        valores.append(Paragraph(linha.get('observacao') or '-', estilo_observacao))
         dados.append(valores)
 
-    colunas_notas = len(disciplinas) * 4
-    col_widths = [24, 110] + [32] * colunas_notas + [90]
+    # Larguras calculadas para caber sempre na página (em vez de uma largura
+    # fixa por coluna, que com muitas disciplinas ultrapassava a página e
+    # cortava a pauta) — ver comentário acima sobre o motivo de usar A3.
+    largura_pagina, _altura_pagina = landscape(A3)
+    largura_util = largura_pagina - 36  # margens esquerda+direita
+    col_no, col_aluno, col_situacao, col_observacao = 20, 85, 65, 90
+    colunas_notas = len(disciplinas) * n_cols_disciplina
+    largura_disponivel_notas = largura_util - col_no - col_aluno - col_situacao - col_observacao
+    col_dado = (largura_disponivel_notas / colunas_notas) if colunas_notas else 0
+    col_dado = max(14, min(32, col_dado))
+    col_widths = [col_no, col_aluno] + [col_dado] * colunas_notas + [col_situacao, col_observacao]
+    tamanho_fonte = 7 if col_dado >= 20 else (6 if col_dado >= 16 else 5)
 
     ultima_coluna = len(linha_disciplinas) - 1
+    coluna_situacao = ultima_coluna - 1
     estilo_tabela = [
         ('BACKGROUND', (0, 0), (-1, 1), colors.HexColor('#d9eaf7')),
         ('FONTNAME', (0, 0), (-1, 1), 'Helvetica-Bold'),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('GRID', (0, 0), (-1, -1), 0.4, colors.grey),
-        ('FONTSIZE', (0, 0), (-1, -1), 7),
+        ('FONTSIZE', (0, 0), (-1, -1), tamanho_fonte),
         ('SPAN', (0, 0), (0, 1)),
         ('SPAN', (1, 0), (1, 1)),
+        ('SPAN', (coluna_situacao, 0), (coluna_situacao, 1)),
         ('SPAN', (ultima_coluna, 0), (ultima_coluna, 1)),
         ('ROWBACKGROUNDS', (0, 2), (-1, -1), [colors.white, colors.HexColor('#f7f7f7')]),
     ]
 
     coluna = 2
     for _ in disciplinas:
-        estilo_tabela.append(('SPAN', (coluna, 0), (coluna + 3, 0)))
-        coluna += 4
+        estilo_tabela.append(('SPAN', (coluna, 0), (coluna + n_cols_disciplina - 1, 0)))
+        coluna += n_cols_disciplina
+
+    for linha_tabela, coluna_mfd, aprovado in celulas_mfd:
+        cor = colors.HexColor('#0d6efd') if aprovado else colors.HexColor('#dc3545')
+        estilo_tabela.append(('TEXTCOLOR', (coluna_mfd, linha_tabela), (coluna_mfd, linha_tabela), cor))
+        estilo_tabela.append(('FONTNAME', (coluna_mfd, linha_tabela), (coluna_mfd, linha_tabela), 'Helvetica-Bold'))
 
     tabela = Table(dados, repeatRows=2, colWidths=col_widths)
     tabela.setStyle(TableStyle(estilo_tabela))

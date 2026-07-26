@@ -1,0 +1,248 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}
+Boletim — {{ disciplina }}
+{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'css/boletim_disciplina.css' %}?v=2">
+
+<div class="container-fluid mt-4 boletim-disciplina">
+
+    <div class="d-flex justify-content-between flex-wrap gap-2 no-print">
+        <h2>Boletim de Dados Estatísticos</h2>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-secondary" onclick="window.print()">Imprimir</button>
+            <a href="{% url 'pauta_final_turma' %}?turma={{ turma.id }}&ano_letivo={{ ano_letivo.id }}"
+               class="btn btn-outline-secondary">
+                Voltar à Pauta
+            </a>
+        </div>
+    </div>
+
+    {% if not ano_letivo %}
+    <div class="alert alert-warning mt-4">Não existe nenhum ano lectivo activo.</div>
+    {% elif not resumo %}
+    <div class="alert alert-info mt-4">
+        Ainda não há resultados gerados para {{ disciplina }} em {{ turma }} neste ano lectivo.
+    </div>
+    {% else %}
+
+    <div class="card mt-3 boletim-cabecalho">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-3 d-flex align-items-center gap-2">
+                    {% if escola.logotipo %}
+                    <img src="{{ escola.logotipo.url }}" alt="Logótipo" class="boletim-logo">
+                    {% endif %}
+                    <div>
+                        <div class="fw-bold">{{ escola.nome|default:"Gestão de Pautas" }}</div>
+                        <div class="text-muted small">Ano Lectivo: {{ ano_letivo }}</div>
+                    </div>
+                </div>
+                <div class="col-md-6 text-center">
+                    <div class="text-uppercase fw-bold fs-4">Boletim de Dados Estatísticos</div>
+                    <div class="text-success text-uppercase fw-bold">Disciplina: {{ disciplina }}</div>
+                </div>
+                <div class="col-md-3 small">
+                    <div><strong>Professor(a):</strong> {{ professor|default:"—" }}</div>
+                    <div><strong>Turma:</strong> {{ turma }}</div>
+                    <div><strong>Data de Emissão:</strong> {% now "d/m/Y" %}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-3 g-3">
+        {% for trimestre in trimestres %}
+        <div class="col-md-3">
+            <div class="card h-100 boletim-card-trimestre">
+                <div class="card-header bg-success text-white text-center fw-bold">
+                    {{ trimestre.numero }}º Trimestre
+                </div>
+                <div class="card-body">
+                    {% if trimestre.stats %}
+                    <div class="row text-center g-2 boletim-indicadores">
+                        <div class="col-6">
+                            <div class="small text-muted">Nº de Alunos</div>
+                            <div class="fw-bold fs-5">{{ trimestre.stats.n }}</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="small text-muted">Média da Turma</div>
+                            <div class="fw-bold fs-5 text-success">{{ trimestre.stats.media }}</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="small text-muted">Maior Nota</div>
+                            <div class="fw-bold">{{ trimestre.stats.maior|floatformat:0 }}</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="small text-muted">Menor Nota</div>
+                            <div class="fw-bold">{{ trimestre.stats.menor|floatformat:0 }}</div>
+                        </div>
+                        <div class="col-12">
+                            <div class="small text-muted">Taxa de Aprovação</div>
+                            <div class="fw-bold text-success">{{ trimestre.stats.taxa_aprovacao }}%</div>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="small text-muted text-center mb-1">Distribuição das Notas</div>
+                    <table class="table table-sm boletim-tabela-distribuicao">
+                        <thead>
+                            <tr><th>Intervalo</th><th>Nº</th><th>%</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for faixa in trimestre.stats.distribuicao %}
+                            <tr><td>{{ faixa.faixa }}</td><td>{{ faixa.n }}</td><td>{{ faixa.pct }}%</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <div class="boletim-grafico-wrap">
+                        <canvas id="donut-trimestre-{{ trimestre.numero }}"></canvas>
+                    </div>
+                    {% else %}
+                    <div class="text-muted text-center py-4">Sem notas lançadas.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+        <div class="col-md-3">
+            <div class="card h-100 boletim-card-resumo">
+                <div class="card-header bg-primary text-white text-center fw-bold">
+                    Resumo Final (3 Trimestres)
+                </div>
+                <div class="card-body">
+                    <div class="row text-center g-2 boletim-indicadores">
+                        <div class="col-6">
+                            <div class="small text-muted">Nº de Alunos</div>
+                            <div class="fw-bold fs-5">{{ resumo.n }}</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="small text-muted">Média Geral</div>
+                            <div class="fw-bold fs-5 text-primary">{{ resumo.media_geral }}</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="small text-muted">Maior Média</div>
+                            <div class="fw-bold">{{ resumo.maior_media|floatformat:0 }}</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="small text-muted">Menor Média</div>
+                            <div class="fw-bold">{{ resumo.menor_media|floatformat:0 }}</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="small text-muted">Taxa Aprovação</div>
+                            <div class="fw-bold text-success">{{ resumo.taxa_aprovacao }}%</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="small text-muted">Aprovados</div>
+                            <div class="fw-bold text-success">{{ resumo.aprovados }}</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="small text-muted">Reprovados</div>
+                            <div class="fw-bold text-danger">{{ resumo.reprovados }}</div>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="small text-muted text-center mb-1">Distribuição das Médias Finais</div>
+                    <table class="table table-sm boletim-tabela-distribuicao">
+                        <thead>
+                            <tr><th>Intervalo</th><th>Nº</th><th>%</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for faixa in resumo.distribuicao %}
+                            <tr><td>{{ faixa.faixa }}</td><td>{{ faixa.n }}</td><td>{{ faixa.pct }}%</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <div class="boletim-grafico-wrap">
+                        <canvas id="donut-final"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-3 g-3">
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header fw-bold">Evolução da Média da Turma</div>
+                <div class="card-body">
+                    <div class="boletim-grafico-wrap boletim-grafico-wrap-lg">
+                        <canvas id="grafico-evolucao"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header fw-bold">Taxa de Aprovação por Trimestre</div>
+                <div class="card-body">
+                    <div class="boletim-grafico-wrap boletim-grafico-wrap-lg">
+                        <canvas id="grafico-taxa-aprovacao"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header fw-bold">Indicadores Gerais</div>
+                <div class="card-body p-0">
+                    <table class="table table-sm mb-0">
+                        <tbody>
+                            <tr><td>Média Geral da Turma</td><td class="text-end fw-bold">{{ resumo.media_geral }} / 20</td></tr>
+                            <tr><td>Maior Média Individual</td><td class="text-end fw-bold">{{ resumo.maior_media|floatformat:0 }}</td></tr>
+                            <tr><td>Menor Média Individual</td><td class="text-end fw-bold">{{ resumo.menor_media|floatformat:0 }}</td></tr>
+                            <tr><td>Desvio Padrão (Média Final)</td><td class="text-end fw-bold">{{ desvio_padrao }}</td></tr>
+                            <tr><td>Coeficiente de Rendimento</td><td class="text-end fw-bold">{{ coeficiente_rendimento }}%</td></tr>
+                            <tr>
+                                <td>Evolução da Média (1º ao 3º)</td>
+                                <td class="text-end fw-bold {% if evolucao_media >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {% if evolucao_media >= 0 %}+{% endif %}{{ evolucao_media }}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <div class="fw-bold text-success">Observações:</div>
+        <div class="text-muted small">
+            Dados estatísticos referentes às avaliações dos três trimestres da disciplina de {{ disciplina }}.
+        </div>
+        <div class="text-muted small">Fonte: Sistema de Gestão de Pautas</div>
+    </div>
+
+    <div class="row mt-5 boletim-assinaturas">
+        <div class="col-md-6 text-center">
+            <div class="boletim-linha-assinatura"></div>
+            <div class="small mt-1">Professor(a)</div>
+        </div>
+        <div class="col-md-6 text-center">
+            <div class="boletim-linha-assinatura"></div>
+            <div class="small mt-1">Direcção Pedagógica</div>
+        </div>
+    </div>
+
+    {{ faixas_labels|json_script:"faixas-labels" }}
+    {{ distrib_t1|json_script:"distrib-t1" }}
+    {{ distrib_t2|json_script:"distrib-t2" }}
+    {{ distrib_t3|json_script:"distrib-t3" }}
+    {{ distrib_final|json_script:"distrib-final" }}
+    {{ evolucao_labels|json_script:"evolucao-labels" }}
+    {{ evolucao_medias|json_script:"evolucao-medias" }}
+    {{ evolucao_taxas|json_script:"evolucao-taxas" }}
+
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/vendor/chart.min.js' %}"></script>
+<script src="{% static 'js/boletim_disciplina_charts.js' %}"></script>
+{% endblock %}

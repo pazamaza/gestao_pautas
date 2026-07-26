@@ -15,6 +15,61 @@
     white-space: nowrap;
 }
 
+/* Nome do aluno: parece texto normal em repouso, só revela que é link
+   (cor + sublinhado) ao passar o rato — efeito discreto, não fixo. */
+.pauta-final-table th .disciplina-link {
+    color: inherit !important;
+    text-decoration: none;
+    transition: color 0.15s ease-in-out;
+}
+
+.pauta-final-table th .disciplina-link:hover,
+.pauta-final-table th .disciplina-link:focus {
+    color: #0d6efd !important;
+    text-decoration: underline;
+}
+
+.pauta-final-table td.aluno-nome a {
+    color: inherit !important;
+    text-decoration: none;
+    transition: color 0.15s ease-in-out;
+}
+
+.pauta-final-table td.aluno-nome a:hover,
+.pauta-final-table td.aluno-nome a:focus {
+    color: #0d6efd !important;
+    text-decoration: underline;
+}
+
+/* Grelha bem marcada, ao estilo de uma folha de cálculo Excel */
+.pauta-final-table {
+    border-collapse: collapse !important;
+}
+
+.pauta-final-table th,
+.pauta-final-table td {
+    border: 1px solid #343a40 !important;
+}
+
+.pauta-final-table tbody tr:nth-child(even) {
+    background-color: #eef1f4;
+}
+
+.pauta-final-table tbody tr:hover td {
+    background-color: #cfe2ff !important;
+}
+
+/* Coluna MFD (Iº Ano): azul para aprovado (>=10), vermelho para reprovado */
+.pauta-final-table td.mfd-positiva {
+    color: #0d6efd !important;
+    font-weight: 700;
+}
+
+.pauta-final-table td.mfd-negativa {
+    color: #dc3545 !important;
+    font-weight: 700;
+}
+
 .pauta-zoom-controls .btn {
     min-width: 40px;
 }

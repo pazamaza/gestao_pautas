@@ -6,7 +6,7 @@ Pauta Final da Turma
 {% endblock %}
 
 {% block content %}
-<link rel="stylesheet" href="{% static 'css/pauta_final.css' %}">
+<link rel="stylesheet" href="{% static 'css/pauta_final.css' %}?v=4">
 
 <div class="container-fluid mt-4">
 
@@ -85,6 +85,23 @@ Pauta Final da Turma
                 </a>
             </div>
             {% endif %}
+            <div class="d-flex justify-content-center align-items-center gap-2 mt-3">
+                {% if turma_anterior %}
+                <a id="pauta-nav-anterior" class="btn btn-outline-secondary btn-sm"
+                   href="?turma={{ turma_anterior.id }}&ano_letivo={{ ano_letivo.id }}"
+                   title="Turma anterior (seta esquerda)">
+                    ‹ {{ turma_anterior }}
+                </a>
+                {% endif %}
+                <span class="text-muted small">use as setas ← → do teclado para navegar entre turmas</span>
+                {% if turma_seguinte %}
+                <a id="pauta-nav-seguinte" class="btn btn-outline-secondary btn-sm"
+                   href="?turma={{ turma_seguinte.id }}&ano_letivo={{ ano_letivo.id }}"
+                   title="Turma seguinte (seta direita)">
+                    {{ turma_seguinte }} ›
+                </a>
+                {% endif %}
+            </div>
         </div>
     </div>
 
@@ -95,16 +112,24 @@ Pauta Final da Turma
                     <th rowspan="2">Nº</th>
                     <th rowspan="2" class="aluno-col">Aluno</th>
                     {% for disciplina in disciplinas %}
-                    <th colspan="4">{{ disciplina }}</th>
+                    <th colspan="{% if turma.eh_segundo_ano %}5{% else %}4{% endif %}">
+                        <a class="disciplina-link"
+                           href="{% url 'boletim_disciplina_turma' disciplina.id turma.id %}?ano_letivo={{ ano_letivo.id }}"
+                           title="Ver boletim estatístico de {{ disciplina }}">
+                            {{ disciplina }}
+                        </a>
+                    </th>
                     {% endfor %}
                     <th rowspan="2">Situação Geral</th>
+                    <th rowspan="2">Observação</th>
                 </tr>
                 <tr>
                     {% for disciplina in disciplinas %}
-                    <th class="vertical">MFD</th>
-                    <th class="vertical">NE</th>
-                    <th class="vertical">MF</th>
-                    <th class="vertical">NER</th>
+                    <th class="vertical">M1ºT</th>
+                    <th class="vertical">M2ºT</th>
+                    <th class="vertical">M3ºT</th>
+                    <th class="vertical">{% if turma.eh_segundo_ano %}MFA{% else %}MFD{% endif %}</th>
+                    {% if turma.eh_segundo_ano %}<th class="vertical">NER</th>{% endif %}
                     {% endfor %}
                 </tr>
             </thead>
@@ -112,31 +137,46 @@ Pauta Final da Turma
                 {% for linha in linhas %}
                 <tr>
                     <td>{{ forloop.counter }}</td>
-                    <td class="text-start aluno-nome">{{ linha.aluno }}</td>
+                    <td class="text-start aluno-nome">
+                        <a href="#" class="aluno-nome-link"
+                           data-resumo-url="{% url 'aluno_resumo_resultados' linha.aluno.id %}?ano_letivo={{ ano_letivo.id }}"
+                           title="Ver resultados finais de {{ linha.aluno }}">
+                            {{ linha.aluno }}
+                        </a>
+                    </td>
                     {% for resultado in linha.celulas %}
                     {% if resultado %}
-                    <td>{{ resultado.mf }}</td>
-                    <td>{{ resultado.exame|default_if_none:"—" }}</td>
-                    <td>{{ resultado.nota_final|default_if_none:"—" }}</td>
-                    <td>{{ resultado.nota_recurso|default_if_none:"—" }}</td>
+                    <td>{{ resultado.mt1|floatformat:0 }}</td>
+                    <td>{{ resultado.mt2|floatformat:0 }}</td>
+                    <td>{{ resultado.mt3|floatformat:0 }}</td>
+                    <td class="{% if resultado.mf >= 10 %}mfd-positiva{% else %}mfd-negativa{% endif %}">
+                        {{ resultado.mf|floatformat:0 }}
+                    </td>
+                    {% if turma.eh_segundo_ano %}
+                    <td>{% if resultado.nota_recurso is not None %}{{ resultado.nota_recurso|floatformat:0 }}{% else %}—{% endif %}</td>
+                    {% endif %}
                     {% else %}
                     <td>—</td>
                     <td>—</td>
                     <td>—</td>
                     <td>—</td>
+                    {% if turma.eh_segundo_ano %}<td>—</td>{% endif %}
                     {% endif %}
                     {% endfor %}
                     <td>
                         {% if linha.situacao_anual.situacao == 'Aprovado' %}
                         <span class="badge bg-success">Aprovado</span>
                         {% elif linha.situacao_anual.situacao == 'Aprovado por Compensação' %}
-                        <span class="badge bg-warning text-dark">Aprovado por Compensação</span>
+                        <span class="badge bg-warning text-dark">Aprovado (Compensação)</span>
                         {% elif linha.situacao_anual.situacao == 'Reprovado' %}
                         <span class="badge bg-danger">Reprovado</span>
+                        {% elif linha.aguarda_recurso %}
+                        <span class="badge bg-info text-dark">Recurso</span>
                         {% else %}
                         —
                         {% endif %}
                     </td>
+                    <td class="text-start small">{{ linha.observacao|default:"—" }}</td>
                 </tr>
                 {% empty %}
                 <tr>
@@ -156,10 +196,27 @@ Pauta Final da Turma
 
     {% endif %}
 
+    <div class="modal fade" id="modalResumoAluno" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Resultados Finais</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body" id="modalResumoAlunoBody">
+                    <div class="text-center text-muted py-4">A carregar…</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/pauta_final_zoom.js' %}"></script>
+<script src="{% static 'js/pauta_final_zoom.js' %}?v=3"></script>
 {% endblock %}

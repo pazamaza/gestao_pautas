@@ -13,9 +13,11 @@ from .views import (
     ResultadoDisciplinaDeleteView,
     ResultadoDisciplinaListView,
     ResultadoDisciplinaUpdateView,
+    aluno_resumo_resultados,
     avaliacao_reportar_erro,
     avaliacao_validar,
     baixar_modelo_excel,
+    boletim_disciplina_turma,
     exportar_excel,
     exportar_pdf,
     gerar_resultados,
@@ -78,6 +80,16 @@ urlpatterns = [
     path('resultados/<int:pk>/validar/', resultado_validar, name='resultado_validar'),
     path('resultados/<int:pk>/reportar-erro/', resultado_reportar_erro, name='resultado_reportar_erro'),
     path('resultados/pauta-final/', pauta_final_turma, name='pauta_final_turma'),
+    path(
+        'resultados/aluno/<int:aluno_id>/resumo/',
+        aluno_resumo_resultados,
+        name='aluno_resumo_resultados',
+    ),
+    path(
+        'resultados/disciplina/<int:disciplina_id>/turma/<int:turma_id>/boletim/',
+        boletim_disciplina_turma,
+        name='boletim_disciplina_turma',
+    ),
     path('resultados/pauta-final/exportar-excel/', pauta_final_exportar_excel, name='pauta_final_exportar_excel'),
     path('resultados/pauta-final/exportar-pdf/', pauta_final_exportar_pdf, name='pauta_final_exportar_pdf'),
 

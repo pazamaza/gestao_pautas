@@ -154,7 +154,6 @@ class ResultadoDisciplinaForm(forms.ModelForm):
             'mt1',
             'mt2',
             'mt3',
-            'exame',
             'nota_recurso'
         ]
 
@@ -181,10 +180,6 @@ class ResultadoDisciplinaForm(forms.ModelForm):
             ),
 
             'mt3': forms.NumberInput(
-                attrs={'class': 'form-control'}
-            ),
-
-            'exame': forms.NumberInput(
                 attrs={'class': 'form-control'}
             ),
 

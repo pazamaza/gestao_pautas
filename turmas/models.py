@@ -86,6 +86,12 @@ class Classe(models.Model):
 
 class Turma(models.Model):
 
+    # Nome de Classe que identifica o IIº Ano EJA — único nível com fórmula
+    # de MFD/MFED e Exame Nacional (ver "Modelo de pautas.docx" /
+    # docs/processos_sistema.pdf). Qualquer outra Classe (Iº Ano EJA ou
+    # ensino geral, ex. "7ª Classe") usa a fórmula simples de MF do Iº Ano.
+    CLASSE_SEGUNDO_ANO = 'IIº'
+
     PERIODO_MANHA = 'manha'
     PERIODO_TARDE = 'tarde'
     PERIODO_NOITE = 'noite'
@@ -142,6 +148,9 @@ class Turma(models.Model):
     def contar_alunos(self):
         from alunos.models import Aluno
         return self.aluno_set.filter(estado=Aluno.ESTADO_ATIVO).count()
+
+    def eh_segundo_ano(self):
+        return self.classe.nome.strip() == self.CLASSE_SEGUNDO_ANO
 
 
 class HorarioAula(models.Model):

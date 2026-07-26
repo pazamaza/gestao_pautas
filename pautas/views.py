@@ -1,3 +1,6 @@
+import statistics
+from decimal import Decimal, InvalidOperation
+
 from django.contrib import messages
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -31,7 +34,7 @@ from .forms import (
     ObservacoesValidacaoForm,
     ResultadoDisciplinaForm,
 )
-from .models import Avaliacao, Nota, ResultadoDisciplina
+from .models import Avaliacao, Nota, ResultadoDisciplina, SituacaoAnual
 from .services.excel import (
     criar_modelo_excel,
     exportar_mini_pauta_excel,
@@ -153,6 +156,10 @@ def lancamento_notas(request):
         Aluno.objects.filter(turma=atribuicao.turma, estado=Aluno.ESTADO_ATIVO).order_by('nome')
     )
 
+    eh_terceiro_trimestre_iiano = bool(
+        periodo and campo_periodo(periodo) == 'mt3' and atribuicao.turma.eh_segundo_ano()
+    )
+
     if request.method == 'POST':
         if not pode_editar:
             return render(request, 'dashboards/sem_permissao.html', status=403)
@@ -182,6 +189,40 @@ def lancamento_notas(request):
                 atualizar_resultado_disciplina(nota.aluno, atribuicao.disciplina, atribuicao.ano_letivo)
                 gravados += 1
 
+            if eh_terceiro_trimestre_iiano:
+                # NER (Nota de Exame de Recurso) — só se aplica ao IIº Ano,
+                # e só a disciplinas que já ficaram "Recurso" (MFA<8); campos
+                # extra no mesmo POST, um por aluno (ner_<id>), fora do
+                # formset porque vive em ResultadoDisciplina, não em Nota.
+                resultados_por_aluno = {
+                    r.aluno_id: r for r in ResultadoDisciplina.objects.filter(
+                        aluno__in=alunos, disciplina=atribuicao.disciplina,
+                        ano_letivo=atribuicao.ano_letivo,
+                    )
+                }
+                ner_gravadas = 0
+                for aluno in alunos:
+                    valor_bruto = request.POST.get(f'ner_{aluno.id}', '').strip()
+                    if not valor_bruto:
+                        continue
+                    resultado = resultados_por_aluno.get(aluno.id)
+                    if not resultado or resultado.resultado != ResultadoDisciplina.RESULTADO_RECURSO:
+                        erros.append(f'{aluno}: esta disciplina não está em Recurso — NER ignorada.')
+                        continue
+                    try:
+                        valor = Decimal(valor_bruto.replace(',', '.'))
+                    except InvalidOperation:
+                        erros.append(f'{aluno}: NER inválida.')
+                        continue
+                    if not (0 <= valor <= 20):
+                        erros.append(f'{aluno}: NER tem de estar entre 0 e 20.')
+                        continue
+                    resultado.nota_recurso = valor
+                    resultado.save()
+                    ner_gravadas += 1
+                if ner_gravadas:
+                    messages.success(request, f'{ner_gravadas} nota(s) de recurso (NER) gravada(s).')
+
             if gravados:
                 messages.success(request, f'{gravados} nota(s) gravada(s) com sucesso.')
             if erros:
@@ -204,12 +245,22 @@ def lancamento_notas(request):
         formset = LancamentoNotaFormSet(initial=initial)
 
     medias_anteriores, campos_anteriores = _medias_periodos_anteriores(alunos, atribuicao, periodo)
+
+    resultados_por_aluno = {}
+    if eh_terceiro_trimestre_iiano:
+        resultados_por_aluno = {
+            r.aluno_id: r for r in ResultadoDisciplina.objects.filter(
+                aluno__in=alunos, disciplina=atribuicao.disciplina, ano_letivo=atribuicao.ano_letivo,
+            )
+        }
+
     linhas = [
         {
             'aluno': aluno,
             'form': form,
             'mt1': medias_anteriores.get(aluno.id, {}).get('mt1'),
             'mt2': medias_anteriores.get(aluno.id, {}).get('mt2'),
+            'resultado_disciplina': resultados_por_aluno.get(aluno.id),
         }
         for aluno, form in zip(alunos, formset)
     ]
@@ -221,6 +272,7 @@ def lancamento_notas(request):
         'pode_editar': pode_editar,
         'periodo_ativo': periodo_ativo,
         'eh_terceiro_trimestre': campo_periodo(periodo) == 'mt3' if periodo else False,
+        'eh_terceiro_trimestre_iiano': eh_terceiro_trimestre_iiano,
         'mostrar_mt1': 'mt1' in campos_anteriores,
         'mostrar_mt2': 'mt2' in campos_anteriores,
     })
@@ -574,10 +626,26 @@ def _turma_e_ano_da_pauta_final(request):
 def pauta_final_turma(request):
     turma, ano_letivo = _turma_e_ano_da_pauta_final(request)
 
+    turmas = list(Turma.objects.filter(ativo=True).order_by('classe__nome', 'nome'))
+
+    # Turma anterior/seguinte na mesma ordenação — usadas pela navegação por
+    # teclado (setas esquerda/direita) no template.
+    turma_anterior = turma_seguinte = None
+    if turma:
+        indices = [i for i, t in enumerate(turmas) if t.id == turma.id]
+        if indices:
+            indice = indices[0]
+            if indice > 0:
+                turma_anterior = turmas[indice - 1]
+            if indice < len(turmas) - 1:
+                turma_seguinte = turmas[indice + 1]
+
     contexto = {
         'turma': turma,
         'ano_letivo': ano_letivo,
-        'turmas': Turma.objects.filter(ativo=True).order_by('classe__nome', 'nome'),
+        'turmas': turmas,
+        'turma_anterior': turma_anterior,
+        'turma_seguinte': turma_seguinte,
         'anos_letivos': AnoLetivo.objects.all(),
         'disciplinas': [],
         'linhas': [],
@@ -595,6 +663,163 @@ def pauta_final_turma(request):
         contexto['linhas'] = linhas
 
     return render(request, 'pautas/pauta_final_turma.html', contexto)
+
+
+@admin_ou_professor_requerido
+def aluno_resumo_resultados(request, aluno_id):
+    """Fragmento HTML (sem base.html) com os resultados finais de um aluno,
+    usado como conteúdo do modal de visualização rápida na pauta final —
+    ver pautas/pauta_final_turma.html e static/js/pauta_final_zoom.js."""
+    aluno = get_object_or_404(Aluno, pk=aluno_id)
+    ano_letivo_id = request.GET.get('ano_letivo')
+    ano_letivo = (
+        get_object_or_404(AnoLetivo, pk=ano_letivo_id)
+        if ano_letivo_id
+        else AnoLetivo.objects.filter(ativo=True).first()
+    )
+
+    if not _pode_ver_pauta_final(request.user, aluno.turma, ano_letivo):
+        return render(request, 'dashboards/sem_permissao.html', status=403)
+
+    resultados = []
+    situacao_anual = None
+    if ano_letivo:
+        resultados = list(
+            ResultadoDisciplina.objects
+            .filter(aluno=aluno, ano_letivo=ano_letivo)
+            .select_related('disciplina')
+            .order_by('disciplina__nome')
+        )
+        situacao_anual = SituacaoAnual.objects.filter(aluno=aluno, ano_letivo=ano_letivo).first()
+
+    return render(request, 'pautas/_aluno_resumo_resultados.html', {
+        'aluno': aluno,
+        'ano_letivo': ano_letivo,
+        'resultados': resultados,
+        'situacao_anual': situacao_anual,
+    })
+
+
+FAIXAS_NOTA = [
+    ('0 - 4,9', 0, 5),
+    ('5,0 - 9,9', 5, 10),
+    ('10,0 - 13,9', 10, 14),
+    ('14,0 - 16,9', 14, 17),
+    ('17,0 - 20', 17, 21),
+]
+
+
+def _distribuicao_notas(valores):
+    total = len(valores)
+    distribuicao = []
+    for rotulo, minimo, maximo in FAIXAS_NOTA:
+        n = sum(1 for v in valores if minimo <= v < maximo)
+        distribuicao.append({
+            'faixa': rotulo,
+            'n': n,
+            'pct': round(n / total * 100, 1) if total else 0,
+        })
+    return distribuicao
+
+
+def _stats_trimestre(valores):
+    if not valores:
+        return None
+    aprovados = sum(1 for v in valores if v >= 10)
+    return {
+        'n': len(valores),
+        'media': round(sum(valores) / len(valores), 1),
+        'maior': max(valores),
+        'menor': min(valores),
+        'taxa_aprovacao': round(aprovados / len(valores) * 100, 1),
+        'distribuicao': _distribuicao_notas(valores),
+    }
+
+
+@admin_ou_professor_requerido
+def boletim_disciplina_turma(request, disciplina_id, turma_id):
+    """Boletim estatístico de uma disciplina numa turma ao longo do ano
+    lectivo (3 trimestres + resumo final) — acedido a partir do nome da
+    disciplina na pauta final (pautas/pauta_final_turma.html)."""
+    turma = get_object_or_404(Turma, pk=turma_id)
+    disciplina = get_object_or_404(Disciplina, pk=disciplina_id)
+    ano_letivo_id = request.GET.get('ano_letivo')
+    ano_letivo = (
+        get_object_or_404(AnoLetivo, pk=ano_letivo_id)
+        if ano_letivo_id
+        else AnoLetivo.objects.filter(ativo=True).first()
+    )
+
+    if not _pode_ver_pauta_final(request.user, turma, ano_letivo):
+        return render(request, 'dashboards/sem_permissao.html', status=403)
+
+    atribuicao = AtribuicaoDocente.objects.filter(
+        disciplina=disciplina, turma=turma, ano_letivo=ano_letivo
+    ).select_related('professor__user').first()
+
+    resultados = []
+    if ano_letivo:
+        resultados = list(
+            ResultadoDisciplina.objects
+            .filter(disciplina=disciplina, aluno__turma=turma, ano_letivo=ano_letivo)
+        )
+
+    trimestres = []
+    for numero, campo in enumerate(('mt1', 'mt2', 'mt3'), start=1):
+        valores = [float(getattr(r, campo)) for r in resultados if getattr(r, campo) is not None]
+        trimestres.append({'numero': numero, 'stats': _stats_trimestre(valores)})
+
+    resumo = None
+    desvio_padrao = None
+    coeficiente_rendimento = None
+    evolucao_media = None
+
+    if resultados:
+        medias_finais = [float(r.mf) for r in resultados]
+        aprovados = sum(1 for r in resultados if r.resultado == ResultadoDisciplina.RESULTADO_APROVADO)
+        reprovados = len(resultados) - aprovados
+        media_geral = sum(medias_finais) / len(medias_finais)
+
+        resumo = {
+            'n': len(resultados),
+            'media_geral': round(media_geral, 1),
+            'maior_media': max(medias_finais),
+            'menor_media': min(medias_finais),
+            'taxa_aprovacao': round(aprovados / len(resultados) * 100, 1),
+            'aprovados': aprovados,
+            'reprovados': reprovados,
+            'distribuicao': _distribuicao_notas(medias_finais),
+        }
+        desvio_padrao = round(statistics.stdev(medias_finais), 1) if len(medias_finais) > 1 else 0
+        coeficiente_rendimento = round(media_geral / 20 * 100, 1)
+
+        stats_t1, stats_t3 = trimestres[0]['stats'], trimestres[2]['stats']
+        if stats_t1 and stats_t3:
+            evolucao_media = round(stats_t3['media'] - stats_t1['media'], 1)
+
+    from core.models import Escola
+
+    contexto = {
+        'turma': turma,
+        'disciplina': disciplina,
+        'ano_letivo': ano_letivo,
+        'escola': Escola.obter_configuracao(),
+        'professor': atribuicao.professor if atribuicao else None,
+        'trimestres': trimestres,
+        'resumo': resumo,
+        'desvio_padrao': desvio_padrao,
+        'coeficiente_rendimento': coeficiente_rendimento,
+        'evolucao_media': evolucao_media,
+        'evolucao_labels': ['1º Trimestre', '2º Trimestre', '3º Trimestre'],
+        'evolucao_medias': [t['stats']['media'] if t['stats'] else 0 for t in trimestres],
+        'evolucao_taxas': [t['stats']['taxa_aprovacao'] if t['stats'] else 0 for t in trimestres],
+        'faixas_labels': [f[0] for f in FAIXAS_NOTA],
+        'distrib_t1': [f['n'] for f in trimestres[0]['stats']['distribuicao']] if trimestres[0]['stats'] else [],
+        'distrib_t2': [f['n'] for f in trimestres[1]['stats']['distribuicao']] if trimestres[1]['stats'] else [],
+        'distrib_t3': [f['n'] for f in trimestres[2]['stats']['distribuicao']] if trimestres[2]['stats'] else [],
+        'distrib_final': [f['n'] for f in resumo['distribuicao']] if resumo else [],
+    }
+    return render(request, 'pautas/boletim_disciplina.html', contexto)
 
 
 @admin_ou_professor_requerido
@@ -904,6 +1129,7 @@ class ResultadoDisciplinaListView(AdminOuProfessorRequeridoMixin, ListView):
         disciplina_id = self.request.GET.get('disciplina')
         ano_letivo_id = self.request.GET.get('ano_letivo')
         status = self.request.GET.get('status')
+        aluno_id = self.request.GET.get('aluno')
 
         if turma_id:
             queryset = queryset.filter(aluno__turma_id=turma_id)
@@ -913,6 +1139,8 @@ class ResultadoDisciplinaListView(AdminOuProfessorRequeridoMixin, ListView):
             queryset = queryset.filter(ano_letivo_id=ano_letivo_id)
         if status:
             queryset = queryset.filter(status=status)
+        if aluno_id:
+            queryset = queryset.filter(aluno_id=aluno_id)
 
         return queryset
 
@@ -923,6 +1151,11 @@ class ResultadoDisciplinaListView(AdminOuProfessorRequeridoMixin, ListView):
         context['anos_letivos'] = AnoLetivo.objects.all()
         context['status_choices'] = ResultadoDisciplina.STATUS_CHOICES
         context['eh_administrador'] = eh_administrador(self.request.user)
+
+        aluno_id = self.request.GET.get('aluno')
+        if aluno_id:
+            context['aluno_filtro'] = Aluno.objects.filter(pk=aluno_id).first()
+
         return context
 
 

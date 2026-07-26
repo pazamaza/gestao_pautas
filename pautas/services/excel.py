@@ -3,7 +3,7 @@ from io import BytesIO
 
 from django.db import transaction
 from openpyxl import Workbook, load_workbook
-from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
 from alunos.models import Aluno
@@ -255,23 +255,35 @@ def exportar_pauta_final_excel(turma, ano_letivo, disciplinas, linhas):
         start_row=linha_disciplinas, start_column=2, end_row=linha_subcabecalhos, end_column=2
     )
 
+    segundo_ano = turma.eh_segundo_ano()
+    rotulos_disciplina = (
+        ['M1ºT', 'M2ºT', 'M3ºT', 'MFA', 'NER'] if segundo_ano else ['M1ºT', 'M2ºT', 'M3ºT', 'MFD']
+    )
+    n_cols_disciplina = len(rotulos_disciplina)
+
     coluna = 3
     for disciplina in disciplinas:
         sheet.cell(row=linha_disciplinas, column=coluna, value=str(disciplina))
         sheet.merge_cells(
             start_row=linha_disciplinas, start_column=coluna,
-            end_row=linha_disciplinas, end_column=coluna + 3,
+            end_row=linha_disciplinas, end_column=coluna + n_cols_disciplina - 1,
         )
-        for indice, rotulo in enumerate(['MFD', 'NE', 'MF', 'NER']):
+        for indice, rotulo in enumerate(rotulos_disciplina):
             sheet.cell(row=linha_subcabecalhos, column=coluna + indice, value=rotulo)
-        coluna += 4
+        coluna += n_cols_disciplina
 
     sheet.cell(row=linha_disciplinas, column=coluna, value='Situação Geral')
     sheet.merge_cells(
         start_row=linha_disciplinas, start_column=coluna,
         end_row=linha_subcabecalhos, end_column=coluna,
     )
-    total_colunas = coluna
+    coluna_observacao = coluna + 1
+    sheet.cell(row=linha_disciplinas, column=coluna_observacao, value='Observação')
+    sheet.merge_cells(
+        start_row=linha_disciplinas, start_column=coluna_observacao,
+        end_row=linha_subcabecalhos, end_column=coluna_observacao,
+    )
+    total_colunas = coluna_observacao
 
     header_fill = PatternFill('solid', fgColor='D9EAF7')
     for linha_cabecalho in sheet.iter_rows(
@@ -282,21 +294,37 @@ def exportar_pauta_final_excel(turma, ano_letivo, disciplinas, linhas):
             cell.fill = header_fill
             cell.alignment = Alignment(horizontal='center', vertical='center')
 
+    azul_aprovado = Font(bold=True, color='0D6EFD')
+    vermelho_reprovado = Font(bold=True, color='DC3545')
+
     for indice, linha in enumerate(linhas, start=1):
+        linha_excel = linha_subcabecalhos + indice
         valores = [indice, str(linha['aluno'])]
         for resultado in linha['celulas']:
             if resultado:
-                valores.extend([
-                    resultado.mf,
-                    resultado.exame if resultado.exame is not None else '',
-                    resultado.nota_final if resultado.nota_final is not None else '',
-                    resultado.nota_recurso if resultado.nota_recurso is not None else '',
-                ])
+                valores.extend([resultado.mt1, resultado.mt2, resultado.mt3, resultado.mf])
+                if segundo_ano:
+                    valores.append(resultado.nota_recurso if resultado.nota_recurso is not None else '')
             else:
-                valores.extend(['', '', '', ''])
+                valores.extend([''] * n_cols_disciplina)
         situacao_anual = linha['situacao_anual']
-        valores.append(situacao_anual.situacao if situacao_anual else '')
+        if situacao_anual:
+            valores.append(situacao_anual.situacao)
+        elif linha.get('aguarda_recurso'):
+            valores.append('Recurso')
+        else:
+            valores.append('')
+        valores.append(linha.get('observacao', ''))
         sheet.append(valores)
+
+        # Cor da coluna MFD/MFA: azul se aprovada (>=10), vermelho caso
+        # contrário — mesma regra visual da pauta final na página.
+        coluna = 3
+        for resultado in linha['celulas']:
+            if resultado:
+                celula_mfd = sheet.cell(row=linha_excel, column=coluna + 3)
+                celula_mfd.font = azul_aprovado if resultado.mf >= 10 else vermelho_reprovado
+            coluna += n_cols_disciplina
 
     if escola and escola.nome_autoridade_visto:
         linha_visto = sheet.max_row + 3
@@ -305,9 +333,29 @@ def exportar_pauta_final_excel(turma, ano_letivo, disciplinas, linhas):
 
     sheet.column_dimensions['A'].width = 6
     sheet.column_dimensions['B'].width = 30
-    for coluna_indice in range(3, total_colunas):
+    for coluna_indice in range(3, coluna_observacao - 1):
         sheet.column_dimensions[get_column_letter(coluna_indice)].width = 8
-    sheet.column_dimensions[get_column_letter(total_colunas)].width = 24
+    sheet.column_dimensions[get_column_letter(coluna_observacao - 1)].width = 22
+    sheet.column_dimensions[get_column_letter(coluna_observacao)].width = 30
+
+    # Grelha bem marcada em toda a tabela (cabeçalho + dados), igual ao
+    # aspecto da pauta final na página.
+    borda = Border(*(Side(style='thin', color='6C757D'),) * 4)
+    for linha_celulas in sheet.iter_rows(
+        min_row=linha_disciplinas, max_row=sheet.max_row, min_col=1, max_col=total_colunas
+    ):
+        for cell in linha_celulas:
+            cell.border = borda
+            if cell.alignment.horizontal is None:
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+
+    # Documento final de visualização — folha protegida contra edição
+    # (sem palavra-passe; para bloquear mesmo contra remoção da protecção,
+    # definir uma password aqui).
+    sheet.protection.sheet = True
+    sheet.protection.formatCells = False
+    sheet.protection.selectLockedCells = False
+    sheet.protection.selectUnlockedCells = False
 
     output = BytesIO()
     workbook.save(output)

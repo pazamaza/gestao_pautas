@@ -2,7 +2,9 @@
     'use strict';
 
     function arredondar(valor) {
-        return Math.round(valor * 10) / 10;
+        // "Base Legal": arredondamento à unidade mais próxima (ex.: 13,5 -> 14) —
+        // preview visual; o cálculo oficial acontece no servidor.
+        return Math.round(valor);
     }
 
     function paraNumero(valor) {
@@ -16,11 +18,19 @@
         return arredondar((mac + npt) / 2);
     }
 
+    function calcularMtComExame(mac, ne) {
+        // IIº Ano EJA, 3º trimestre: MT = MAC×0,40 + NE×0,60 (ver
+        // Nota.calcular_mt_com_exame em pautas/models.py).
+        if (mac === null || ne === null) return null;
+        return arredondar((mac * 0.40) + (ne * 0.60));
+    }
+
     function iniciarTabelaNotas() {
         const tabela = document.querySelector('[data-notas-tabela]');
         if (!tabela) return;
 
         const terceiroTrimestre = tabela.dataset.terceiroTrimestre === 'true';
+        const formulaRecurso = tabela.dataset.formulaRecurso === 'true';
 
         // Recalcula a coluna MT ao vivo (client-side) sempre que MAC/NPT
         // mudam. Os '[data-campo="..."]' são atribuídos no template
@@ -36,8 +46,16 @@
 
             const mac = paraNumero(macInput.value);
             let npt;
+            let mt;
 
-            if (terceiroTrimestre) {
+            if (formulaRecurso) {
+                // IIº Ano EJA, 3º trimestre: o campo (rotulado "NE" no
+                // template) continua editável pelo professor, tal como o
+                // MAC — só muda a fórmula do MT, que pondera os dois
+                // (40%/60%) em vez de fazer a média simples.
+                npt = paraNumero(nptInput.value);
+                mt = calcularMtComExame(mac, npt);
+            } else if (terceiroTrimestre) {
                 // Mesma regra do 3º trimestre implementada no servidor
                 // (Nota.calcular_npt_terceiro_trimestre): o NPT não é
                 // editável — é a média de mt1/mt2, injectados no HTML via
@@ -45,15 +63,16 @@
                 const mt1 = paraNumero(tr.dataset.mt1);
                 const mt2 = paraNumero(tr.dataset.mt2);
                 npt = (mt1 !== null && mt2 !== null) ? arredondar((mt1 + mt2) / 2) : null;
-                nptInput.value = npt !== null ? npt.toFixed(1) : '';
+                nptInput.value = npt !== null ? npt.toFixed(0) : '';
                 nptInput.readOnly = true;
                 nptInput.classList.add('bg-light');
+                mt = calcularMt(mac, npt);
             } else {
                 npt = paraNumero(nptInput.value);
+                mt = calcularMt(mac, npt);
             }
 
-            const mt = calcularMt(mac, npt);
-            mtCelula.textContent = mt !== null ? mt.toFixed(1) : '—';
+            mtCelula.textContent = mt !== null ? mt.toFixed(0) : '—';
             mtCelula.classList.toggle('text-danger', mt !== null && mt < 10);
             mtCelula.classList.toggle('text-success', mt !== null && mt >= 10);
         }

@@ -5,13 +5,6 @@ from disciplinas.models import Disciplina
 from pautas.models import Nota, ResultadoDisciplina, SituacaoAnual
 from pautas.services.periodos import campo_periodo
 
-DISCIPLINAS_EM_ANDAMENTO = (
-    ResultadoDisciplina.RESULTADO_RECURSO,
-    ResultadoDisciplina.RESULTADO_DEFICIENCIA,
-)
-
-LIMITE_FALTAS_INJUSTIFICADAS = 9
-
 
 def gerar_resultados_finais():
     # ATENÇÃO: operação destrutiva — apaga TODOS os ResultadoDisciplina
@@ -22,7 +15,7 @@ def gerar_resultados_finais():
     ResultadoDisciplina.objects.all().delete()
     criados = 0
 
-    alunos = Aluno.objects.filter(estado=Aluno.ESTADO_ATIVO).select_related('turma')
+    alunos = Aluno.objects.filter(estado=Aluno.ESTADO_ATIVO).select_related('turma', 'turma__classe')
 
     for aluno in alunos:
         notas_aluno = (
@@ -90,31 +83,78 @@ def atualizar_resultado_disciplina(aluno, disciplina, ano_letivo):
     return resultado
 
 
-def verificar_transicao_aluno(aluno, ano_letivo):
-    # Regra de negócio mais complexa do sistema: decide se o aluno transita
-    # de ano. Ordem de decisão:
-    # 1) Reprovação automática por faltas: >= LIMITE_FALTAS_INJUSTIFICADAS
-    #    (9) faltas injustificadas no ano letivo reprova o aluno de imediato,
-    #    independentemente das notas em qualquer disciplina.
-    # 2) Se alguma disciplina tem resultado "Reprovado" -> reprovado (sem
-    #    hipótese de compensação).
-    # 3) Caso contrário, olha-se para as disciplinas "em andamento"
-    #    (resultado 'Recurso' ou 'Deficiência' — ver DISCIPLINAS_EM_ANDAMENTO):
-    #    - 0 disciplinas em andamento -> aprovado.
-    #    - 1 ou 2 disciplinas -> aprovado por compensação directa (não é
-    #      preciso ter nota de recurso lançada).
-    #    - 3 ou 4 disciplinas -> só aprovado por compensação se pelo menos
-    #      2 delas já tiverem nota_recurso >= 10; senão reprovado.
-    #    - mais de 4 disciplinas em andamento -> reprovado.
-    if aluno.contar_faltas_injustificadas(ano_letivo=ano_letivo) >= LIMITE_FALTAS_INJUSTIFICADAS:
-        situacao_anual, _ = SituacaoAnual.objects.update_or_create(
-            aluno=aluno,
-            ano_letivo=ano_letivo,
-            defaults={'situacao': SituacaoAnual.SITUACAO_REPROVADO},
-        )
-        situacao_anual.disciplinas_em_deficiencia.clear()
-        return situacao_anual
+def _tem_ambas_nucleares_simultaneas(resultados_disciplina):
+    """True se as DUAS disciplinas nucleares (Português e Matemática, ver
+    Disciplina.nuclear) estiverem simultaneamente entre os
+    `resultados_disciplina` dados (ex.: ambas na banda de tolerância ou de
+    recurso). A "Base Legal" nega tolerância/recurso apenas quando isto
+    acontece — uma disciplina nuclear sozinha na banda não bloqueia nada."""
+    nucleares = {r.disciplina_id for r in resultados_disciplina if r.disciplina.nuclear}
+    return len(nucleares) >= 2
 
+
+def _transicao_primeiro_ano(resultados):
+    # "Base Legal" — Iº Ano: aprova com MF>=10 em todas as disciplinas;
+    # tolera até 2 disciplinas com MF entre 8-9, desde que não sejam
+    # Português e Matemática simultaneamente. Faltas e MF<8 reprovam
+    # sempre, sem excepção nem compensação.
+    if any(r.resultado == ResultadoDisciplina.RESULTADO_REPROVADO_FALTAS for r in resultados):
+        return SituacaoAnual.SITUACAO_REPROVADO, []
+
+    if any(r.mf < 8 for r in resultados):
+        return SituacaoAnual.SITUACAO_REPROVADO, []
+
+    tolerancia = [r for r in resultados if 8 <= r.mf < 10]
+    if len(tolerancia) > 2:
+        return SituacaoAnual.SITUACAO_REPROVADO, []
+    if tolerancia and _tem_ambas_nucleares_simultaneas(tolerancia):
+        return SituacaoAnual.SITUACAO_REPROVADO, []
+    if tolerancia:
+        return SituacaoAnual.SITUACAO_APROVADO_COMPENSACAO, tolerancia
+    return SituacaoAnual.SITUACAO_APROVADO, []
+
+
+def _valor_decisivo(resultado):
+    """Valor que decide a disciplina: a nota de recurso (NER), se já
+    lançada — é nota seca e substitui a MFA por completo — senão a
+    própria MFA (campo `mf`)."""
+    return resultado.nota_recurso if resultado.nota_recurso is not None else resultado.mf
+
+
+def _transicao_segundo_ano(resultados):
+    # IIº Ano EJA: mesma regra do Iº Ano (MFA>=10 em todas, tolerância de
+    # até 2 disciplinas entre 8-9, nunca Português+Matemática simultâneas),
+    # com uma diferença — disciplinas com MFA<8 têm direito a Exame de
+    # Recurso (NER) primeiro, para tentar corrigi-las ANTES desta
+    # verificação (ver ResultadoDisciplina._verificar_resultado_segundo_ano).
+    pendentes = [r for r in resultados if r.resultado == ResultadoDisciplina.RESULTADO_RECURSO]
+    if pendentes:
+        return None, []  # há disciplina(s) elegível(is) a recurso, ainda sem NER lançada
+
+    if any(r.resultado == ResultadoDisciplina.RESULTADO_REPROVADO_FALTAS for r in resultados):
+        return SituacaoAnual.SITUACAO_REPROVADO, []
+
+    if any(_valor_decisivo(r) < 8 for r in resultados):
+        # Só chega aqui quem já tentou o recurso e continuou abaixo de 8.
+        return SituacaoAnual.SITUACAO_REPROVADO, []
+
+    tolerancia = [r for r in resultados if 8 <= _valor_decisivo(r) < 10]
+    if len(tolerancia) > 2:
+        return SituacaoAnual.SITUACAO_REPROVADO, []
+    if tolerancia and _tem_ambas_nucleares_simultaneas(tolerancia):
+        return SituacaoAnual.SITUACAO_REPROVADO, []
+    if tolerancia:
+        return SituacaoAnual.SITUACAO_APROVADO_COMPENSACAO, tolerancia
+    return SituacaoAnual.SITUACAO_APROVADO, []
+
+
+def verificar_transicao_aluno(aluno, ano_letivo):
+    """Decide a Situação Anual do aluno segundo a "Base Legal EJA"
+    (docs/processos_sistema.pdf), com regras distintas por Classe — ver
+    _transicao_primeiro_ano / _transicao_segundo_ano. Devolve None quando
+    ainda não há resultados, ou (IIº Ano) quando algum ainda aguarda Exame
+    Nacional/nota de recurso — tal como o comportamento anterior quando não
+    havia dados suficientes."""
     resultados = list(
         ResultadoDisciplina.objects
         .filter(aluno=aluno, ano_letivo=ano_letivo)
@@ -124,31 +164,13 @@ def verificar_transicao_aluno(aluno, ano_letivo):
     if not resultados:
         return None
 
-    if any(resultado.resultado == ResultadoDisciplina.RESULTADO_REPROVADO for resultado in resultados):
-        situacao = SituacaoAnual.SITUACAO_REPROVADO
-        em_deficiencia = []
+    if aluno.turma.eh_segundo_ano():
+        situacao, em_recurso = _transicao_segundo_ano(resultados)
     else:
-        em_deficiencia = [
-            resultado for resultado in resultados
-            if resultado.resultado in DISCIPLINAS_EM_ANDAMENTO
-        ]
+        situacao, em_recurso = _transicao_primeiro_ano(resultados)
 
-        if not em_deficiencia:
-            situacao = SituacaoAnual.SITUACAO_APROVADO
-        elif len(em_deficiencia) <= 2:
-            situacao = SituacaoAnual.SITUACAO_APROVADO_COMPENSACAO
-        elif len(em_deficiencia) <= 4:
-            recuperadas = sum(
-                1 for resultado in em_deficiencia
-                if resultado.nota_recurso is not None and resultado.nota_recurso >= 10
-            )
-            situacao = (
-                SituacaoAnual.SITUACAO_APROVADO_COMPENSACAO
-                if recuperadas >= 2
-                else SituacaoAnual.SITUACAO_REPROVADO
-            )
-        else:
-            situacao = SituacaoAnual.SITUACAO_REPROVADO
+    if situacao is None:
+        return None
 
     situacao_anual, _ = SituacaoAnual.objects.update_or_create(
         aluno=aluno,
@@ -156,9 +178,27 @@ def verificar_transicao_aluno(aluno, ano_letivo):
         defaults={'situacao': situacao},
     )
     situacao_anual.disciplinas_em_deficiencia.set(
-        [resultado.disciplina for resultado in em_deficiencia]
+        [resultado.disciplina for resultado in em_recurso]
     )
     return situacao_anual
+
+
+def _observacao_recurso(resultados_aluno, situacao_anual):
+    """Texto para a coluna "Observação" da pauta geral: resume o que
+    aconteceu no Exame de Recurso (NER), quando usado. Só o IIº Ano tem
+    recurso — para o Iº Ano isto fica sempre em branco."""
+    com_recurso = [r for r in resultados_aluno if r.nota_recurso is not None]
+    if not com_recurso:
+        return ''
+
+    nomes = ', '.join(sorted(r.disciplina.nome for r in com_recurso))
+    situacao = situacao_anual.situacao if situacao_anual else None
+
+    if situacao in (SituacaoAnual.SITUACAO_APROVADO, SituacaoAnual.SITUACAO_APROVADO_COMPENSACAO):
+        return f'Aprovado após recurso a: {nomes}'
+    if situacao == SituacaoAnual.SITUACAO_REPROVADO:
+        return f'Reprovado mesmo após recurso a: {nomes}'
+    return f'Recurso lançado a: {nomes}'
 
 
 def montar_pauta_final_turma(turma, ano_letivo):
@@ -177,14 +217,23 @@ def montar_pauta_final_turma(turma, ano_letivo):
         ).select_related('disciplina', 'aluno')
     }
 
-    linhas = [
-        {
+    linhas = []
+    for aluno in alunos:
+        celulas = [resultados.get((aluno.id, disciplina.id)) for disciplina in disciplinas]
+        situacao_anual = verificar_transicao_aluno(aluno, ano_letivo)
+        # Sem SituacaoAnual ainda (verificar_transicao_aluno devolveu None)
+        # porque há pelo menos uma disciplina "Recurso" (IIº Ano) à espera
+        # da NER — a coluna "Situação Geral" mostra isto em vez de "—".
+        aguarda_recurso = not situacao_anual and any(
+            c and c.resultado == ResultadoDisciplina.RESULTADO_RECURSO for c in celulas
+        )
+        linhas.append({
             'aluno': aluno,
-            'celulas': [resultados.get((aluno.id, disciplina.id)) for disciplina in disciplinas],
-            'situacao_anual': verificar_transicao_aluno(aluno, ano_letivo),
-        }
-        for aluno in alunos
-    ]
+            'celulas': celulas,
+            'situacao_anual': situacao_anual,
+            'aguarda_recurso': aguarda_recurso,
+            'observacao': _observacao_recurso([c for c in celulas if c], situacao_anual),
+        })
 
     return disciplinas, linhas
 

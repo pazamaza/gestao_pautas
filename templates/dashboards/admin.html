@@ -178,46 +178,28 @@ Dashboard
         </div>
     </div>
 </div>
-
 <hr class="my-4">
 <h2 class="text-center mb-4">Atalhos Rápidos</h2>
-
 <div class="d-flex flex-wrap justify-content-center gap-4">
-
     <a href="{% url 'aluno_lista' %}" class="btn btn-primary atalho-btn">
         <i class="fas fa-user-graduate fa-3x mb-3"></i>
-        <span>Estudantes</span>
-    </a>
-
+        <span>Estudantes</span></a>
     <a href="{% url 'professor_lista' %}" class="btn btn-success atalho-btn">
         <i class="fas fa-chalkboard-teacher fa-3x mb-3"></i>
-        <span>Professores</span>
-    </a>
-
+        <span>Professores</span></a>
     <a href="{% url 'turma_lista' %}" class="btn btn-warning atalho-btn">
         <i class="fas fa-users fa-3x mb-3"></i>
-        <span>Turmas</span>
-    </a>
-
+        <span>Turmas</span></a>
     <!--<a href="{% url 'disciplina_lista' %}" class="btn btn-info atalho-btn">
         <i class="fas fa-book fa-3x mb-3"></i>
         <span>Disciplinas</span>
     </a>-->
-
-    <!--<a href="{% url 'encarregado_lista' %}" class="btn btn-secondary atalho-btn">
+    <a href="{% url 'encarregado_lista' %}" class="btn btn-secondary atalho-btn">
         <i class="fas fa-briefcase fa-3x mb-3"></i>
-        <span>Encarregados</span>
-    </a>
--->
-    <!--<a href="{% url 'diretor_turma_lista' %}" class="btn btn-dark atalho-btn">
-        <span>Dirs. de Turmas</span>
-    </a>-->
-
+        <span>Encarregados</span></a>
 </div>
-
 <hr class="my-4">
 <h2 class="text-center mb-4">Validação de Pautas</h2>
-
 <div class="d-flex flex-wrap justify-content-center gap-3">
     <a href="{% url 'avaliacao_lista' %}?status=rascunho" class="card shadow-sm text-decoration-none text-dark" style="width: 200px;">
         <div class="card-body text-center">

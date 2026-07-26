@@ -1,0 +1,51 @@
+.boletim-disciplina .boletim-logo {
+    width: 56px;
+    height: 56px;
+    object-fit: contain;
+}
+
+.boletim-disciplina .boletim-cabecalho {
+    border-top: 4px solid #198754;
+}
+
+.boletim-disciplina .boletim-indicadores .fs-5 {
+    font-size: 1.1rem !important;
+}
+
+.boletim-disciplina .boletim-tabela-distribuicao {
+    font-size: 0.75rem;
+}
+
+.boletim-disciplina .boletim-tabela-distribuicao th,
+.boletim-disciplina .boletim-tabela-distribuicao td {
+    padding: 0.2rem 0.4rem;
+}
+
+/* Altura FIXA obrigatória: um <canvas> do Chart.js com responsive:true e
+   maintainAspectRatio:false dentro de um contentor sem altura definida
+   entra num ciclo de redimensionamento sem fim (o canvas cresce, o
+   contentor cresce para o acomodar, o canvas volta a crescer...) — foi
+   isto que estava a tornar a página pesada e a travar o browser. */
+.boletim-disciplina .boletim-grafico-wrap {
+    position: relative;
+    height: 160px;
+}
+
+.boletim-disciplina .boletim-grafico-wrap-lg {
+    height: 220px;
+}
+
+.boletim-disciplina .boletim-linha-assinatura {
+    border-top: 1px solid #333;
+    width: 70%;
+    margin: 0 auto;
+}
+
+@media print {
+    .no-print {
+        display: none !important;
+    }
+    .boletim-disciplina .card {
+        break-inside: avoid;
+    }
+}

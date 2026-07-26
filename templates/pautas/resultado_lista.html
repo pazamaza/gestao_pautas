@@ -10,7 +10,12 @@ Resultados Finais
 
     <div class="d-flex justify-content-between flex-wrap gap-2">
 
-        <h2>Resultados Finais (Anual)</h2>
+        <h2>
+            Resultados Finais (Anual)
+            {% if aluno_filtro %}
+            <small class="text-muted fs-6">— {{ aluno_filtro.nome }}</small>
+            {% endif %}
+        </h2>
 
         <div class="d-flex gap-2">
             <a href="{% url 'pauta_final_turma' %}"
@@ -110,11 +115,13 @@ Resultados Finais
                 <td>{{ resultado.aluno }}</td>
                 <td>{{ resultado.aluno.turma }}</td>
                 <td>{{ resultado.disciplina }}</td>
-                <td>{{ resultado.mt1 }}</td>
-                <td>{{ resultado.mt2 }}</td>
-                <td>{{ resultado.mt3 }}</td>
-                <td>{{ resultado.mf }}</td>
-                <td>{% if resultado.exame %}{{ resultado.exame }}{% else %}Dispensado{% endif %}</td>
+                <td>{{ resultado.mt1|floatformat:0 }}</td>
+                <td>{{ resultado.mt2|floatformat:0 }}</td>
+                <td>{{ resultado.mt3|floatformat:0 }}</td>
+                <td class="{% if resultado.mf >= 10 %}text-primary fw-bold{% else %}text-danger fw-bold{% endif %}">
+                    {{ resultado.mf|floatformat:0 }}
+                </td>
+                <td>{% if resultado.exame %}{{ resultado.exame|floatformat:0 }}{% else %}Dispensado{% endif %}</td>
                 <td>{{ resultado.resultado }}</td>
                 <td>
                     {% if resultado.status == 'validada' %}

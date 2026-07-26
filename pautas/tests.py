@@ -1,4 +1,5 @@
 import datetime
+from decimal import Decimal
 
 from django.contrib.auth.models import Group, User
 from django.test import TestCase
@@ -6,11 +7,13 @@ from django.urls import reverse
 
 from alunos.models import Aluno, Encarregado
 from disciplinas.models import Disciplina
+from frequencias.models import Frequencia
 from notificacoes.models import Notificacao
 from professores.models import AtribuicaoDocente, DiretorTurma, Professor
-from turmas.models import AnoLetivo, Classe, PeriodoAcademico, Turma
+from turmas.models import AnoLetivo, Classe, HorarioAula, PeriodoAcademico, Turma
 
-from .models import Avaliacao, Nota
+from .models import Avaliacao, Nota, ResultadoDisciplina, SituacaoAnual
+from .services.resultados import verificar_transicao_aluno
 
 
 class PautasTestBase(TestCase):
@@ -284,3 +287,276 @@ class ConsultaPautasTests(PautasTestBase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Aluno Teste')
         self.assertNotContains(response, 'Outro Aluno')
+
+
+class BaseLegalCalculoTestBase(TestCase):
+    """Fixtures para testar as fórmulas da "Base Legal EJA"
+    (docs/processos_sistema.pdf) — Iº/IIº Ano — direto no ORM, sem HTTP."""
+
+    def setUp(self):
+        self.ano_letivo = AnoLetivo.objects.create(descricao='2026')
+        self.classe_1ano = Classe.objects.create(nome='Iº')
+        self.classe_2ano = Classe.objects.create(nome='IIº')
+        self.turma_1ano = Turma.objects.create(nome='A', classe=self.classe_1ano, ano_letivo=self.ano_letivo)
+        self.turma_2ano = Turma.objects.create(nome='A', classe=self.classe_2ano, ano_letivo=self.ano_letivo)
+
+        self.matematica = Disciplina.objects.create(nome='Matemática', sigla='MAT', nuclear=True)
+        self.portugues = Disciplina.objects.create(nome='Língua Portuguesa', sigla='LP', nuclear=True)
+        self.fisica = Disciplina.objects.create(nome='Física', sigla='FIS')
+        self.quimica = Disciplina.objects.create(nome='Química', sigla='QUI')
+        self.biologia = Disciplina.objects.create(nome='Biologia', sigla='BIO')
+
+        self._contador_aluno = 0
+
+    def _aluno(self, turma):
+        self._contador_aluno += 1
+        numero = f'NP{self._contador_aluno:04d}'
+        encarregado_user = User.objects.create_user(username=f'enc_{numero}', password='senha123')
+        encarregado = Encarregado.objects.create(user=encarregado_user, telefone='900000000')
+        return Aluno.objects.create(
+            nome=f'Aluno {numero}',
+            numero_processo=numero,
+            data_nascimento=datetime.date(2008, 1, 1),
+            sexo='M',
+            turma=turma,
+            encarregado=encarregado,
+        )
+
+    def _resultado(self, aluno, disciplina, **kwargs):
+        return ResultadoDisciplina.objects.create(
+            aluno=aluno, disciplina=disciplina, ano_letivo=self.ano_letivo, **kwargs
+        )
+
+
+class PrimeiroAnoDisciplinaTests(BaseLegalCalculoTestBase):
+    def test_mf_e_media_simples_sem_pesos(self):
+        aluno = self._aluno(self.turma_1ano)
+        r = self._resultado(aluno, self.fisica, mt1=14, mt2=12, mt3=16)
+        self.assertEqual(r.mf, 14)  # (14+12+16)/3 = 14
+        self.assertEqual(r.resultado, ResultadoDisciplina.RESULTADO_APROVADO)
+
+    def test_disciplina_reprovada_direta_abaixo_de_10(self):
+        aluno = self._aluno(self.turma_1ano)
+        r = self._resultado(aluno, self.fisica, mt1=4, mt2=5, mt3=6)
+        self.assertEqual(r.mf, 5)
+        self.assertEqual(r.resultado, ResultadoDisciplina.RESULTADO_REPROVADO)
+
+    def test_iano_nao_tem_exame_nem_recurso(self):
+        aluno = self._aluno(self.turma_1ano)
+        r = self._resultado(aluno, self.fisica, mt1=9, mt2=9, mt3=9, exame=15, nota_recurso=15)
+        # Sem exame/recurso no Iº Ano — nota_final fica sempre None, e o
+        # resultado só depende da MF.
+        self.assertIsNone(r.nota_final)
+        self.assertEqual(r.resultado, ResultadoDisciplina.RESULTADO_REPROVADO)
+
+
+class PrimeiroAnoTransicaoAnualTests(BaseLegalCalculoTestBase):
+    def test_aprovado_direto_sem_tolerancia(self):
+        aluno = self._aluno(self.turma_1ano)
+        self._resultado(aluno, self.matematica, mt1=12, mt2=13, mt3=14)
+        self._resultado(aluno, self.portugues, mt1=11, mt2=10, mt3=12)
+        self._resultado(aluno, self.fisica, mt1=15, mt2=14, mt3=13)
+
+        situacao = verificar_transicao_aluno(aluno, self.ano_letivo)
+        self.assertEqual(situacao.situacao, SituacaoAnual.SITUACAO_APROVADO)
+
+    def test_tolerancia_ate_2_disciplinas_aprova_por_compensacao(self):
+        aluno = self._aluno(self.turma_1ano)
+        self._resultado(aluno, self.matematica, mt1=12, mt2=13, mt3=14)
+        self._resultado(aluno, self.portugues, mt1=11, mt2=10, mt3=12)
+        self._resultado(aluno, self.fisica, mt1=8, mt2=9, mt3=8)     # mf=8
+        self._resultado(aluno, self.quimica, mt1=9, mt2=8, mt3=9)    # mf=9
+
+        situacao = verificar_transicao_aluno(aluno, self.ano_letivo)
+        self.assertEqual(situacao.situacao, SituacaoAnual.SITUACAO_APROVADO_COMPENSACAO)
+        self.assertEqual(
+            set(situacao.disciplinas_em_deficiencia.all()),
+            {self.fisica, self.quimica},
+        )
+
+    def test_mais_de_2_disciplinas_na_tolerancia_reprova(self):
+        aluno = self._aluno(self.turma_1ano)
+        self._resultado(aluno, self.matematica, mt1=12, mt2=13, mt3=14)
+        self._resultado(aluno, self.portugues, mt1=11, mt2=10, mt3=12)
+        self._resultado(aluno, self.fisica, mt1=8, mt2=9, mt3=8)
+        self._resultado(aluno, self.quimica, mt1=9, mt2=8, mt3=9)
+        self._resultado(aluno, self.biologia, mt1=8, mt2=8, mt3=9)
+
+        situacao = verificar_transicao_aluno(aluno, self.ano_letivo)
+        self.assertEqual(situacao.situacao, SituacaoAnual.SITUACAO_REPROVADO)
+
+    def test_portugues_e_matematica_simultaneas_na_tolerancia_reprova(self):
+        aluno = self._aluno(self.turma_1ano)
+        self._resultado(aluno, self.matematica, mt1=8, mt2=9, mt3=8)   # tolerância
+        self._resultado(aluno, self.portugues, mt1=9, mt2=8, mt3=9)    # tolerância
+        self._resultado(aluno, self.fisica, mt1=15, mt2=14, mt3=13)
+
+        situacao = verificar_transicao_aluno(aluno, self.ano_letivo)
+        self.assertEqual(situacao.situacao, SituacaoAnual.SITUACAO_REPROVADO)
+
+    def test_disciplina_abaixo_de_8_reprova_sem_tolerancia(self):
+        aluno = self._aluno(self.turma_1ano)
+        self._resultado(aluno, self.matematica, mt1=12, mt2=13, mt3=14)
+        self._resultado(aluno, self.fisica, mt1=5, mt2=6, mt3=7)  # mf=6
+
+        situacao = verificar_transicao_aluno(aluno, self.ano_letivo)
+        self.assertEqual(situacao.situacao, SituacaoAnual.SITUACAO_REPROVADO)
+
+
+class NotaComExameTests(TestCase):
+    def test_calcular_mt_com_exame_pesos_40_60(self):
+        # IIº Ano, 3º trimestre: MT = MAC×0,40 + NE×0,60 (NE reaproveita o
+        # campo 'npt'). 10×0,40 + 15×0,60 = 4 + 9 = 13.
+        nota = Nota(mac=Decimal('10'), npt=Decimal('15'))
+        self.assertEqual(nota.calcular_mt_com_exame(), Decimal('13'))
+
+
+class SegundoAnoDisciplinaTests(BaseLegalCalculoTestBase):
+    def test_mfa_e_media_simples_como_no_iano(self):
+        aluno = self._aluno(self.turma_2ano)
+        r = self._resultado(aluno, self.fisica, mt1=12, mt2=10, mt3=14)
+        self.assertEqual(r.mf, 12)  # (12+10+14)/3 = 12
+        self.assertEqual(r.resultado, ResultadoDisciplina.RESULTADO_APROVADO)
+
+    def test_mfa_abaixo_de_8_fica_pendente_de_recurso(self):
+        aluno = self._aluno(self.turma_2ano)
+        r = self._resultado(aluno, self.fisica, mt1=6, mt2=6, mt3=6)
+        self.assertEqual(r.mf, 6)
+        self.assertEqual(r.resultado, ResultadoDisciplina.RESULTADO_RECURSO)
+
+    def test_mfa_entre_8_e_9_nao_precisa_de_recurso(self):
+        aluno = self._aluno(self.turma_2ano)
+        r = self._resultado(aluno, self.fisica, mt1=8, mt2=9, mt3=8)
+        self.assertEqual(r.resultado, ResultadoDisciplina.RESULTADO_REPROVADO)  # tolerância é anual
+
+    def test_nota_recurso_seca_decide_aprovacao(self):
+        aluno = self._aluno(self.turma_2ano)
+        r = self._resultado(aluno, self.fisica, mt1=6, mt2=6, mt3=6)  # MFA=6, Recurso
+        r.nota_recurso = 12
+        r.save()
+        self.assertEqual(r.resultado, ResultadoDisciplina.RESULTADO_APROVADO)
+
+        r.nota_recurso = 7
+        r.save()
+        self.assertEqual(r.resultado, ResultadoDisciplina.RESULTADO_REPROVADO)
+
+
+class SegundoAnoTransicaoAnualTests(BaseLegalCalculoTestBase):
+    def test_pendente_enquanto_disciplina_aguarda_recurso(self):
+        aluno = self._aluno(self.turma_2ano)
+        self._resultado(aluno, self.fisica, mt1=6, mt2=6, mt3=6)  # MFA=6, sem recurso lançado
+
+        situacao = verificar_transicao_aluno(aluno, self.ano_letivo)
+        self.assertIsNone(situacao)
+
+    def test_aprovado_direto_sem_recurso(self):
+        aluno = self._aluno(self.turma_2ano)
+        self._resultado(aluno, self.fisica, mt1=14, mt2=14, mt3=14)
+        self._resultado(aluno, self.quimica, mt1=13, mt2=13, mt3=13)
+
+        situacao = verificar_transicao_aluno(aluno, self.ano_letivo)
+        self.assertEqual(situacao.situacao, SituacaoAnual.SITUACAO_APROVADO)
+
+    def test_recurso_com_sucesso_pleno_aprova_direto(self):
+        aluno = self._aluno(self.turma_2ano)
+        r = self._resultado(aluno, self.fisica, mt1=6, mt2=6, mt3=6)
+        r.nota_recurso = 12  # >=10 -> deixa de estar na banda de tolerância
+        r.save()
+        self._resultado(aluno, self.quimica, mt1=14, mt2=14, mt3=14)
+
+        situacao = verificar_transicao_aluno(aluno, self.ano_letivo)
+        self.assertEqual(situacao.situacao, SituacaoAnual.SITUACAO_APROVADO)
+
+    def test_recurso_leva_a_banda_de_tolerancia_aprova_por_compensacao(self):
+        aluno = self._aluno(self.turma_2ano)
+        r = self._resultado(aluno, self.fisica, mt1=6, mt2=6, mt3=6)
+        r.nota_recurso = 9  # fica na banda 8-9 -> tolerância anual
+        r.save()
+        self._resultado(aluno, self.quimica, mt1=14, mt2=14, mt3=14)
+
+        situacao = verificar_transicao_aluno(aluno, self.ano_letivo)
+        self.assertEqual(situacao.situacao, SituacaoAnual.SITUACAO_APROVADO_COMPENSACAO)
+
+    def test_recurso_falhado_reprova(self):
+        aluno = self._aluno(self.turma_2ano)
+        r = self._resultado(aluno, self.fisica, mt1=6, mt2=6, mt3=6)
+        r.nota_recurso = 5  # continua abaixo de 8 -> reprova, sem segunda hipótese
+        r.save()
+        self._resultado(aluno, self.quimica, mt1=14, mt2=14, mt3=14)
+
+        situacao = verificar_transicao_aluno(aluno, self.ano_letivo)
+        self.assertEqual(situacao.situacao, SituacaoAnual.SITUACAO_REPROVADO)
+
+    def test_mais_de_2_disciplinas_na_tolerancia_reprova(self):
+        aluno = self._aluno(self.turma_2ano)
+        self._resultado(aluno, self.fisica, mt1=8, mt2=9, mt3=8)
+        self._resultado(aluno, self.quimica, mt1=9, mt2=8, mt3=9)
+        self._resultado(aluno, self.biologia, mt1=8, mt2=8, mt3=9)
+
+        situacao = verificar_transicao_aluno(aluno, self.ano_letivo)
+        self.assertEqual(situacao.situacao, SituacaoAnual.SITUACAO_REPROVADO)
+
+    def test_portugues_e_matematica_simultaneas_na_tolerancia_reprova(self):
+        aluno = self._aluno(self.turma_2ano)
+        self._resultado(aluno, self.matematica, mt1=8, mt2=9, mt3=8)
+        self._resultado(aluno, self.portugues, mt1=9, mt2=8, mt3=9)
+
+        situacao = verificar_transicao_aluno(aluno, self.ano_letivo)
+        self.assertEqual(situacao.situacao, SituacaoAnual.SITUACAO_REPROVADO)
+
+
+class FaltasReprovamDisciplinaTests(BaseLegalCalculoTestBase):
+    def test_excede_limite_de_faltas_reprova_disciplina_mesmo_com_boas_notas(self):
+        professor_user = User.objects.create_user(username='prof_faltas', password='senha123')
+        professor = Professor.objects.create(user=professor_user, numero_funcionario='PF001')
+        atribuicao = AtribuicaoDocente.objects.create(
+            professor=professor, disciplina=self.fisica,
+            turma=self.turma_1ano, ano_letivo=self.ano_letivo,
+        )
+        # 1 tempo lectivo semanal -> limite de 3 faltas/trimestre.
+        HorarioAula.objects.create(
+            turma=self.turma_1ano, dia_semana=HorarioAula.SEGUNDA, tempo=1, atribuicao=atribuicao
+        )
+        PeriodoAcademico.objects.create(
+            nome='1º Trimestre', ano_letivo=self.ano_letivo, aberto=True,
+            data_inicio_lancamento=datetime.date(2026, 2, 1),
+            data_fim_lancamento=datetime.date(2026, 4, 30),
+        )
+
+        aluno = self._aluno(self.turma_1ano)
+        for semana in range(3):
+            Frequencia.objects.create(
+                aluno=aluno, atribuicao=atribuicao,
+                data=datetime.date(2026, 2, 3) + datetime.timedelta(days=semana * 7),
+                estado=Frequencia.FALTA,
+            )
+
+        r = self._resultado(aluno, self.fisica, mt1=18, mt2=18, mt3=18)
+        self.assertEqual(r.resultado, ResultadoDisciplina.RESULTADO_REPROVADO_FALTAS)
+
+    def test_abaixo_do_limite_de_faltas_nao_afeta_resultado(self):
+        professor_user = User.objects.create_user(username='prof_faltas2', password='senha123')
+        professor = Professor.objects.create(user=professor_user, numero_funcionario='PF002')
+        atribuicao = AtribuicaoDocente.objects.create(
+            professor=professor, disciplina=self.fisica,
+            turma=self.turma_1ano, ano_letivo=self.ano_letivo,
+        )
+        HorarioAula.objects.create(
+            turma=self.turma_1ano, dia_semana=HorarioAula.SEGUNDA, tempo=1, atribuicao=atribuicao
+        )
+        PeriodoAcademico.objects.create(
+            nome='1º Trimestre', ano_letivo=self.ano_letivo, aberto=True,
+            data_inicio_lancamento=datetime.date(2026, 2, 1),
+            data_fim_lancamento=datetime.date(2026, 4, 30),
+        )
+
+        aluno = self._aluno(self.turma_1ano)
+        for semana in range(2):  # abaixo do limite de 3
+            Frequencia.objects.create(
+                aluno=aluno, atribuicao=atribuicao,
+                data=datetime.date(2026, 2, 3) + datetime.timedelta(days=semana * 7),
+                estado=Frequencia.FALTA,
+            )
+
+        r = self._resultado(aluno, self.fisica, mt1=18, mt2=18, mt3=18)
+        self.assertEqual(r.resultado, ResultadoDisciplina.RESULTADO_APROVADO)

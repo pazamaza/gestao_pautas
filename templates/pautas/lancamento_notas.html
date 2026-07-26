@@ -107,6 +107,13 @@ Lançamento de Notas
     </div>
     {% endif %}
 
+    {% if eh_terceiro_trimestre_iiano %}
+    <div class="alert alert-info mt-3">
+        A coluna <strong>NER</strong> só é editável para alunos cuja MFA desta disciplina já ficou em
+        <strong>Recurso</strong> (MFA&lt;8) — para os restantes aparece "N/A" e não é gravada.
+    </div>
+    {% endif %}
+
     <form method="post" class="mt-3">
         {% csrf_token %}
         <input type="hidden" name="atribuicao" value="{{ atribuicao.id }}">
@@ -115,21 +122,28 @@ Lançamento de Notas
 
         <div class="table-responsive">
             <table class="table table-bordered table-sm align-middle" data-notas-tabela
-                   data-terceiro-trimestre="{% if eh_terceiro_trimestre %}true{% else %}false{% endif %}">
+                   data-terceiro-trimestre="{% if eh_terceiro_trimestre %}true{% else %}false{% endif %}"
+                   data-formula-recurso="{% if eh_terceiro_trimestre_iiano %}true{% else %}false{% endif %}">
                 <thead class="table-primary">
                     <tr>
                         <th>Nº</th>
                         <th>Aluno</th>
-                        {% if mostrar_mt1 %}<th style="width: 110px;">Média 1º Trim.</th>{% endif %}
-                        {% if mostrar_mt2 %}<th style="width: 110px;">Média 2º Trim.</th>{% endif %}
+                        {% if mostrar_mt1 %}<th style="width: 110px;">M-1ºT</th>{% endif %}
+                        {% if mostrar_mt2 %}<th style="width: 110px;">M-2ºT</th>{% endif %}
                         <th style="width: 120px;">MAC</th>
                         <th style="width: 120px;">
-                            NPT
-                            {% if eh_terceiro_trimestre %}
-                            <small class="d-block text-muted fw-normal">calculado automaticamente</small>
+                            {% if eh_terceiro_trimestre_iiano %}NE{% else %}NPT{% endif %}
+                            {% if eh_terceiro_trimestre_iiano %}
+                            <small class="d-block text-muted fw-normal">Nota de Exame</small>
                             {% endif %}
                         </th>
                         <th style="width: 100px;">MT</th>
+                        {% if eh_terceiro_trimestre_iiano %}
+                        <th style="width: 120px;">
+                            NER
+                            <small class="d-block text-muted fw-normal">Nota de Recurso</small>
+                        </th>
+                        {% endif %}
                     </tr>
                 </thead>
                 <tbody>
@@ -140,19 +154,33 @@ Lançamento de Notas
                         {% if mostrar_mt1 %}<td class="text-center text-muted">{{ linha.mt1|default_if_none:"—" }}</td>{% endif %}
                         {% if mostrar_mt2 %}<td class="text-center text-muted">{{ linha.mt2|default_if_none:"—" }}</td>{% endif %}
                         <td>
+                            {{ linha.form.npt }}
+                            {% if linha.form.npt.errors %}<div class="text-danger small">{{ linha.form.npt.errors }}</div>{% endif %}
+                        </td>
+                        <td>
                             {{ linha.form.aluno_id }}
                             {{ linha.form.mac }}
                             {% if linha.form.mac.errors %}<div class="text-danger small">{{ linha.form.mac.errors }}</div>{% endif %}
                         </td>
-                        <td>
-                            {{ linha.form.npt }}
-                            {% if linha.form.npt.errors %}<div class="text-danger small">{{ linha.form.npt.errors }}</div>{% endif %}
-                        </td>
+                        
                         <td class="text-center fw-bold" data-campo="mt">—</td>
+                        {% if eh_terceiro_trimestre_iiano %}
+                        <td>
+                            {% if linha.resultado_disciplina.resultado == 'Recurso' %}
+                            <input type="number" name="ner_{{ linha.aluno.id }}" step="0.1" min="0" max="20"
+                                   class="form-control form-control-sm"
+                                   value="{{ linha.resultado_disciplina.nota_recurso|default_if_none:'' }}">
+                            {% elif linha.resultado_disciplina.nota_recurso is not None %}
+                            <span class="text-muted">{{ linha.resultado_disciplina.nota_recurso|floatformat:0 }}</span>
+                            {% else %}
+                            <span class="text-muted small">N/A</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="7">Nenhum aluno ativo nesta turma.</td>
+                        <td colspan="8">Nenhum aluno ativo nesta turma.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -256,5 +284,5 @@ Lançamento de Notas
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/lancamento_notas.js' %}"></script>
+<script src="{% static 'js/lancamento_notas.js' %}?v=2"></script>
 {% endblock %}
