@@ -160,6 +160,11 @@ def lancamento_notas(request):
         periodo and campo_periodo(periodo) == 'mt3' and atribuicao.turma.eh_segundo_ano()
     )
 
+    notas_existentes = {
+        nota.aluno_id: nota
+        for nota in Nota.objects.filter(avaliacao=avaliacao, aluno__in=alunos)
+    }
+
     if request.method == 'POST':
         if not pode_editar:
             return render(request, 'dashboards/sem_permissao.html', status=403)
@@ -191,9 +196,10 @@ def lancamento_notas(request):
 
             if eh_terceiro_trimestre_iiano:
                 # NER (Nota de Exame de Recurso) — só se aplica ao IIº Ano,
-                # e só a disciplinas que já ficaram "Recurso" (MFA<8); campos
-                # extra no mesmo POST, um por aluno (ner_<id>), fora do
-                # formset porque vive em ResultadoDisciplina, não em Nota.
+                # e só a disciplinas que já ficaram "Recurso" (MFA 7-9, sem
+                # veto do gatilho); campos extra no mesmo POST, um por aluno
+                # (ner_<id>), fora do formset porque vive em
+                # ResultadoDisciplina, não em Nota.
                 resultados_por_aluno = {
                     r.aluno_id: r for r in ResultadoDisciplina.objects.filter(
                         aluno__in=alunos, disciplina=atribuicao.disciplina,
@@ -230,10 +236,6 @@ def lancamento_notas(request):
 
             return redirect(f"{reverse('lancamento_notas')}?atribuicao={atribuicao.id}&periodo={periodo.id}")
     else:
-        notas_existentes = {
-            nota.aluno_id: nota
-            for nota in Nota.objects.filter(avaliacao=avaliacao, aluno__in=alunos)
-        }
         initial = [
             {
                 'aluno_id': aluno.id,
@@ -254,16 +256,22 @@ def lancamento_notas(request):
             )
         }
 
-    linhas = [
-        {
+    linhas = []
+    for aluno, form in zip(alunos, formset):
+        nota_gravada = aluno.id in notas_existentes
+        if nota_gravada:
+            # MAC/NE já lançados para este aluno — deixam de ser editáveis
+            # aqui; uma correcção passa a ter de ser feita fora deste ecrã.
+            form.fields['mac'].widget.attrs['disabled'] = 'disabled'
+            form.fields['npt'].widget.attrs['disabled'] = 'disabled'
+        linhas.append({
             'aluno': aluno,
             'form': form,
             'mt1': medias_anteriores.get(aluno.id, {}).get('mt1'),
             'mt2': medias_anteriores.get(aluno.id, {}).get('mt2'),
             'resultado_disciplina': resultados_por_aluno.get(aluno.id),
-        }
-        for aluno, form in zip(alunos, formset)
-    ]
+            'nota_gravada': nota_gravada,
+        })
 
     contexto.update({
         'avaliacao': avaliacao,

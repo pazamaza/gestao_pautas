@@ -109,8 +109,9 @@ Lançamento de Notas
 
     {% if eh_terceiro_trimestre_iiano %}
     <div class="alert alert-info mt-3">
-        A coluna <strong>NER</strong> só é editável para alunos cuja MFA desta disciplina já ficou em
-        <strong>Recurso</strong> (MFA&lt;8) — para os restantes aparece "N/A" e não é gravada.
+        MAC e NE ficam editáveis até serem gravados; depois disso passam a não editáveis e a coluna
+        <strong>NER</strong> é habilitada apenas para alunos cuja MFA desta disciplina ficou em
+        <strong>Recurso</strong> (MFA entre 7 e 9).
     </div>
     {% endif %}
 
@@ -134,14 +135,14 @@ Lançamento de Notas
                         <th style="width: 120px;">
                             {% if eh_terceiro_trimestre_iiano %}NE{% else %}NPT{% endif %}
                             {% if eh_terceiro_trimestre_iiano %}
-                            <small class="d-block text-muted fw-normal">Nota de Exame</small>
+                            <small class="d-block text-muted fw-normal"></small>
                             {% endif %}
                         </th>
                         <th style="width: 100px;">MT</th>
                         {% if eh_terceiro_trimestre_iiano %}
                         <th style="width: 120px;">
                             NER
-                            <small class="d-block text-muted fw-normal">Nota de Recurso</small>
+                            <small class="d-block text-muted fw-normal"></small>
                         </th>
                         {% endif %}
                     </tr>
@@ -166,15 +167,10 @@ Lançamento de Notas
                         <td class="text-center fw-bold" data-campo="mt">—</td>
                         {% if eh_terceiro_trimestre_iiano %}
                         <td>
-                            {% if linha.resultado_disciplina.resultado == 'Recurso' %}
                             <input type="number" name="ner_{{ linha.aluno.id }}" step="0.1" min="0" max="20"
                                    class="form-control form-control-sm"
-                                   value="{{ linha.resultado_disciplina.nota_recurso|default_if_none:'' }}">
-                            {% elif linha.resultado_disciplina.nota_recurso is not None %}
-                            <span class="text-muted">{{ linha.resultado_disciplina.nota_recurso|floatformat:0 }}</span>
-                            {% else %}
-                            <span class="text-muted small">N/A</span>
-                            {% endif %}
+                                   value="{{ linha.resultado_disciplina.nota_recurso|default_if_none:'' }}"
+                                   {% if linha.resultado_disciplina.resultado != 'Recurso' %}disabled{% endif %}>
                         </td>
                         {% endif %}
                     </tr>
