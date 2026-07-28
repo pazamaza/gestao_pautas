@@ -121,12 +121,39 @@ def _valor_decisivo(resultado):
     return resultado.nota_recurso if resultado.nota_recurso is not None else resultado.mf
 
 
+def _aplicar_veto_gatilho_recurso(resultados):
+    """Fecha o recurso (força "Reprovado", grava no ResultadoDisciplina) a
+    todas as disciplinas do aluno que estão "Recurso" quando o gatilho é
+    vetado: mais de 4 disciplinas nessa banda, ou L.Portuguesa+Matemática
+    simultaneamente nela — nesses dois casos não há recurso possível e o
+    aluno reprova de imediato. Devolve True se o veto foi aplicado."""
+    candidatos = [r for r in resultados if r.resultado == ResultadoDisciplina.RESULTADO_RECURSO]
+    if not candidatos:
+        return False
+
+    nucleares = [r for r in candidatos if r.disciplina.nuclear]
+    if len(candidatos) <= 4 and len(nucleares) < 2:
+        return False
+
+    for r in candidatos:
+        r.resultado = ResultadoDisciplina.RESULTADO_REPROVADO
+    ResultadoDisciplina.objects.filter(pk__in=[r.pk for r in candidatos]).update(
+        resultado=ResultadoDisciplina.RESULTADO_REPROVADO
+    )
+    return True
+
+
 def _transicao_segundo_ano(resultados):
     # IIº Ano EJA: mesma regra do Iº Ano (MFA>=10 em todas, tolerância de
-    # até 2 disciplinas entre 8-9, nunca Português+Matemática simultâneas),
-    # com uma diferença — disciplinas com MFA<8 têm direito a Exame de
-    # Recurso (NER) primeiro, para tentar corrigi-las ANTES desta
-    # verificação (ver ResultadoDisciplina._verificar_resultado_segundo_ano).
+    # até 2 disciplinas não-nucleares entre 8-9), com duas diferenças —
+    # disciplinas com MFA 7-9 têm direito a Exame de Recurso (NER) primeiro,
+    # para tentar corrigi-las ANTES desta verificação (ver
+    # ResultadoDisciplina._verificar_resultado_segundo_ano); e uma única
+    # disciplina nuclear (L.Port/Mat) na banda de tolerância já reprova —
+    # não é preciso as duas estarem simultaneamente, como no Iº Ano.
+    if _aplicar_veto_gatilho_recurso(resultados):
+        return SituacaoAnual.SITUACAO_REPROVADO, []
+
     pendentes = [r for r in resultados if r.resultado == ResultadoDisciplina.RESULTADO_RECURSO]
     if pendentes:
         return None, []  # há disciplina(s) elegível(is) a recurso, ainda sem NER lançada
@@ -139,9 +166,9 @@ def _transicao_segundo_ano(resultados):
         return SituacaoAnual.SITUACAO_REPROVADO, []
 
     tolerancia = [r for r in resultados if 8 <= _valor_decisivo(r) < 10]
-    if len(tolerancia) > 2:
+    if any(r.disciplina.nuclear for r in tolerancia):
         return SituacaoAnual.SITUACAO_REPROVADO, []
-    if tolerancia and _tem_ambas_nucleares_simultaneas(tolerancia):
+    if len(tolerancia) > 2:
         return SituacaoAnual.SITUACAO_REPROVADO, []
     if tolerancia:
         return SituacaoAnual.SITUACAO_APROVADO_COMPENSACAO, tolerancia

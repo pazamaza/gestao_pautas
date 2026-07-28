@@ -418,20 +418,24 @@ class SegundoAnoDisciplinaTests(BaseLegalCalculoTestBase):
         self.assertEqual(r.mf, 12)  # (12+10+14)/3 = 12
         self.assertEqual(r.resultado, ResultadoDisciplina.RESULTADO_APROVADO)
 
-    def test_mfa_abaixo_de_8_fica_pendente_de_recurso(self):
+    def test_mfa_igual_ou_abaixo_de_6_reprova_sem_recurso(self):
         aluno = self._aluno(self.turma_2ano)
         r = self._resultado(aluno, self.fisica, mt1=6, mt2=6, mt3=6)
         self.assertEqual(r.mf, 6)
+        self.assertEqual(r.resultado, ResultadoDisciplina.RESULTADO_REPROVADO)
+
+    def test_mfa_entre_7_e_9_fica_pendente_de_recurso(self):
+        aluno = self._aluno(self.turma_2ano)
+        r = self._resultado(aluno, self.fisica, mt1=7, mt2=7, mt3=7)
+        self.assertEqual(r.mf, 7)
         self.assertEqual(r.resultado, ResultadoDisciplina.RESULTADO_RECURSO)
 
-    def test_mfa_entre_8_e_9_nao_precisa_de_recurso(self):
-        aluno = self._aluno(self.turma_2ano)
-        r = self._resultado(aluno, self.fisica, mt1=8, mt2=9, mt3=8)
-        self.assertEqual(r.resultado, ResultadoDisciplina.RESULTADO_REPROVADO)  # tolerância é anual
+        r2 = self._resultado(aluno, self.quimica, mt1=8, mt2=9, mt3=8)
+        self.assertEqual(r2.resultado, ResultadoDisciplina.RESULTADO_RECURSO)
 
     def test_nota_recurso_seca_decide_aprovacao(self):
         aluno = self._aluno(self.turma_2ano)
-        r = self._resultado(aluno, self.fisica, mt1=6, mt2=6, mt3=6)  # MFA=6, Recurso
+        r = self._resultado(aluno, self.fisica, mt1=7, mt2=7, mt3=7)  # MFA=7, Recurso
         r.nota_recurso = 12
         r.save()
         self.assertEqual(r.resultado, ResultadoDisciplina.RESULTADO_APROVADO)
@@ -444,7 +448,7 @@ class SegundoAnoDisciplinaTests(BaseLegalCalculoTestBase):
 class SegundoAnoTransicaoAnualTests(BaseLegalCalculoTestBase):
     def test_pendente_enquanto_disciplina_aguarda_recurso(self):
         aluno = self._aluno(self.turma_2ano)
-        self._resultado(aluno, self.fisica, mt1=6, mt2=6, mt3=6)  # MFA=6, sem recurso lançado
+        self._resultado(aluno, self.fisica, mt1=7, mt2=7, mt3=7)  # MFA=7, sem recurso lançado
 
         situacao = verificar_transicao_aluno(aluno, self.ano_letivo)
         self.assertIsNone(situacao)
@@ -457,9 +461,17 @@ class SegundoAnoTransicaoAnualTests(BaseLegalCalculoTestBase):
         situacao = verificar_transicao_aluno(aluno, self.ano_letivo)
         self.assertEqual(situacao.situacao, SituacaoAnual.SITUACAO_APROVADO)
 
+    def test_mfa_igual_ou_abaixo_de_6_reprova_o_aluno_mesmo_sem_recurso(self):
+        aluno = self._aluno(self.turma_2ano)
+        self._resultado(aluno, self.fisica, mt1=6, mt2=6, mt3=6)  # MFA=6, reprova direto
+        self._resultado(aluno, self.quimica, mt1=14, mt2=14, mt3=14)
+
+        situacao = verificar_transicao_aluno(aluno, self.ano_letivo)
+        self.assertEqual(situacao.situacao, SituacaoAnual.SITUACAO_REPROVADO)
+
     def test_recurso_com_sucesso_pleno_aprova_direto(self):
         aluno = self._aluno(self.turma_2ano)
-        r = self._resultado(aluno, self.fisica, mt1=6, mt2=6, mt3=6)
+        r = self._resultado(aluno, self.fisica, mt1=7, mt2=7, mt3=7)
         r.nota_recurso = 12  # >=10 -> deixa de estar na banda de tolerância
         r.save()
         self._resultado(aluno, self.quimica, mt1=14, mt2=14, mt3=14)
@@ -469,8 +481,8 @@ class SegundoAnoTransicaoAnualTests(BaseLegalCalculoTestBase):
 
     def test_recurso_leva_a_banda_de_tolerancia_aprova_por_compensacao(self):
         aluno = self._aluno(self.turma_2ano)
-        r = self._resultado(aluno, self.fisica, mt1=6, mt2=6, mt3=6)
-        r.nota_recurso = 9  # fica na banda 8-9 -> tolerância anual
+        r = self._resultado(aluno, self.fisica, mt1=7, mt2=7, mt3=7)
+        r.nota_recurso = 9  # não-nuclear, fica na banda 8-9 -> tolerância anual
         r.save()
         self._resultado(aluno, self.quimica, mt1=14, mt2=14, mt3=14)
 
@@ -479,7 +491,7 @@ class SegundoAnoTransicaoAnualTests(BaseLegalCalculoTestBase):
 
     def test_recurso_falhado_reprova(self):
         aluno = self._aluno(self.turma_2ano)
-        r = self._resultado(aluno, self.fisica, mt1=6, mt2=6, mt3=6)
+        r = self._resultado(aluno, self.fisica, mt1=7, mt2=7, mt3=7)
         r.nota_recurso = 5  # continua abaixo de 8 -> reprova, sem segunda hipótese
         r.save()
         self._resultado(aluno, self.quimica, mt1=14, mt2=14, mt3=14)
@@ -487,22 +499,73 @@ class SegundoAnoTransicaoAnualTests(BaseLegalCalculoTestBase):
         situacao = verificar_transicao_aluno(aluno, self.ano_letivo)
         self.assertEqual(situacao.situacao, SituacaoAnual.SITUACAO_REPROVADO)
 
-    def test_mais_de_2_disciplinas_na_tolerancia_reprova(self):
+    def test_ate_2_nao_nucleares_em_8_9_pos_recurso_aprova_por_compensacao(self):
         aluno = self._aluno(self.turma_2ano)
-        self._resultado(aluno, self.fisica, mt1=8, mt2=9, mt3=8)
-        self._resultado(aluno, self.quimica, mt1=9, mt2=8, mt3=9)
-        self._resultado(aluno, self.biologia, mt1=8, mt2=8, mt3=9)
+        r1 = self._resultado(aluno, self.fisica, mt1=7, mt2=7, mt3=7)
+        r1.nota_recurso = 9
+        r1.save()
+        r2 = self._resultado(aluno, self.quimica, mt1=8, mt2=8, mt3=8)
+        r2.nota_recurso = 8
+        r2.save()
+        self._resultado(aluno, self.biologia, mt1=14, mt2=14, mt3=14)
+
+        situacao = verificar_transicao_aluno(aluno, self.ano_letivo)
+        self.assertEqual(situacao.situacao, SituacaoAnual.SITUACAO_APROVADO_COMPENSACAO)
+        self.assertEqual(set(situacao.disciplinas_em_deficiencia.all()), {self.fisica, self.quimica})
+
+    def test_mais_de_2_nao_nucleares_em_8_9_pos_recurso_reprova(self):
+        aluno = self._aluno(self.turma_2ano)
+        for disciplina in (self.fisica, self.quimica, self.biologia):
+            r = self._resultado(aluno, disciplina, mt1=7, mt2=7, mt3=7)
+            r.nota_recurso = 9
+            r.save()
 
         situacao = verificar_transicao_aluno(aluno, self.ano_letivo)
         self.assertEqual(situacao.situacao, SituacaoAnual.SITUACAO_REPROVADO)
 
-    def test_portugues_e_matematica_simultaneas_na_tolerancia_reprova(self):
+    def test_nuclear_isolada_em_8_9_pos_recurso_reprova_mesmo_com_outras_positivas(self):
         aluno = self._aluno(self.turma_2ano)
-        self._resultado(aluno, self.matematica, mt1=8, mt2=9, mt3=8)
-        self._resultado(aluno, self.portugues, mt1=9, mt2=8, mt3=9)
+        r = self._resultado(aluno, self.matematica, mt1=7, mt2=7, mt3=7)
+        r.nota_recurso = 9  # nuclear isolada em 8/9 -> reprova, sem tolerância
+        r.save()
+        self._resultado(aluno, self.fisica, mt1=14, mt2=14, mt3=14)
 
         situacao = verificar_transicao_aluno(aluno, self.ano_letivo)
         self.assertEqual(situacao.situacao, SituacaoAnual.SITUACAO_REPROVADO)
+
+    def test_portugues_e_matematica_simultaneas_em_recurso_reprova_de_imediato(self):
+        aluno = self._aluno(self.turma_2ano)
+        self._resultado(aluno, self.matematica, mt1=8, mt2=9, mt3=8)  # MFA=8, entraria em recurso
+        self._resultado(aluno, self.portugues, mt1=9, mt2=8, mt3=9)   # MFA=9, entraria em recurso
+
+        situacao = verificar_transicao_aluno(aluno, self.ano_letivo)
+        self.assertEqual(situacao.situacao, SituacaoAnual.SITUACAO_REPROVADO)
+        # Veto do gatilho: o recurso fecha-se de imediato para as duas —
+        # não fica pendente à espera de NER.
+        self.assertEqual(
+            ResultadoDisciplina.objects.get(aluno=aluno, disciplina=self.matematica).resultado,
+            ResultadoDisciplina.RESULTADO_REPROVADO,
+        )
+        self.assertEqual(
+            ResultadoDisciplina.objects.get(aluno=aluno, disciplina=self.portugues).resultado,
+            ResultadoDisciplina.RESULTADO_REPROVADO,
+        )
+
+    def test_mais_de_4_disciplinas_em_recurso_reprova_de_imediato(self):
+        aluno = self._aluno(self.turma_2ano)
+        ingles = Disciplina.objects.create(nome='Inglês', sigla='ING')
+        historia = Disciplina.objects.create(nome='História', sigla='HIS')
+        for disciplina in (self.fisica, self.quimica, self.biologia, ingles, historia):
+            self._resultado(aluno, disciplina, mt1=7, mt2=7, mt3=7)  # 5 disciplinas em recurso
+
+        situacao = verificar_transicao_aluno(aluno, self.ano_letivo)
+        self.assertEqual(situacao.situacao, SituacaoAnual.SITUACAO_REPROVADO)
+        self.assertEqual(
+            ResultadoDisciplina.objects.filter(
+                aluno=aluno, resultado=ResultadoDisciplina.RESULTADO_RECURSO
+            ).count(),
+            0,
+        )
 
 
 class FaltasReprovamDisciplinaTests(BaseLegalCalculoTestBase):

@@ -411,17 +411,18 @@ class ResultadoDisciplina(StatusValidacaoMixin, models.Model):
         return self.RESULTADO_REPROVADO
 
     def _verificar_resultado_segundo_ano(self):
-        # IIº Ano: disciplinas com MFA < 8 têm direito a Exame de Recurso
+        # IIº Ano: disciplinas com MFA 7-9 têm direito a Exame de Recurso
         # (NER, nota seca) — ficam "Recurso" (pendente) até essa nota ser
-        # lançada, dando oportunidade de corrigir a disciplina ANTES da
-        # verificação de tolerância anual (services/resultados.py:
-        # _transicao_segundo_ano). 8 <= MFA < 10 não precisa de recurso —
-        # entra directamente na tolerância anual, tal como no Iº Ano.
-        if self.mf < 8:
-            return self.RESULTADO_RECURSO
+        # lançada, ou até o veto do gatilho (mais de 4 disciplinas em
+        # recurso, ou L.Portuguesa+Matemática simultâneas nessa banda) as
+        # fechar directamente como Reprovado — ver services/resultados.py:
+        # _transicao_segundo_ano. MFA<=6 reprova de imediato, sem direito a
+        # recurso.
+        if self.mf <= 6:
+            return self.RESULTADO_REPROVADO
         if self.mf >= 10:
             return self.RESULTADO_APROVADO
-        return self.RESULTADO_REPROVADO
+        return self.RESULTADO_RECURSO
 
     def arredondar_nota(self, valor):
         # "Base Legal": arredondamento à unidade mais próxima em TODAS as
