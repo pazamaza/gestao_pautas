@@ -1,7 +1,9 @@
 import datetime
 from decimal import Decimal
+from io import StringIO
 
 from django.contrib.auth.models import Group, User
+from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 
@@ -13,7 +15,7 @@ from professores.models import AtribuicaoDocente, DiretorTurma, Professor
 from turmas.models import AnoLetivo, Classe, HorarioAula, PeriodoAcademico, Turma
 
 from .models import Avaliacao, Nota, ResultadoDisciplina, SituacaoAnual
-from .services.resultados import verificar_transicao_aluno
+from .services.resultados import montar_pauta_final_turma, verificar_transicao_aluno
 
 
 class PautasTestBase(TestCase):
@@ -567,6 +569,71 @@ class SegundoAnoTransicaoAnualTests(BaseLegalCalculoTestBase):
             0,
         )
 
+    def test_disciplina_reprovada_direto_fecha_recurso_nas_outras(self):
+        # Caso reportado: aluna com uma disciplina em 6 (reprova sem
+        # recurso) não pode ir a recurso a mais nada — mesmo tendo outras
+        # disciplinas na banda 7-9.
+        aluno = self._aluno(self.turma_2ano)
+        self._resultado(aluno, self.fisica, mt1=6, mt2=6, mt3=6)      # MFA=6, reprova directo
+        self._resultado(aluno, self.quimica, mt1=9, mt2=9, mt3=9)     # MFA=9, entraria em recurso
+
+        situacao = verificar_transicao_aluno(aluno, self.ano_letivo)
+        self.assertEqual(situacao.situacao, SituacaoAnual.SITUACAO_REPROVADO)
+        self.assertEqual(
+            ResultadoDisciplina.objects.get(aluno=aluno, disciplina=self.quimica).resultado,
+            ResultadoDisciplina.RESULTADO_REPROVADO,
+        )
+
+    def test_disciplina_reprovada_direto_reverte_recurso_ja_lancado(self):
+        # Caso Isabela Barbosa: a NER já tinha sido lançada (e aprovada)
+        # numa disciplina que nunca devia ter tido essa hipótese, porque
+        # outra disciplina do mesmo aluno reprovou directamente (MFA<=6).
+        # O recálculo tem de reverter isso para Reprovado.
+        aluno = self._aluno(self.turma_2ano)
+        self._resultado(aluno, self.fisica, mt1=6, mt2=6, mt3=6)  # MFA=6, reprova directo
+        r = self._resultado(aluno, self.quimica, mt1=9, mt2=9, mt3=9)  # MFA=9
+        r.nota_recurso = 12  # recurso indevidamente lançado e "aprovado" antes da correcção
+        r.save()
+        self.assertEqual(r.resultado, ResultadoDisciplina.RESULTADO_APROVADO)  # estado antes do fix
+
+        situacao = verificar_transicao_aluno(aluno, self.ano_letivo)
+        self.assertEqual(situacao.situacao, SituacaoAnual.SITUACAO_REPROVADO)
+        r.refresh_from_db()
+        self.assertEqual(r.resultado, ResultadoDisciplina.RESULTADO_REPROVADO)
+
+    def test_faltas_numa_disciplina_fecha_recurso_nas_outras(self):
+        professor_user = User.objects.create_user(username='prof_faltas_ii', password='senha123')
+        professor = Professor.objects.create(user=professor_user, numero_funcionario='PF2ANO')
+        atribuicao = AtribuicaoDocente.objects.create(
+            professor=professor, disciplina=self.fisica,
+            turma=self.turma_2ano, ano_letivo=self.ano_letivo,
+        )
+        HorarioAula.objects.create(
+            turma=self.turma_2ano, dia_semana=HorarioAula.SEGUNDA, tempo=1, atribuicao=atribuicao
+        )
+        PeriodoAcademico.objects.create(
+            nome='1º Trimestre', ano_letivo=self.ano_letivo, aberto=True,
+            data_inicio_lancamento=datetime.date(2026, 2, 1),
+            data_fim_lancamento=datetime.date(2026, 4, 30),
+        )
+        aluno = self._aluno(self.turma_2ano)
+        for semana in range(3):  # excede o limite de 3 faltas/trimestre
+            Frequencia.objects.create(
+                aluno=aluno, atribuicao=atribuicao,
+                data=datetime.date(2026, 2, 3) + datetime.timedelta(days=semana * 7),
+                estado=Frequencia.FALTA,
+            )
+
+        self._resultado(aluno, self.fisica, mt1=18, mt2=18, mt3=18)   # reprova por faltas
+        self._resultado(aluno, self.quimica, mt1=9, mt2=9, mt3=9)     # entraria em recurso
+
+        situacao = verificar_transicao_aluno(aluno, self.ano_letivo)
+        self.assertEqual(situacao.situacao, SituacaoAnual.SITUACAO_REPROVADO)
+        self.assertEqual(
+            ResultadoDisciplina.objects.get(aluno=aluno, disciplina=self.quimica).resultado,
+            ResultadoDisciplina.RESULTADO_REPROVADO,
+        )
+
 
 class FaltasReprovamDisciplinaTests(BaseLegalCalculoTestBase):
     def test_excede_limite_de_faltas_reprova_disciplina_mesmo_com_boas_notas(self):
@@ -623,3 +690,226 @@ class FaltasReprovamDisciplinaTests(BaseLegalCalculoTestBase):
 
         r = self._resultado(aluno, self.fisica, mt1=18, mt2=18, mt3=18)
         self.assertEqual(r.resultado, ResultadoDisciplina.RESULTADO_APROVADO)
+
+
+class PautaGeralObservacaoTests(BaseLegalCalculoTestBase):
+    """A coluna "Observação" da pauta geral: lista as disciplinas ainda
+    pendentes de recurso, ou um "Aprovado"/"Reprovado" curto depois de
+    resolvido — ver services/resultados.py:_observacao_recurso."""
+
+    def setUp(self):
+        super().setUp()
+        professor_user = User.objects.create_user(username='prof_obs', password='senha123')
+        professor = Professor.objects.create(user=professor_user, numero_funcionario='POBS1')
+        for turma in (self.turma_1ano, self.turma_2ano):
+            for disciplina in (self.fisica, self.quimica):
+                AtribuicaoDocente.objects.create(
+                    professor=professor, disciplina=disciplina, turma=turma, ano_letivo=self.ano_letivo,
+                )
+
+    def _observacao_do_aluno(self, turma, aluno):
+        _, linhas = montar_pauta_final_turma(turma, self.ano_letivo)
+        linha = next(l for l in linhas if l['aluno'] == aluno)
+        return linha['observacao']
+
+    def test_lista_disciplinas_pendentes_de_recurso(self):
+        aluno = self._aluno(self.turma_2ano)
+        self._resultado(aluno, self.fisica, mt1=7, mt2=7, mt3=7)      # MFA=7, Recurso
+        self._resultado(aluno, self.quimica, mt1=14, mt2=14, mt3=14)  # Aprovado
+
+        self.assertEqual(self._observacao_do_aluno(self.turma_2ano, aluno), 'Recurso: Física')
+
+    def test_aprovado_apos_recurso_mantem_disciplinas(self):
+        aluno = self._aluno(self.turma_2ano)
+        r = self._resultado(aluno, self.fisica, mt1=7, mt2=7, mt3=7)
+        r.nota_recurso = 12
+        r.save()
+        self._resultado(aluno, self.quimica, mt1=14, mt2=14, mt3=14)
+
+        self.assertEqual(
+            self._observacao_do_aluno(self.turma_2ano, aluno), 'Aprovado após recurso: Física'
+        )
+
+    def test_reprovado_apos_recurso_mantem_disciplinas(self):
+        aluno = self._aluno(self.turma_2ano)
+        r = self._resultado(aluno, self.fisica, mt1=7, mt2=7, mt3=7)
+        r.nota_recurso = 5
+        r.save()
+        self._resultado(aluno, self.quimica, mt1=14, mt2=14, mt3=14)
+
+        self.assertEqual(
+            self._observacao_do_aluno(self.turma_2ano, aluno), 'Reprovado após recurso: Física'
+        )
+
+    def test_aprovado_directo_fica_em_branco_mesmo_com_outro_aluno_em_recurso(self):
+        aluno_directo = self._aluno(self.turma_2ano)
+        self._resultado(aluno_directo, self.fisica, mt1=14, mt2=14, mt3=14)
+        self._resultado(aluno_directo, self.quimica, mt1=12, mt2=12, mt3=12)
+
+        self.assertEqual(self._observacao_do_aluno(self.turma_2ano, aluno_directo), '')
+
+    def test_reprovado_directo_sem_recurso_fica_em_branco(self):
+        aluno = self._aluno(self.turma_2ano)
+        self._resultado(aluno, self.fisica, mt1=5, mt2=5, mt3=5)  # MFA<=6, reprova sem recurso
+        self._resultado(aluno, self.quimica, mt1=14, mt2=14, mt3=14)
+
+        self.assertEqual(self._observacao_do_aluno(self.turma_2ano, aluno), '')
+
+    def test_vazia_quando_nunca_houve_recurso(self):
+        aluno = self._aluno(self.turma_1ano)
+        self._resultado(aluno, self.fisica, mt1=14, mt2=14, mt3=14)
+
+        self.assertEqual(self._observacao_do_aluno(self.turma_1ano, aluno), '')
+
+
+class MiniPautaRecursoTests(BaseLegalCalculoTestBase):
+    """A mini-pauta do IIIº trimestre passa a permitir o lançamento da NER
+    directamente ali — só ao professor titular da disciplina ou ao admin
+    (ver _pode_editar_mini_pauta em pautas/views.py)."""
+
+    def setUp(self):
+        super().setUp()
+        grupo_admin, _ = Group.objects.get_or_create(name='Administrador')
+        grupo_professor, _ = Group.objects.get_or_create(name='Professor')
+
+        self.admin_user = User.objects.create_user(username='admin_mp', password='senha123')
+        self.admin_user.groups.add(grupo_admin)
+
+        self.professor_user = User.objects.create_user(username='prof_mp', password='senha123')
+        self.professor_user.groups.add(grupo_professor)
+        professor = Professor.objects.create(user=self.professor_user, numero_funcionario='PMP1')
+        AtribuicaoDocente.objects.create(
+            professor=professor, disciplina=self.fisica, turma=self.turma_2ano, ano_letivo=self.ano_letivo,
+        )
+
+        self.outro_professor_user = User.objects.create_user(username='outro_prof_mp', password='senha123')
+        self.outro_professor_user.groups.add(grupo_professor)
+        Professor.objects.create(user=self.outro_professor_user, numero_funcionario='PMP2')
+
+        self.aluno = self._aluno(self.turma_2ano)
+        self.resultado = self._resultado(self.aluno, self.fisica, mt1=7, mt2=7, mt3=7)  # Recurso
+
+    def _url(self):
+        return (
+            reverse('mini_pauta_trimestral')
+            + f'?turma={self.turma_2ano.id}&disciplina={self.fisica.id}&ano_letivo={self.ano_letivo.id}'
+        )
+
+    def test_professor_titular_grava_ner(self):
+        self.client.login(username='prof_mp', password='senha123')
+        response = self.client.post(self._url(), {f'ner_{self.aluno.id}': '12'})
+
+        self.resultado.refresh_from_db()
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self.resultado.resultado, ResultadoDisciplina.RESULTADO_APROVADO)
+
+    def test_admin_tambem_pode_gravar(self):
+        self.client.login(username='admin_mp', password='senha123')
+        response = self.client.post(self._url(), {f'ner_{self.aluno.id}': '9'})
+
+        self.resultado.refresh_from_db()
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self.resultado.nota_recurso, Decimal('9.0'))
+
+    def test_professor_sem_atribuicao_nao_pode_gravar(self):
+        self.client.login(username='outro_prof_mp', password='senha123')
+        response = self.client.post(self._url(), {f'ner_{self.aluno.id}': '12'})
+
+        self.resultado.refresh_from_db()
+        self.assertEqual(response.status_code, 403)
+        self.assertIsNone(self.resultado.nota_recurso)
+
+    def test_gravar_ner_reabre_resultado_ja_validado(self):
+        self.resultado.marcar_validada(self.admin_user)
+        self.assertEqual(self.resultado.status, ResultadoDisciplina.STATUS_VALIDADA)
+
+        self.client.login(username='prof_mp', password='senha123')
+        self.client.post(self._url(), {f'ner_{self.aluno.id}': '12'})
+
+        self.resultado.refresh_from_db()
+        self.assertEqual(self.resultado.status, ResultadoDisciplina.STATUS_RASCUNHO)
+        self.assertIsNone(self.resultado.validado_por)
+        self.assertIsNone(self.resultado.validado_em)
+
+    def test_gravar_ner_nao_mexe_em_resultado_ja_rascunho(self):
+        self.assertEqual(self.resultado.status, ResultadoDisciplina.STATUS_RASCUNHO)
+
+        self.client.login(username='prof_mp', password='senha123')
+        self.client.post(self._url(), {f'ner_{self.aluno.id}': '12'})
+
+        self.resultado.refresh_from_db()
+        self.assertEqual(self.resultado.status, ResultadoDisciplina.STATUS_RASCUNHO)
+
+
+class LancamentoNotasColunaMfaTests(BaseLegalCalculoTestBase):
+    """A coluna MFA em Lançamento de Notas (3º trimestre, IIº Ano) mostra a
+    média anual que decide Aprovado/Recurso/Reprovado — evita confundir com
+    o MT (só deste trimestre). Ver static/js/lancamento_notas.js."""
+
+    def setUp(self):
+        super().setUp()
+        grupo_professor, _ = Group.objects.get_or_create(name='Professor')
+        professor_user = User.objects.create_user(username='prof_mfa', password='senha123')
+        professor_user.groups.add(grupo_professor)
+        professor = Professor.objects.create(user=professor_user, numero_funcionario='PMFA1')
+        self.atribuicao = AtribuicaoDocente.objects.create(
+            professor=professor, disciplina=self.fisica, turma=self.turma_2ano, ano_letivo=self.ano_letivo,
+        )
+        self.periodo3 = PeriodoAcademico.objects.create(
+            nome='3º Trimestre', ano_letivo=self.ano_letivo, aberto=True,
+        )
+        self.client.login(username='prof_mfa', password='senha123')
+
+    def test_coluna_mfa_aparece_no_iiiano_terceiro_trimestre(self):
+        response = self.client.get(
+            reverse('lancamento_notas') + f'?atribuicao={self.atribuicao.id}&periodo={self.periodo3.id}'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'MFA')
+
+    def test_coluna_mfa_nao_aparece_no_primeiro_trimestre(self):
+        periodo1 = PeriodoAcademico.objects.create(
+            nome='1º Trimestre', ano_letivo=self.ano_letivo, aberto=True,
+        )
+        response = self.client.get(
+            reverse('lancamento_notas') + f'?atribuicao={self.atribuicao.id}&periodo={periodo1.id}'
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'MFA')
+
+
+class RecalcularResultadosCommandTests(BaseLegalCalculoTestBase):
+    """O comando 'recalcular_resultados' existe para corrigir ResultadoDisciplina
+    gravados com uma fórmula antiga, sem apagar/recriar nada (ao contrário de
+    gerar_resultados_finais) — ver pautas/management/commands/recalcular_resultados.py."""
+
+    def test_recalcula_resultado_desatualizado_sem_perder_nota_recurso(self):
+        aluno = self._aluno(self.turma_2ano)
+        r = self._resultado(aluno, self.fisica, mt1=8, mt2=8, mt3=8)
+        r.nota_recurso = Decimal('12')
+        r.save()
+        # Simula um registo gravado com uma fórmula antiga: "resultado"
+        # desatualizado directamente na BD, sem passar por save() — os
+        # restantes campos (nota_recurso incluído) ficam como estavam.
+        ResultadoDisciplina.objects.filter(pk=r.pk).update(resultado='Reprovado')
+
+        saida = StringIO()
+        call_command('recalcular_resultados', stdout=saida)
+
+        r.refresh_from_db()
+        self.assertEqual(r.resultado, ResultadoDisciplina.RESULTADO_APROVADO)
+        self.assertEqual(r.nota_recurso, Decimal('12.0'))
+        self.assertIn('1 resultado(s) recalculado(s), 1 com classificação alterada.', saida.getvalue())
+
+    def test_filtra_por_ano_letivo(self):
+        outro_ano = AnoLetivo.objects.create(descricao='2027')
+        aluno = self._aluno(self.turma_2ano)
+        r = self._resultado(aluno, self.fisica, mt1=7, mt2=7, mt3=7)
+        ResultadoDisciplina.objects.filter(pk=r.pk).update(resultado='Reprovado')
+
+        saida = StringIO()
+        call_command('recalcular_resultados', '--ano-letivo', outro_ano.id, stdout=saida)
+
+        r.refresh_from_db()
+        self.assertEqual(r.resultado, 'Reprovado')  # fora do ano filtrado, não mexe
+        self.assertIn('0 resultado(s) recalculado(s)', saida.getvalue())

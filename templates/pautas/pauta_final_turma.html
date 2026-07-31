@@ -164,10 +164,8 @@ Pauta Final da Turma
                     {% endif %}
                     {% endfor %}
                     <td>
-                        {% if linha.situacao_anual.situacao == 'Aprovado' %}
+                        {% if linha.situacao_anual.situacao == 'Aprovado' or linha.situacao_anual.situacao == 'Aprovado por Compensação' %}
                         <span class="badge bg-success">Aprovado</span>
-                        {% elif linha.situacao_anual.situacao == 'Aprovado por Compensação' %}
-                        <span class="badge bg-warning text-dark">Aprovado (Compensação)</span>
                         {% elif linha.situacao_anual.situacao == 'Reprovado' %}
                         <span class="badge bg-danger">Reprovado</span>
                         {% elif linha.aguarda_recurso %}

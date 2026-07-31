@@ -112,6 +112,51 @@ def _pode_ver_pauta_final(user, turma, ano_letivo):
     return bool(ano_letivo and _eh_diretor_da_turma(user, turma, ano_letivo))
 
 
+def _gravar_notas_recurso(request, alunos, disciplina, ano_letivo):
+    """Grava as NER (Nota de Exame de Recurso) enviadas no POST — um campo
+    'ner_<aluno_id>' por aluno, fora de qualquer formset porque vive em
+    ResultadoDisciplina, não em Nota. Só aceita para quem já ficou
+    "Recurso" (ver ResultadoDisciplina._verificar_resultado_segundo_ano);
+    usado tanto em lancamento_notas como na mini-pauta. Devolve
+    (gravadas, erros)."""
+    resultados_por_aluno = {
+        r.aluno_id: r for r in ResultadoDisciplina.objects.filter(
+            aluno__in=alunos, disciplina=disciplina, ano_letivo=ano_letivo,
+        )
+    }
+    erros = []
+    gravadas = 0
+    for aluno in alunos:
+        valor_bruto = request.POST.get(f'ner_{aluno.id}', '').strip()
+        if not valor_bruto:
+            continue
+        resultado = resultados_por_aluno.get(aluno.id)
+        if not resultado or resultado.resultado != ResultadoDisciplina.RESULTADO_RECURSO:
+            erros.append(f'{aluno}: esta disciplina não está em Recurso — NER ignorada.')
+            continue
+        try:
+            valor = Decimal(valor_bruto.replace(',', '.'))
+        except InvalidOperation:
+            erros.append(f'{aluno}: NER inválida.')
+            continue
+        if not (0 <= valor <= 20):
+            erros.append(f'{aluno}: NER tem de estar entre 0 e 20.')
+            continue
+        resultado.nota_recurso = valor
+        if resultado.status == ResultadoDisciplina.STATUS_VALIDADA:
+            # A NER muda o resultado "por baixo" de uma validação já feita
+            # antes do recurso — volta a "rascunho" para obrigar a uma nova
+            # validação do admin antes de contar como definitivo para o
+            # aluno (ver _pautas_validadas_do_aluno, que só mostra
+            # status='validada').
+            resultado.status = ResultadoDisciplina.STATUS_RASCUNHO
+            resultado.validado_por = None
+            resultado.validado_em = None
+        resultado.save()
+        gravadas += 1
+    return gravadas, erros
+
+
 @admin_ou_professor_requerido
 def lancamento_notas(request):
     atribuicoes = AtribuicaoDocente.objects.filter(ativo=True).select_related(
@@ -200,32 +245,10 @@ def lancamento_notas(request):
                 # veto do gatilho); campos extra no mesmo POST, um por aluno
                 # (ner_<id>), fora do formset porque vive em
                 # ResultadoDisciplina, não em Nota.
-                resultados_por_aluno = {
-                    r.aluno_id: r for r in ResultadoDisciplina.objects.filter(
-                        aluno__in=alunos, disciplina=atribuicao.disciplina,
-                        ano_letivo=atribuicao.ano_letivo,
-                    )
-                }
-                ner_gravadas = 0
-                for aluno in alunos:
-                    valor_bruto = request.POST.get(f'ner_{aluno.id}', '').strip()
-                    if not valor_bruto:
-                        continue
-                    resultado = resultados_por_aluno.get(aluno.id)
-                    if not resultado or resultado.resultado != ResultadoDisciplina.RESULTADO_RECURSO:
-                        erros.append(f'{aluno}: esta disciplina não está em Recurso — NER ignorada.')
-                        continue
-                    try:
-                        valor = Decimal(valor_bruto.replace(',', '.'))
-                    except InvalidOperation:
-                        erros.append(f'{aluno}: NER inválida.')
-                        continue
-                    if not (0 <= valor <= 20):
-                        erros.append(f'{aluno}: NER tem de estar entre 0 e 20.')
-                        continue
-                    resultado.nota_recurso = valor
-                    resultado.save()
-                    ner_gravadas += 1
+                ner_gravadas, erros_ner = _gravar_notas_recurso(
+                    request, alunos, atribuicao.disciplina, atribuicao.ano_letivo
+                )
+                erros.extend(erros_ner)
                 if ner_gravadas:
                     messages.success(request, f'{ner_gravadas} nota(s) de recurso (NER) gravada(s).')
 
@@ -570,7 +593,10 @@ def avaliacao_validar(request, avaliacao_id):
     avaliacao = get_object_or_404(Avaliacao, pk=avaliacao_id)
     avaliacao.marcar_validada(request.user)
     messages.success(request, 'Avaliação validada e disponibilizada.')
-    return redirect('pauta_trimestral', avaliacao_id=avaliacao.id)
+    # Volta directamente à lista de Avaliações (não à pauta trimestral) —
+    # é daí que o admin costuma validar várias pautas seguidas, e assim
+    # poupa o clique extra de ter de voltar atrás manualmente.
+    return redirect('avaliacao_lista')
 
 
 @administrador_requerido
@@ -895,6 +921,17 @@ def _pode_ver_mini_pauta(user, turma, disciplina, ano_letivo):
     return _eh_diretor_da_turma(user, turma, ano_letivo)
 
 
+def _pode_editar_mini_pauta(user, turma, disciplina, ano_letivo):
+    # Só quem lança notas (professor titular) ou o admin — ao contrário de
+    # _pode_ver_mini_pauta, o diretor de turma não entra aqui: só pode
+    # consultar, não lançar NER de uma disciplina que não é sua.
+    if eh_administrador(user):
+        return True
+    return AtribuicaoDocente.objects.filter(
+        professor__user=user, turma=turma, disciplina=disciplina, ano_letivo=ano_letivo, ativo=True
+    ).exists()
+
+
 @admin_ou_professor_requerido
 def mini_pauta_trimestral(request):
     turma, disciplina, ano_letivo = _turma_disciplina_e_ano_da_mini_pauta(request)
@@ -907,6 +944,7 @@ def mini_pauta_trimestral(request):
         'disciplinas': Disciplina.objects.filter(ativa=True).order_by('nome'),
         'anos_letivos': AnoLetivo.objects.all(),
         'linhas': [],
+        'pode_editar_ner': False,
     }
 
     if not (turma and disciplina and ano_letivo):
@@ -915,7 +953,26 @@ def mini_pauta_trimestral(request):
     if not _pode_ver_mini_pauta(request.user, turma, disciplina, ano_letivo):
         return render(request, 'dashboards/sem_permissao.html', status=403)
 
+    pode_editar_ner = turma.eh_segundo_ano() and _pode_editar_mini_pauta(
+        request.user, turma, disciplina, ano_letivo
+    )
+
+    if request.method == 'POST':
+        if not pode_editar_ner:
+            return render(request, 'dashboards/sem_permissao.html', status=403)
+        alunos = list(Aluno.objects.filter(turma=turma, estado=Aluno.ESTADO_ATIVO))
+        ner_gravadas, erros = _gravar_notas_recurso(request, alunos, disciplina, ano_letivo)
+        if ner_gravadas:
+            messages.success(request, f'{ner_gravadas} nota(s) de recurso (NER) gravada(s).')
+        if erros:
+            messages.warning(request, 'Não foi possível gravar: ' + '; '.join(erros))
+        return redirect(
+            f"{reverse('mini_pauta_trimestral')}"
+            f"?turma={turma.id}&disciplina={disciplina.id}&ano_letivo={ano_letivo.id}"
+        )
+
     contexto['linhas'] = montar_mini_pauta_disciplina(disciplina, turma, ano_letivo)
+    contexto['pode_editar_ner'] = pode_editar_ner
     return render(request, 'pautas/mini_pauta_trimestral.html', contexto)
 
 

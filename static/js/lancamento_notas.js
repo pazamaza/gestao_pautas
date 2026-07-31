@@ -42,6 +42,7 @@
             const macInput = tr.querySelector('[data-campo="mac"]');
             const nptInput = tr.querySelector('[data-campo="npt"]');
             const mtCelula = tr.querySelector('[data-campo="mt"]');
+            const mfaCelula = tr.querySelector('[data-campo="mfa"]');
             if (!macInput || !nptInput || !mtCelula) return;
 
             const mac = paraNumero(macInput.value);
@@ -75,6 +76,22 @@
             mtCelula.textContent = mt !== null ? mt.toFixed(0) : '—';
             mtCelula.classList.toggle('text-danger', mt !== null && mt < 10);
             mtCelula.classList.toggle('text-success', mt !== null && mt >= 10);
+
+            if (mfaCelula) {
+                // MFA (média anual = média de mt1/mt2/MT deste trimestre) —
+                // é este valor, não o MT isolado do 3º trimestre, que decide
+                // Aprovado/Recurso/Reprovado (ver ResultadoDisciplina.
+                // _verificar_resultado_segundo_ano, pautas/models.py).
+                const mt1 = paraNumero(tr.dataset.mt1);
+                const mt2 = paraNumero(tr.dataset.mt2);
+                const mfa = (mt1 !== null && mt2 !== null && mt !== null)
+                    ? arredondar((mt1 + mt2 + mt) / 3)
+                    : null;
+                mfaCelula.textContent = mfa !== null ? mfa.toFixed(0) : '—';
+                mfaCelula.classList.toggle('text-danger', mfa !== null && mfa <= 6);
+                mfaCelula.classList.toggle('text-warning', mfa !== null && mfa >= 7 && mfa <= 9);
+                mfaCelula.classList.toggle('text-success', mfa !== null && mfa >= 10);
+            }
         }
 
         tabela.querySelectorAll('tbody tr[data-linha]').forEach(function (tr) {

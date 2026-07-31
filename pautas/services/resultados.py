@@ -123,23 +123,35 @@ def _valor_decisivo(resultado):
 
 def _aplicar_veto_gatilho_recurso(resultados):
     """Fecha o recurso (força "Reprovado", grava no ResultadoDisciplina) a
-    todas as disciplinas do aluno que estão "Recurso" quando o gatilho é
-    vetado: mais de 4 disciplinas nessa banda, ou L.Portuguesa+Matemática
-    simultaneamente nela — nesses dois casos não há recurso possível e o
-    aluno reprova de imediato. Devolve True se o veto foi aplicado."""
-    candidatos = [r for r in resultados if r.resultado == ResultadoDisciplina.RESULTADO_RECURSO]
+    todas as disciplinas do aluno na banda 7-9 — pendentes ou já resolvidas
+    por uma NER entretanto lançada — quando o gatilho é vetado:
+    (a) alguma disciplina reprovou directamente, sem hipótese de recurso
+        (MFA<=6, ou reprovação por faltas) — um aluno já condenado numa
+        disciplina não tem razão para fazer recurso nas outras;
+    (b) mais de 4 disciplinas na banda 7-9;
+    (c) L.Portuguesa e Matemática simultaneamente nessa banda.
+    Devolve True se o veto se aplica (mesmo que já não haja nada para
+    fechar — ex.: recálculo repetido)."""
+    candidatos = [r for r in resultados if r.mf is not None and 7 <= r.mf <= 9]
     if not candidatos:
         return False
 
+    reprovado_sem_recurso = any(
+        (r.mf is not None and r.mf <= 6)
+        or r.resultado == ResultadoDisciplina.RESULTADO_REPROVADO_FALTAS
+        for r in resultados
+    )
     nucleares = [r for r in candidatos if r.disciplina.nuclear]
-    if len(candidatos) <= 4 and len(nucleares) < 2:
+    if not reprovado_sem_recurso and len(candidatos) <= 4 and len(nucleares) < 2:
         return False
 
-    for r in candidatos:
-        r.resultado = ResultadoDisciplina.RESULTADO_REPROVADO
-    ResultadoDisciplina.objects.filter(pk__in=[r.pk for r in candidatos]).update(
-        resultado=ResultadoDisciplina.RESULTADO_REPROVADO
-    )
+    a_fechar = [r for r in candidatos if r.resultado != ResultadoDisciplina.RESULTADO_REPROVADO]
+    if a_fechar:
+        for r in a_fechar:
+            r.resultado = ResultadoDisciplina.RESULTADO_REPROVADO
+        ResultadoDisciplina.objects.filter(pk__in=[r.pk for r in a_fechar]).update(
+            resultado=ResultadoDisciplina.RESULTADO_REPROVADO
+        )
     return True
 
 
@@ -211,21 +223,28 @@ def verificar_transicao_aluno(aluno, ano_letivo):
 
 
 def _observacao_recurso(resultados_aluno, situacao_anual):
-    """Texto para a coluna "Observação" da pauta geral: resume o que
-    aconteceu no Exame de Recurso (NER), quando usado. Só o IIº Ano tem
-    recurso — para o Iº Ano isto fica sempre em branco."""
+    """Texto para a coluna "Observação" da pauta geral — reservada apenas
+    aos casos que passaram por recurso, para discriminar quem aprovou/
+    reprovou directamente (fica em branco) de quem só aprovou/reprovou
+    DEPOIS do recurso (fica identificado, com as disciplinas). Enquanto a
+    disciplina está "Recurso" (pendente de NER) lista quais; resolvido o
+    recurso (NER lançada ou vetada), o texto mantém-se — não volta a ficar
+    em branco nem colapsa para um "Aprovado"/"Reprovado" genérico, que já é
+    mostrado à parte na coluna "Situação Geral". Só o IIº Ano tem recurso —
+    para quem nunca passou por lá isto fica sempre em branco."""
+    pendentes = [r for r in resultados_aluno if r.resultado == ResultadoDisciplina.RESULTADO_RECURSO]
+    if pendentes:
+        nomes = ', '.join(sorted(r.disciplina.nome for r in pendentes))
+        return f'Recurso: {nomes}'
+
     com_recurso = [r for r in resultados_aluno if r.nota_recurso is not None]
-    if not com_recurso:
+    if not com_recurso or not situacao_anual:
         return ''
 
     nomes = ', '.join(sorted(r.disciplina.nome for r in com_recurso))
-    situacao = situacao_anual.situacao if situacao_anual else None
-
-    if situacao in (SituacaoAnual.SITUACAO_APROVADO, SituacaoAnual.SITUACAO_APROVADO_COMPENSACAO):
-        return f'Aprovado após recurso a: {nomes}'
-    if situacao == SituacaoAnual.SITUACAO_REPROVADO:
-        return f'Reprovado mesmo após recurso a: {nomes}'
-    return f'Recurso lançado a: {nomes}'
+    if situacao_anual.situacao == SituacaoAnual.SITUACAO_REPROVADO:
+        return f'Reprovado após recurso: {nomes}'
+    return f'Aprovado após recurso: {nomes}'
 
 
 def montar_pauta_final_turma(turma, ano_letivo):

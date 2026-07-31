@@ -140,6 +140,10 @@ Lançamento de Notas
                         </th>
                         <th style="width: 100px;">MT</th>
                         {% if eh_terceiro_trimestre_iiano %}
+                        <th style="width: 100px;">
+                            MFA
+                            <small class="d-block text-muted fw-normal">Média Anual</small>
+                        </th>
                         <th style="width: 120px;">
                             NER
                             <small class="d-block text-muted fw-normal"></small>
@@ -166,6 +170,7 @@ Lançamento de Notas
                         
                         <td class="text-center fw-bold" data-campo="mt">—</td>
                         {% if eh_terceiro_trimestre_iiano %}
+                        <td class="text-center fw-bold" data-campo="mfa">—</td>
                         <td>
                             <input type="number" name="ner_{{ linha.aluno.id }}" step="0.1" min="0" max="20"
                                    class="form-control form-control-sm"
