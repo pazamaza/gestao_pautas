@@ -34,8 +34,8 @@
     <table class="table table-striped mt-3">
         <thead>
             <tr>
-                <th>Aluno</th>
-                <th>Turma</th>
+                <!--<th>Aluno</th>
+                <th>Turma</th>-->
                 <th>Disciplina</th>
                 <th>
                     <a class="link-dark text-decoration-none"
@@ -55,8 +55,8 @@
         <tbody>
         {% for frequencia in frequencias %}
             <tr>
-                <td>{{ frequencia.aluno }}</td>
-                <td>{{ frequencia.atribuicao.turma }}</td>
+                <!--<td>{{ frequencia.aluno }}</td>
+                <td>{{ frequencia.atribuicao.turma }}</td>-->
                 <td>{{ frequencia.atribuicao.disciplina }}</td>
                 <td>{{ frequencia.data }}</td>
                 <td>{{ frequencia.get_estado_display }}</td>

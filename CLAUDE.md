@@ -63,7 +63,7 @@ O projecto contém as seguintes aplicações Django, cada uma com o seu próprio
 - `turmas` – `AnoLetivo`, `PeriodoAcademico`, `Classe` (nível de ensino) e `Turma`.
 - `disciplinas` – catálogo de `Disciplina`.
 - `frequencias` – `Frequencia` (presença diária) e `JustificacaoFalta`.
-- `pautas` – grades (notas): `Avaliacao`, `Nota`, `Pauta`/`LinhaPauta`, `ResultadoDisciplina`, `ResultadoFinal`; contém ainda um pacote `services/` para cálculos, exportação Excel e PDF.
+- `pautas` – grades (notas): `Avaliacao`, `Nota`, `ResultadoDisciplina`, `SituacaoAnual` (transição anual do aluno) e `PedidoDocumento` (pedidos de boletim/certificado, com fluxo de autorização e pagamento); contém ainda um pacote `services/` para cálculos, exportação Excel e PDF. `Pauta`, `LinhaPauta` e `ResultadoFinal` existem no modelo mas são legado (ver secção "Subsistema de Notas").
 - `relatorios` – esqueleto (sem funcionalidade activa).
 - `notificacoes` – esqueleto (sem funcionalidade activa).
 - `dashboard` e `usuarios` – referidos no primeiro documento, mas não implementados como apps activas – podem ser usados no futuro.
@@ -78,9 +78,14 @@ O projecto contém as seguintes aplicações Django, cada uma com o seu próprio
 AnoLetivo (ano lectivo) ─┬─ PeriodoAcademico (trimestre)
                           └─ Turma (turma) ── Classe (série)
 Turma ── Aluno (estudante) ── Encarregado (guardião)
+Turma ── HorarioAula (tempos lectivos semanais por disciplina)
 Professor + Disciplina + Turma + AnoLetivo ── AtribuicaoDocente (vínculo)
+AtribuicaoDocente ── DiretorTurma (professor titular da turma/ano)
 AtribuicaoDocente ── Frequencia (presenças) / Avaliacao (caderno de notas por período)
-Avaliacao ── Nota (notas MAC/NPP/NPT)
+Avaliacao ── Nota (notas MAC/NPT, calcula MT)
+Aluno + Disciplina + AnoLetivo ── ResultadoDisciplina (mt1/mt2/mt3 -> mf/resultado)
+Aluno + AnoLetivo ── SituacaoAnual (transição: Aprovado/Reprovado/Aprovado por Compensação)
+Aluno ── PedidoDocumento (boletim/certificado; autorização + pagamento)
 ```
 
 `AtribuicaoDocente` é o pivô central para frequências e pautas – um professor só acede aos dados das turmas/disciplinas onde está vinculado.
@@ -99,12 +104,17 @@ A view `dashboard` (`accounts/views.py`) redirecciona para templates diferentes 
 
 ## Subsistema de Notas (`pautas`)
 
-- `Nota.mac`, `npp`, `npt` – notas brutas (0‑20). `Nota.mt` é calculado automaticamente em `save()` como a média aritmética simples (arredondada a 1 casa decimal).
-- `ResultadoDisciplina` agrega as `mt1`, `mt2`, `mt3` de um aluno por disciplina/ano, calcula `mf` (média final com pesos 25/35/40) e `nota_final` (com exame), bem como `resultado`. Tudo em `save()`.
-- O serviço `services/resultados.py:gerar_resultados_finais()` apaga e recria todos os `ResultadoDisciplina` a partir dos dados de `Nota` – é a única forma suportada de os popular, e está ligado à URL `resultados/gerar/`.
-- `ResultadoFinal` é um modelo sobreposto, com cálculo próprio (`cf`/`situacao` por média simples) – não é usado em views activas; considerar legado.
-- Os serviços `services/calculo_notas.py` (com pesos 0.3/0.3/0.4), `services/gerador_pauta.py` e `services/estatisticas.py` **não são chamados em nenhum ponto** da aplicação – a ponderação neles difere da usada em `Nota.calcular_mt`; não assumir que fazem parte do fluxo vivo.
-- Os serviços `services/excel.py` e `services/pdf.py` (com `openpyxl` e `reportlab`) são usados pelas views `baixar_modelo_excel`, `exportar_excel`, `importar_excel` e `exportar_pdf`.
+- `Nota.mac`/`npt` – notas brutas (0‑20). `Nota.mt` é calculado automaticamente em `save()`: média aritmética simples de `mac`+`npt`, **arredondada à unidade mais próxima** (`ROUND_HALF_UP`, ex.: 9,5 → 10) – não a 1 casa decimal.
+- O 3º trimestre tem regras próprias: no Iº Ano (e Classes fora do IIº Ano EJA), `npt` é recalculado automaticamente como a média de `mt1`/`mt2` (`Nota.calcular_npt_terceiro_trimestre`); no IIº Ano EJA o mesmo campo passa a ser a Nota de Exame (NE) e `mt` pondera MAC 40% / NE 60% (`calcular_mt_com_exame`). Ver `Turma.eh_segundo_ano()`.
+- `ResultadoDisciplina` agrega `mt1`/`mt2`/`mt3` de um aluno por disciplina/ano; `mf` é a **média simples** dos três (sem pesos) e `resultado` é decidido por `verificar_resultado()`: veta por faltas (`excedeu_limite_faltas`), e no IIº Ano dá lugar a recurso (`nota_recurso`, nota seca) antes da tolerância anual. `nota_final` é um campo legado, sempre `None`. Tudo calculado em `save()`.
+- `Avaliacao` e `ResultadoDisciplina` partilham um fluxo de validação (`StatusValidacaoMixin`): `status` = `rascunho`/`com_erros`/`validada`, com `marcar_validada(user)`/`marcar_com_erros(user, obs)`. Alunos/encarregados só veem dados com `status='validada'`.
+- `SituacaoAnual` decide a transição anual do aluno (Aprovado / Reprovado / Aprovado por Compensação) a partir de todos os `ResultadoDisciplina` do ano – ver `services/resultados.py:verificar_transicao_aluno()`. Regras: tolerância de até 2 disciplinas com `mf` entre 8-9 (excepto Português+Matemática em simultâneo, disciplinas `nuclear=True`); faltas reprovam sempre; no IIº Ano só entra na tolerância depois de resolvido o recurso.
+- `PedidoDocumento` gere o pedido de boletim/certificado por um aluno, com fluxo de autorização + comprovativo de pagamento (`pautas/views_documentos.py`).
+- O serviço `services/resultados.py:gerar_resultados_finais()` apaga e recria **todos** os `ResultadoDisciplina` a partir das `Nota` – operação em lote, ligada à URL `resultados/gerar/`. `atualizar_resultado_disciplina(aluno, disciplina, ano_letivo)` faz o recálculo incremental (uma disciplina/aluno), chamado a cada nota lançada em `lancamento_notas`.
+- `Pauta`, `LinhaPauta` e `ResultadoFinal` são modelos legado – não são criados/usados por nenhuma view activa; aparecem só no admin, em modo só-leitura, para auditoria.
+- Os serviços `services/calculo_notas.py` (pesos 0.3/0.3/0.4), `services/gerador_pauta.py` e `services/estatisticas.py` **não são chamados em nenhum ponto** da aplicação – não assumir que fazem parte do fluxo vivo.
+- `services/faltas.py:aluno_excedeu_faltas_disciplina()` decide o veto por faltas em `ResultadoDisciplina.verificar_resultado()`: o limite (3/4/5 faltas injustificadas por trimestre) depende do nº de tempos lectivos semanais da disciplina (`AtribuicaoDocente.horarios`, modelo `HorarioAula`), não é um valor fixo.
+- Os serviços `services/excel.py` e `services/pdf.py` (com `openpyxl` e `reportlab`) são usados pelas views de exportação/importação (pauta trimestral, pauta final, mini-pauta, boletim, certificado).
 
 ---
 
@@ -112,7 +122,7 @@ A view `dashboard` (`accounts/views.py`) redirecciona para templates diferentes 
 
 - `Frequencia.estado` aceita `P`/`F`/`J`/`A` (Presente/Falta/Justificada/Atraso), com unicidade por (aluno, atribuicao, data).
 - `Aluno.calcular_frequencia()` conta `P` e `A` como presenças.
-- `LinhaPauta.verificar_situacao()` reprova automaticamente por faltas se a frequência for inferior a 75%.
+- O veto por faltas que reprova uma disciplina (independentemente da nota) é decidido por `pautas/services/faltas.py:aluno_excedeu_faltas_disciplina()`, chamado a partir de `ResultadoDisciplina.verificar_resultado()` – não por `LinhaPauta` (modelo legado, não usado em nenhuma view activa).
 
 ---
 

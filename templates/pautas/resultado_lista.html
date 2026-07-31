@@ -27,10 +27,10 @@ Resultados Finais
                 Ver Mini-Pauta Trimestral
             </a>
             {% if eh_administrador %}
-            <a href="{% url 'gerar_resultados' %}"
+            <!--<a href="{% url 'gerar_resultados' %}"
                class="btn btn-success">
                 Gerar Resultados
-            </a>
+            </a>-->
             {% endif %}
         </div>
 
@@ -99,7 +99,7 @@ Resultados Finais
                 <th>MT2</th>
                 <th>MT3</th>
                 <th>MF</th>
-                <th>Exame</th>
+                <!--<th>Exame</th>-->
                 <th>Resultado</th>
                 <th>Estado</th>
                 {% if eh_administrador %}
@@ -121,7 +121,7 @@ Resultados Finais
                 <td class="{% if resultado.mf >= 10 %}text-primary fw-bold{% else %}text-danger fw-bold{% endif %}">
                     {{ resultado.mf|floatformat:0 }}
                 </td>
-                <td>{% if resultado.exame %}{{ resultado.exame|floatformat:0 }}{% else %}Dispensado{% endif %}</td>
+                <!--<td>{% if resultado.exame %}{{ resultado.exame|floatformat:0 }}{% else %}Dispensado{% endif %}</td>-->
                 <td>{{ resultado.resultado }}</td>
                 <td>
                     {% if resultado.status == 'validada' %}

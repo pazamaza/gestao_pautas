@@ -58,6 +58,8 @@
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item" href="{% url 'diretor_turma_lista' %}">Diretores de Turma</a></li>
                         <li><a class="dropdown-item" href="{% url 'periodo_lista' %}">Períodos de Lançamento</a></li>
+                        <li><a class="dropdown-item" href="{% url 'atribuicao_lista' %}">Atribuições Docentes</a></li>
+                        <li><a class="dropdown-item" href="{% url 'frequencia_lista' %}">Frequências</a></li>
                     </ul>
                 </li>
                 {% endif %}
@@ -70,15 +72,15 @@
                        role="button"
                        data-bs-toggle="dropdown"
                        aria-expanded="false">
-                        Académico
+                        Pautas
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end"
                         aria-labelledby="menuAcademico">
-                        <li><a class="dropdown-item" href="{% url 'nota_lista' %}">Notas</a></li>
-                        <li><a class="dropdown-item" href="{% url 'atribuicao_lista' %}">Atribuições Docentes</a></li>
-                        <li><a class="dropdown-item" href="{% url 'resultado_lista' %}">Resultados Finais</a></li>
+                        <!--<li><a class="dropdown-item" href="{% url 'nota_lista' %}">Notas</a></li>-->
+                        
+                        <li><a class="dropdown-item" href="{% url 'pauta_final_turma' %}">Pautas Finais</a></li>
                         <li><a class="dropdown-item" href="{% url 'mini_pauta_trimestral' %}">Mini-Pauta Trimestral</a></li>
-                        <li><a class="dropdown-item" href="{% url 'frequencia_lista' %}">Frequências</a></li>
+                        <!---->
                     </ul>
                 </li>
                 {% endif %}
@@ -91,8 +93,7 @@
                        role="button"
                        data-bs-toggle="dropdown"
                        aria-expanded="false">
-                        Ensino
-                    </a>
+                        Turmas</a>
                     <ul class="dropdown-menu dropdown-menu-end"
                         aria-labelledby="menuEnsino">
                         <li><a class="dropdown-item" href="{% url 'aluno_lista' %}">Todos os Alunos</a></li>
@@ -117,7 +118,7 @@
                         aria-labelledby="menuAvaliacoes">
                         <li><a class="dropdown-item" href="{% url 'lancamento_notas' %}">Lançar Notas</a></li>
                         <li><a class="dropdown-item" href="{% url 'pauta_final_turma' %}">Pauta-Geral</a></li>
-                        <li><a class="dropdown-item" href="{% url 'resultado_lista' %}">Resultados Finais</a></li>
+                        <!--<li><a class="dropdown-item" href="{% url 'resultado_lista' %}">Resultados Finais</a></li>-->
                         <li><a class="dropdown-item" href="{% url 'mini_pauta_trimestral' %}">Mini-Pauta Trimestral</a></li>
                     </ul>
                 </li>
