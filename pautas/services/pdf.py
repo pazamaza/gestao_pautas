@@ -160,10 +160,11 @@ def exportar_mini_pauta_pdf(turma, disciplina, ano_letivo, linhas):
 
 def exportar_pauta_final_pdf(turma, ano_letivo, disciplinas, linhas):
     from core.models import Escola
+    from django.contrib.staticfiles import finders
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A3, landscape
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
     # A pauta final tem 4 colunas de notas por disciplina — com muitas
     # disciplinas isso facilmente ultrapassa a largura de uma A4 paisagem
@@ -193,6 +194,13 @@ def exportar_pauta_final_pdf(turma, ano_letivo, disciplinas, linhas):
     estilo_escola = ParagraphStyle('NomeEscola', parent=estilo_cabecalho, fontSize=13)
     elementos = []
 
+    caminho_insignia = finders.find('images/insignia_angola.png')
+    if caminho_insignia:
+        insignia = Image(caminho_insignia, width=45, height=50)
+        insignia.hAlign = 'CENTER'
+        elementos.append(insignia)
+        elementos.append(Spacer(1, 4))
+
     elementos.append(Paragraph('REPÚBLICA DE ANGOLA', estilo_cabecalho))
     if escola:
         for texto in (escola.ministerio, escola.governo_provincial, escola.administracao_municipal):
@@ -204,10 +212,16 @@ def exportar_pauta_final_pdf(turma, ano_letivo, disciplinas, linhas):
     else:
         elementos.append(Paragraph('Gestao de Pautas', estilo_escola))
 
+    # Classes EJA usam só o numeral ordinal ("Iº"/"IIº") — no cabeçalho
+    # impresso isso deve ler-se por extenso ("IIº Ano").
+    classe_texto = str(turma.classe)
+    if classe_texto.endswith('º'):
+        classe_texto = f'{classe_texto} Ano'
+
     elementos.append(Spacer(1, 4))
     elementos.append(
         Paragraph(
-            f'ANO LECTIVO: {ano_letivo} &nbsp;&nbsp;&nbsp;&nbsp; {turma.classe} &nbsp;&nbsp;&nbsp;&nbsp; '
+            f'ANO LECTIVO: {ano_letivo} &nbsp;&nbsp;&nbsp;&nbsp; {classe_texto} &nbsp;&nbsp;&nbsp;&nbsp; '
             f'TURMA: {turma.nome} &nbsp;&nbsp;&nbsp;&nbsp; SALA: {turma.sala or "-"}',
             estilo_cabecalho,
         )
