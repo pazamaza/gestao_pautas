@@ -1,88 +1,408 @@
 {% load static %}
-
 <!DOCTYPE html>
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Gestão de Pautas</title>
-
+    <title>Complexo Escolar N.º 2032 - General Ngueto</title>
     <style>
-        body{
-            font-family: Arial, sans-serif;
-            margin:0;
-            padding:0;
-            background:#f4f4f4;
-            min-height:100vh;
-            display:flex;
-            flex-direction:column;
+        :root {
+            --primary-red: #ce1126;
+            --primary-yellow: #ffcd00;
+            --dark-black: #111111;
+            --gov-blue: #003366;
+            --bg-light: #f4f6f9;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --border-color: #e0e0e0;
         }
 
-        header{
-            background:#0d6efd;
-            color:white;
-            padding:8px 20px;
-            display:flex;
-            justify-content:space-between;
-            align-items:center;
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
 
-        .container{
-            flex:1;
-            width:100%;
-            text-align:center;
-            display:flex;
-            justify-content:center;
-            align-items:center;
+        html, body {
+            height: 100%;
         }
 
-        img{
-            width:100%;
-            height:calc(120vh - 160px);
-            object-fit:cover;
-            margin-top:0;
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-light);
+            color: var(--text-color);
+            line-height: 1.4;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
         }
 
-        .btn{
-            display:inline-block;
-            padding:12px 25px;
-            background:blue;
-            color:#0d6efd;
-            text-decoration:none;
-            border-radius:5px;
-            font-weight:bold;
+        .container {
+            max-width: 1000px;
+            width: 100%;
+            max-height: 97vh;
+            margin: 0 auto;
+            background: var(--card-bg);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+            border-radius: 8px;
+            overflow-y: auto;
+            border-top: 6px solid var(--primary-red);
         }
 
-        .btn:hover{
-            background:#e9ecef;
+        /* Header Styling */
+        header {
+            text-align: center;
+            padding: 14px 90px 12px 90px;
+            background: linear-gradient(to bottom, #ffffff, #fafafa);
+            border-bottom: 2px solid var(--border-color);
+            position: relative;
         }
 
-        footer{
-            background:#0d6efd;
-            color:white;
-            text-align:center;
-            padding:6px;
+        .entrar-btn {
+            position: absolute;
+            top: 14px;
+            right: 16px;
+            background-color: var(--gov-blue);
+            color: #ffffff;
+            text-decoration: none;
+            font-size: 9.5pt;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            padding: 8px 18px;
+            border-radius: 20px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+            transition: background-color 0.15s ease;
+        }
+
+        .entrar-btn:hover {
+            background-color: var(--primary-red);
+        }
+
+        .insignia-container {
+            margin-bottom: 6px;
+        }
+
+        .insignia-img {
+            width: 56px;
+            height: auto;
+        }
+
+        .gov-header {
+            text-transform: uppercase;
+        }
+
+        .gov-header h3 {
+            font-size: 12pt;
+            color: var(--dark-black);
+            letter-spacing: 1px;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+
+        .gov-header h4 {
+            font-size: 9.5pt;
+            color: #555555;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .gov-header h5 {
+            font-size: 8.5pt;
+            color: #666666;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .school-title-box {
+            background-color: var(--gov-blue);
+            color: #ffffff;
+            padding: 8px 20px;
+            border-radius: 4px;
+            margin-top: 8px;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .school-title-box h1 {
+            font-size: 12.5pt;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        /* Flag Accent Line */
+        .flag-accent {
+            display: flex;
+            height: 4px;
+            width: 100%;
+        }
+        .flag-red { flex: 1; background-color: var(--primary-red); }
+        .flag-black { flex: 1; background-color: var(--dark-black); }
+        .flag-yellow { flex: 1; background-color: var(--primary-yellow); }
+
+        /* Main Content Styling */
+        .content {
+            padding: 16px 32px;
+        }
+
+        .section-title {
+            color: var(--gov-blue);
+            font-size: 15pt;
+            font-weight: 700;
+            border-left: 5px solid var(--primary-red);
+            padding-left: 12px;
+            margin-bottom: 10px;
+            margin-top: 4px;
+            text-transform: uppercase;
+        }
+
+        .history-text {
+            font-size: 11pt;
+            text-align: justify;
+            margin-bottom: 10px;
+            color: #444444;
+        }
+
+        /* Grid Layout: Histórico | Imagem | Dados de Criação + Quadro de Pessoal */
+        .grid-container {
+            display: grid;
+            grid-template-columns: 1.2fr 0.9fr 1fr;
+            gap: 18px;
+            margin-bottom: 14px;
+        }
+
+        .history-column .section-title {
+            margin-top: 0;
+        }
+
+        .side-column {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        @media (max-width: 900px) {
+            .grid-container {
+                grid-template-columns: 1fr;
+            }
+            .content {
+                padding: 16px 20px;
+            }
+            header {
+                padding: 40px 20px 12px 20px;
+            }
+            .entrar-btn {
+                top: 10px;
+                right: 12px;
+                padding: 6px 14px;
+                font-size: 8.5pt;
+            }
+        }
+
+        /* Info Card */
+        .info-card {
+            background-color: #f9fbfd;
+            border: 1px solid #e1e8ed;
+            border-radius: 6px;
+            padding: 12px 14px;
+        }
+
+        .info-card h3 {
+            color: var(--gov-blue);
+            font-size: 11.5pt;
+            margin-bottom: 8px;
+            border-bottom: 2px solid var(--primary-yellow);
+            padding-bottom: 4px;
+        }
+
+        .info-list {
+            list-style: none;
+        }
+
+        .info-list li {
+            font-size: 9.5pt;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .info-list li strong {
+            min-width: 120px;
+            color: #222222;
+        }
+
+        .info-list li span {
+            color: #555555;
+        }
+
+        /* Image Styling */
+        .image-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border: 1px solid var(--border-color);
+            background: #fff;
+        }
+
+        .image-container img {
+            width: 100%;
+            flex: 0 0 auto;
+            aspect-ratio: 2 / 3;
+            object-fit: cover;
+            display: block;
+        }
+
+        /* Preenche o espaço restante abaixo da foto com o slogan/legenda */
+        .image-caption {
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            text-align: center;
+            padding: 10px 14px;
+            background: linear-gradient(to bottom, #fafbfc, #f0f3f7);
+            border-top: 1px solid #eee;
+        }
+
+        .image-slogan {
+            font-size: 10.5pt;
+            font-weight: 700;
+            color: var(--gov-blue);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .image-caption-text {
+            font-size: 8.5pt;
+            color: #777;
+        }
+
+        /* Extra Details */
+        .extra-box {
+            background: #fdfaf3;
+            border-left: 4px solid var(--primary-yellow);
+            padding: 10px 16px;
+            border-radius: 0 6px 6px 0;
+            font-size: 9.5pt;
+            color: #555;
+        }
+
+        /* Footer */
+        footer {
+            background-color: var(--dark-black);
+            color: #ffffff;
+            text-align: center;
+            padding: 10px;
+            font-size: 8pt;
+            border-top: 3px solid var(--primary-red);
+        }
+
+        footer p {
+            opacity: 0.8;
         }
     </style>
 </head>
 <body>
 
-<header>
-    <h1>Sistema de Gestão de Pautas</h1>
-
-    <a href="/accounts/login/" class="btn">
-        Entrar
-    </a>
-</header>
-
 <div class="container">
-    <img src="{% static 'images/fundo_3.png' %}"
-         alt="Imagem do Sistema" style="width: 1300px; height: 350px" >
-</div>
+    <header>
+        <a href="{% url 'login' %}" class="entrar-btn">Entrar</a>
 
-<footer>
-    <p>&copy; 2026 Sistema de Gestão de Pautas</p>
-</footer>
+        <!-- Emblem / Insígnia da República de Angola -->
+        <div class="insignia-container">
+            <img class="insignia-img" src="{% static 'images/insignia_angola.png' %}" alt="Insígnia da República de Angola">
+        </div>
+
+        <div class="gov-header">
+            <h3>REPÚBLICA DE ANGOLA</h3>
+            <h4>GOVERNO DA PROVÍNCIA DE ÍCOLO E BENGO</h4>
+            <h5>DIRECÇÃO MUNICIPAL DE EDUCAÇÃO DO CALUMBO</h5>
+        </div>
+
+        <div class="school-title-box">
+            <h1>COMPLEXO ESCOLAR N.º 2032 - GENERAL NGUETO / ZANGO 2</h1>
+        </div>
+    </header>
+
+    <div class="flag-accent">
+        <div class="flag-red"></div>
+        <div class="flag-black"></div>
+        <div class="flag-yellow"></div>
+    </div>
+
+    <main class="content">
+        <div class="grid-container">
+            <!-- Histórico -->
+            <div class="history-column">
+                <h2 class="section-title">Histórico da Instituição</h2>
+
+                <p class="history-text">
+                    O <strong>Complexo Escolar n.º 2032 - General Ngueto</strong> (anteriormente registado sob a denominação n.º 5070) é uma instituição pública de ensino consagrada ao desenvolvimento intelectual e social da comunidade local. A escola foi formalmente criada para responder à crescente procura educacional nas zonas suburbanas, garantindo o acesso ao ensino com qualidade e dignidade para milhares de crianças e jovens.
+                </p>
+
+                <p class="history-text">
+                    A sua instituição oficial formalizou-se através do <strong>Decreto Executivo n.º 651/22, de 16 de dezembro</strong>, assinado por sua Excelência a Ministra da Educação, Luísa Maria Alves Grilo, conferindo-lhe suporte legal e estrutural no Sistema Nacional de Ensino.
+                </p>
+            </div>
+
+            <!-- Image Section -->
+            <div class="image-container">
+                <img src="{% static 'images/escola.jpg' %}" alt="Atividades do Complexo Escolar">
+                <div class="image-caption">
+                    <span class="image-slogan">Formar hoje os cidadãos de amanhã</span>
+                    <span class="image-caption-text">Registos da vida escolar, salas de aula e atividades pedagógicas no Complexo Escolar.</span>
+                </div>
+            </div>
+
+            <!-- Dados de Criação + Quadro de Pessoal -->
+            <div class="side-column">
+                <div class="info-card">
+                    <h3>Dados de Criação e Funcionamento</h3>
+                    <ul class="info-list">
+                        <li>
+                            <strong>Data de Criação:</strong>
+                            <span>21 de abril de 2022 (Publicado no Diário da República a 16 de dezembro de 2022)</span>
+                        </li>
+                        <li>
+                            <strong>Níveis de Ensino:</strong>
+                            <span>Ensino Primário e I Ciclo do Ensino Secundário (da Iniciação à 9.ª Classe)</span>
+                        </li>
+                        <li>
+                            <strong>Capacidade Total:</strong>
+                            <span>1.944 alunos em regime de externato</span>
+                        </li>
+                        <li>
+                            <strong>Infraestrutura:</strong>
+                            <span>18 salas de aula | 54 turmas</span>
+                        </li>
+                        <li>
+                            <strong>Organização:</strong>
+                            <span>3 turnos operacionais (36 alunos por sala)</span>
+                        </li>
+                        <li>
+                            <strong>Zona Geográfica:</strong>
+                            <span>Suburbana</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="extra-box">
+                    <strong>Quadro de Pessoal:</strong> O diploma legal que formalizou a criação da escola aprovou simultaneamente o seu quadro de pessoal, estabelecendo a estrutura administrativa, pedagógica e docente indispensável ao regular funcionamento da instituição.
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2026 República de Angola — Governo da Província de Ícolo e Bengo | Complexo Escolar nº 2032</p>
+    </footer>
+</div>
 
 </body>
 </html>
