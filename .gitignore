@@ -178,7 +178,9 @@ pyrightconfig.json
 # Ficheiros pessoais e dados sensiveis (nao comitar)
 .claude/
 media/
-docs/
+docs/*
+!docs/manual_utilizador/
+!docs/manual_utilizador/**
 tools/
 Fotos_Jair/
 VIDEOS_JAIR_2/
