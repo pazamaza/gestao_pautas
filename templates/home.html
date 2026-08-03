@@ -171,8 +171,43 @@
             margin-bottom: 14px;
         }
 
+        .history-column {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
         .history-column .section-title {
             margin-top: 0;
+        }
+
+        /* Preenche o espaço restante abaixo do texto histórico */
+        .slogan-box {
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            text-align: center;
+            margin-top: 10px;
+            padding: 14px;
+            border-radius: 6px;
+            background: linear-gradient(to bottom, #fafbfc, #f0f3f7);
+            border: 1px solid var(--border-color);
+        }
+
+        .slogan-title {
+            font-size: 11pt;
+            font-weight: 700;
+            color: var(--gov-blue);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .slogan-text {
+            font-size: 8.5pt;
+            color: #777;
         }
 
         .side-column {
@@ -239,8 +274,6 @@
         .image-container {
             width: 100%;
             height: 100%;
-            display: flex;
-            flex-direction: column;
             border-radius: 6px;
             overflow: hidden;
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
@@ -250,37 +283,9 @@
 
         .image-container img {
             width: 100%;
-            flex: 0 0 auto;
-            aspect-ratio: 2 / 3;
+            height: 100%;
             object-fit: cover;
             display: block;
-        }
-
-        /* Preenche o espaço restante abaixo da foto com o slogan/legenda */
-        .image-caption {
-            flex: 1 1 auto;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            text-align: center;
-            padding: 10px 14px;
-            background: linear-gradient(to bottom, #fafbfc, #f0f3f7);
-            border-top: 1px solid #eee;
-        }
-
-        .image-slogan {
-            font-size: 10.5pt;
-            font-weight: 700;
-            color: var(--gov-blue);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .image-caption-text {
-            font-size: 8.5pt;
-            color: #777;
         }
 
         /* Extra Details */
@@ -349,15 +354,16 @@
                 <p class="history-text">
                     A sua instituição oficial formalizou-se através do <strong>Decreto Executivo n.º 651/22, de 16 de dezembro</strong>, assinado por sua Excelência a Ministra da Educação, Luísa Maria Alves Grilo, conferindo-lhe suporte legal e estrutural no Sistema Nacional de Ensino.
                 </p>
+
+                <div class="slogan-box">
+                    <span class="slogan-title">Formar hoje os cidadãos de amanhã</span>
+                    <span class="slogan-text">Registos da vida escolar, salas de aula e atividades pedagógicas no Complexo Escolar.</span>
+                </div>
             </div>
 
             <!-- Image Section -->
             <div class="image-container">
                 <img src="{% static 'images/escola.jpg' %}" alt="Atividades do Complexo Escolar">
-                <div class="image-caption">
-                    <span class="image-slogan">Formar hoje os cidadãos de amanhã</span>
-                    <span class="image-caption-text">Registos da vida escolar, salas de aula e atividades pedagógicas no Complexo Escolar.</span>
-                </div>
             </div>
 
             <!-- Dados de Criação + Quadro de Pessoal -->
