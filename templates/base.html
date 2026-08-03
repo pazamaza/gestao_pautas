@@ -14,7 +14,7 @@
 </head>
 <body>
     {% block navbar %}{% include 'includes/navbar.html' %}{% endblock %}
-    <div class="container-fluid">
+    <div class="container-fluid page-wrapper">
         <div class="row">
             <div class="col-12">
                 {% include 'includes/messages.html' %}
@@ -25,5 +25,8 @@
     </div>
     <script src="{% static 'js/vendor/bootstrap.bundle.min.js' %}"></script>
     {% block extra_js %}{% endblock %}
+    <footer>
+    <p style="color: white; background:#0d6efd;; text-align:center; padding:12px;">&copy; 2026 Sistema de Gestão de Pautas</p>
+</footer>
 </body>
 </html>
