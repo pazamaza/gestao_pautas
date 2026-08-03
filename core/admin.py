@@ -16,6 +16,13 @@ class EscolaAdmin(admin.ModelAdmin):
         ('Visto', {
             'fields': ('nome_autoridade_visto', 'cargo_autoridade_visto')
         }),
+        ('Rodapé da Pauta Final', {
+            'fields': ('localidade', 'nome_subdirector_pedagogico'),
+            'description': (
+                'A assinatura do Director do Complexo Escolar na pauta final usa o '
+                'nome definido em "Visto" acima.'
+            ),
+        }),
     )
 
     def has_add_permission(self, request):

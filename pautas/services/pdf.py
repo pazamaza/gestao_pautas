@@ -183,24 +183,33 @@ def exportar_pauta_final_pdf(turma, ano_letivo, disciplinas, linhas):
 
     escola = Escola.obter_configuracao()
     estilos = getSampleStyleSheet()
+    # Cabeçalho institucional da pauta geral — todas as linhas centradas e a
+    # negrito, replicando o modelo oficial (República/Ministério/Governo
+    # Provincial/Administração Municipal/Escola/Pauta Nº/Ano Lectivo).
+    estilo_cabecalho = ParagraphStyle(
+        'CabecalhoInstitucional', parent=estilos['Normal'],
+        fontName='Helvetica-Bold', fontSize=11, leading=13, alignment=1,
+    )
+    estilo_escola = ParagraphStyle('NomeEscola', parent=estilo_cabecalho, fontSize=13)
     elementos = []
 
+    elementos.append(Paragraph('REPÚBLICA DE ANGOLA', estilo_cabecalho))
     if escola:
         for texto in (escola.ministerio, escola.governo_provincial, escola.administracao_municipal):
             if texto:
-                elementos.append(Paragraph(texto, estilos['Normal']))
-        elementos.append(Paragraph(escola.nome, estilos['Title']))
+                elementos.append(Paragraph(texto, estilo_cabecalho))
+        elementos.append(Paragraph(escola.nome, estilo_escola))
         if turma.numero_pauta:
-            elementos.append(Paragraph(f'PAUTA Nº {turma.numero_pauta}', estilos['Heading3']))
+            elementos.append(Paragraph(f'PAUTA Nº {turma.numero_pauta}', estilo_cabecalho))
     else:
-        elementos.append(Paragraph('Gestao de Pautas', estilos['Title']))
+        elementos.append(Paragraph('Gestao de Pautas', estilo_escola))
 
-    elementos.append(Paragraph(f'Pauta Final - {turma}', estilos['Heading2']))
+    elementos.append(Spacer(1, 4))
     elementos.append(
         Paragraph(
-            f'Sala: {turma.sala or "-"} | Periodo: {turma.get_periodo_display() or "-"} | '
-            f'Ano Letivo: {ano_letivo}',
-            estilos['Normal'],
+            f'ANO LECTIVO: {ano_letivo} &nbsp;&nbsp;&nbsp;&nbsp; {turma.classe} &nbsp;&nbsp;&nbsp;&nbsp; '
+            f'TURMA: {turma.nome} &nbsp;&nbsp;&nbsp;&nbsp; SALA: {turma.sala or "-"}',
+            estilo_cabecalho,
         )
     )
     elementos.append(Spacer(1, 10))
@@ -301,10 +310,63 @@ def exportar_pauta_final_pdf(turma, ano_letivo, disciplinas, linhas):
 
     elementos.append(tabela)
 
-    if escola and escola.nome_autoridade_visto:
-        elementos.append(Spacer(1, 24))
-        elementos.append(Paragraph(f'VISTO DA {escola.cargo_autoridade_visto.upper()}', estilos['Normal']))
-        elementos.append(Paragraph(escola.nome_autoridade_visto, estilos['Normal']))
+    elementos.append(Spacer(1, 24))
+    estilo_rodape_esquerda = ParagraphStyle(
+        'RodapeConselho', parent=estilos['Normal'], fontName='Helvetica-Bold', fontSize=10, alignment=0,
+    )
+    estilo_rodape_direita = ParagraphStyle(
+        'RodapeLocalidade', parent=estilos['Normal'], fontName='Helvetica-Bold', fontSize=10, alignment=2,
+    )
+    estilo_assinatura_titulo = ParagraphStyle(
+        'AssinaturaTitulo', parent=estilos['Normal'], fontName='Helvetica-Bold', fontSize=9, alignment=1,
+    )
+    estilo_assinatura_nome = ParagraphStyle(
+        'AssinaturaNome', parent=estilos['Normal'], fontSize=9, alignment=1,
+    )
+
+    localidade = escola.localidade.upper() if escola and escola.localidade else '_______________'
+    linha_localidade_data = f'{localidade}, ______ / ______ / __________'
+
+    cabecalho_rodape = Table(
+        [[
+            Paragraph('O CONSELHO DE NOTAS', estilo_rodape_esquerda),
+            Paragraph(linha_localidade_data, estilo_rodape_direita),
+        ]],
+        colWidths=[largura_util * 0.5, largura_util * 0.5],
+    )
+    cabecalho_rodape.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'BOTTOM')]))
+    elementos.append(cabecalho_rodape)
+    elementos.append(Spacer(1, 16))
+
+    linha_assinatura = '_' * 35
+    nome_subdirector = escola.nome_subdirector_pedagogico if escola else ''
+    nome_diretor = escola.nome_autoridade_visto if escola else ''
+
+    dados_assinaturas = [
+        [
+            f'1. {linha_assinatura}',
+            Paragraph('O SUBDIRECTOR PEDAGÓGICO', estilo_assinatura_titulo),
+            Paragraph('O DIRECTOR DO COMPLEXO ESCOLAR', estilo_assinatura_titulo),
+        ],
+        [f'2. {linha_assinatura}', linha_assinatura, linha_assinatura],
+        [
+            f'3. {linha_assinatura}',
+            Paragraph(nome_subdirector, estilo_assinatura_nome),
+            Paragraph(nome_diretor, estilo_assinatura_nome),
+        ],
+    ]
+    tabela_assinaturas = Table(
+        dados_assinaturas,
+        colWidths=[largura_util * 0.4, largura_util * 0.3, largura_util * 0.3],
+    )
+    tabela_assinaturas.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+        ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    elementos.append(tabela_assinaturas)
 
     documento.build(elementos)
     output.seek(0)

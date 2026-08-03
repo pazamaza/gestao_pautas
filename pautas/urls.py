@@ -29,7 +29,6 @@ from .views import (
     mini_pauta_trimestral,
     minhas_notas,
     notas_dependente,
-    pauta_final_exportar_excel,
     pauta_final_exportar_pdf,
     pauta_final_turma,
     pauta_trimestral,
@@ -90,7 +89,6 @@ urlpatterns = [
         boletim_disciplina_turma,
         name='boletim_disciplina_turma',
     ),
-    path('resultados/pauta-final/exportar-excel/', pauta_final_exportar_excel, name='pauta_final_exportar_excel'),
     path('resultados/pauta-final/exportar-pdf/', pauta_final_exportar_pdf, name='pauta_final_exportar_pdf'),
 
     path('mini-pauta/', mini_pauta_trimestral, name='mini_pauta_trimestral'),

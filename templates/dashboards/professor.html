@@ -76,13 +76,6 @@ Dashboard do Professor
                                     </li>
                                     <li>
                                         <a class="dropdown-item"
-                                           href="{% url 'pauta_final_exportar_excel' %}?turma={{ atribuicao_selecionada.turma_id }}&ano_letivo={{ atribuicao_selecionada.ano_letivo_id }}">
-                                            Pauta-Geral (Excel)
-                                        </a>
-                                    </li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li>
-                                        <a class="dropdown-item"
                                            href="{% url 'pauta_final_exportar_pdf' %}?turma={{ atribuicao_selecionada.turma_id }}&ano_letivo={{ atribuicao_selecionada.ano_letivo_id }}">
                                             Imprimir Pauta (PDF)
                                         </a>

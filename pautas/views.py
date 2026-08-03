@@ -39,7 +39,6 @@ from .services.excel import (
     criar_modelo_excel,
     exportar_mini_pauta_excel,
     exportar_pauta_excel,
-    exportar_pauta_final_excel,
     importar_notas_excel,
 )
 from .services.pdf import exportar_mini_pauta_pdf, exportar_pauta_final_pdf, exportar_pauta_pdf
@@ -854,26 +853,6 @@ def boletim_disciplina_turma(request, disciplina_id, turma_id):
         'distrib_final': [f['n'] for f in resumo['distribuicao']] if resumo else [],
     }
     return render(request, 'pautas/boletim_disciplina.html', contexto)
-
-
-@admin_ou_professor_requerido
-def pauta_final_exportar_excel(request):
-    turma, ano_letivo = _turma_e_ano_da_pauta_final(request)
-
-    if not turma or not ano_letivo:
-        return render(request, 'dashboards/sem_permissao.html', status=403)
-    if not _pode_ver_pauta_final(request.user, turma, ano_letivo):
-        return render(request, 'dashboards/sem_permissao.html', status=403)
-
-    disciplinas, linhas = montar_pauta_final_turma(turma, ano_letivo)
-    arquivo = exportar_pauta_final_excel(turma, ano_letivo, disciplinas, linhas)
-    nome = f'pauta_final_{turma.id}_{ano_letivo.id}.xlsx'
-    return FileResponse(
-        arquivo,
-        as_attachment=True,
-        filename=nome,
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    )
 
 
 @admin_ou_professor_requerido

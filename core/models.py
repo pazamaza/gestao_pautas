@@ -42,6 +42,20 @@ class Escola(models.Model):
         verbose_name='Cargo da autoridade (visto)'
     )
 
+    localidade = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='Localidade',
+        help_text='Ex.: Calumbo — usada na linha de data/assinatura da pauta final.'
+    )
+
+    nome_subdirector_pedagogico = models.CharField(
+        max_length=150,
+        blank=True,
+        verbose_name='Nome do Subdirector Pedagógico',
+        help_text='Assinatura do rodapé da pauta final ("O SUBDIRECTOR PEDAGÓGICO").'
+    )
+
     class Meta:
         verbose_name = 'Escola'
         verbose_name_plural = 'Escola (configuração institucional)'
