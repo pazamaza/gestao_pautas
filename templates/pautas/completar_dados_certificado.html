@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+
+{% block title %}
+Dados para o Certificado
+{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width:700px;">
+    <h2>Dados para o Certificado</h2>
+    <p class="text-muted">
+        Estes dados são usados para preencher o Certificado. Preencha com atenção e anexe uma
+        fotocópia legível do B.I.
+    </p>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Nome do pai</label>
+                {{ form.nome_pai }}
+                <div class="form-text">Deixe em branco se não aplicável.</div>
+                {% if form.nome_pai.errors %}<div class="text-danger small">{{ form.nome_pai.errors }}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Nome da mãe</label>
+                {{ form.nome_mae }}
+                {% if form.nome_mae.errors %}<div class="text-danger small">{{ form.nome_mae.errors }}</div>{% endif %}
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">{{ form.naturalidade.label }}</label>
+                {{ form.naturalidade }}
+                {% if form.naturalidade.errors %}<div class="text-danger small">{{ form.naturalidade.errors }}</div>{% endif %}
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Município de naturalidade</label>
+                {{ form.municipio_natural }}
+                {% if form.municipio_natural.errors %}<div class="text-danger small">{{ form.municipio_natural.errors }}</div>{% endif %}
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Província de naturalidade</label>
+                {{ form.provincia_natal }}
+                {% if form.provincia_natal.errors %}<div class="text-danger small">{{ form.provincia_natal.errors }}</div>{% endif %}
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Número do B.I.</label>
+                {{ form.numero_bi }}
+                {% if form.numero_bi.errors %}<div class="text-danger small">{{ form.numero_bi.errors }}</div>{% endif %}
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">Local de emissão do B.I.</label>
+                {{ form.local_emissao_bi }}
+                {% if form.local_emissao_bi.errors %}<div class="text-danger small">{{ form.local_emissao_bi.errors }}</div>{% endif %}
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Data de emissão do B.I.</label>
+                {{ form.data_emissao_bi }}
+                {% if form.data_emissao_bi.errors %}<div class="text-danger small">{{ form.data_emissao_bi.errors }}</div>{% endif %}
+            </div>
+
+            <div class="col-md-12">
+                <label class="form-label">Fotocópia do B.I.</label>
+                {{ form.foto_bi }}
+                {% if aluno.foto_bi %}
+                <div class="form-text">Já tem um ficheiro carregado; escolha outro só se quiser substituí-lo.</div>
+                {% endif %}
+                {% if form.foto_bi.errors %}<div class="text-danger small">{{ form.foto_bi.errors }}</div>{% endif %}
+            </div>
+        </div>
+
+        <div class="mt-4 d-flex gap-2">
+            <button type="submit" class="btn btn-primary">Guardar</button>
+            <a href="{% url 'meus_pedidos_documentos' %}" class="btn btn-outline-secondary">Voltar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -471,12 +471,39 @@ def exportar_boletim_pdf(aluno, ano_letivo, resultados):
     return output
 
 
-def exportar_certificado_pdf(aluno, ano_letivo, resultados, media_geral):
+_VALORES_POR_EXTENSO = {
+    0: 'Zero', 1: 'Um', 2: 'Dois', 3: 'Três', 4: 'Quatro', 5: 'Cinco',
+    6: 'Seis', 7: 'Sete', 8: 'Oito', 9: 'Nove', 10: 'Dez', 11: 'Onze',
+    12: 'Doze', 13: 'Treze', 14: 'Catorze', 15: 'Quinze', 16: 'Dezasseis',
+    17: 'Dezassete', 18: 'Dezoito', 19: 'Dezanove', 20: 'Vinte',
+}
+
+
+def _valor_por_extenso(valor):
+    if valor is None:
+        return None
+    return _VALORES_POR_EXTENSO.get(int(valor), str(valor))
+
+
+def _data_por_extenso(data):
+    from django.utils.formats import date_format
+
+    if not data:
+        return '-'
+    return date_format(data, format='j \\d\\e F \\d\\e Y')
+
+
+def exportar_certificado_pdf(aluno, turma, ano_letivo, resultados):
+    from decimal import ROUND_HALF_UP, Decimal
+
     from core.models import Escola
+    from django.contrib.staticfiles import finders
+    from django.utils import timezone
     from reportlab.lib import colors
+    from reportlab.lib.enums import TA_JUSTIFY
     from reportlab.lib.pagesizes import A4
-    from reportlab.lib.styles import getSampleStyleSheet
-    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
     output = BytesIO()
     documento = SimpleDocTemplate(
@@ -484,58 +511,137 @@ def exportar_certificado_pdf(aluno, ano_letivo, resultados, media_geral):
         pagesize=A4,
         rightMargin=48,
         leftMargin=48,
-        topMargin=48,
-        bottomMargin=48,
+        topMargin=40,
+        bottomMargin=40,
         title='Certificado',
     )
 
     escola = Escola.obter_configuracao()
     estilos = getSampleStyleSheet()
+    estilo_cabecalho = ParagraphStyle(
+        'CabecalhoCertificado', parent=estilos['Normal'],
+        fontName='Helvetica-Bold', fontSize=12, leading=15, alignment=1,
+    )
+    estilo_titulo = ParagraphStyle(
+        'TituloCertificado', parent=estilo_cabecalho, fontSize=13, spaceBefore=8,
+    )
+    estilo_corpo = ParagraphStyle(
+        'CorpoCertificado', parent=estilos['Normal'], fontSize=10.5, leading=16,
+        alignment=TA_JUSTIFY,
+    )
+    estilo_assinatura = ParagraphStyle(
+        'AssinaturaCertificado', parent=estilos['Normal'], fontSize=9.5, alignment=1,
+    )
     elementos = []
-    _cabecalho_escola(elementos, estilos, escola)
 
-    elementos.append(Paragraph('CERTIFICADO', estilos['Heading1']))
+    caminho_insignia = finders.find('images/insignia_angola.png')
+    if caminho_insignia:
+        insignia = Image(caminho_insignia, width=50, height=55)
+        insignia.hAlign = 'CENTER'
+        elementos.append(insignia)
+        elementos.append(Spacer(1, 4))
+
+    elementos.append(Paragraph('REPÚBLICA DE ANGOLA', estilo_cabecalho))
+    elementos.append(Paragraph(escola.ministerio if escola else 'Ministério da Educação', estilo_cabecalho))
     elementos.append(Spacer(1, 10))
 
-    encarregado = aluno.encarregado
-    texto = (
-        f'Certifica-se que o(a) aluno(a) <b>{aluno.nome}</b>, portador(a) do número de processo '
-        f'<b>{aluno.numero_processo}</b>, educando(a) do(a) encarregado(a) de educação '
-        f'<b>{encarregado}</b>, matriculado(a) na turma <b>{aluno.turma}</b>, frequentou o ano '
-        f'letivo de <b>{ano_letivo}</b>, tendo obtido as médias anuais discriminadas na tabela abaixo.'
-    )
-    elementos.append(Paragraph(texto, estilos['Normal']))
+    # EJA Iº/IIº Ano — o "ciclo" do certificado corresponde à classe da
+    # turma no momento da conclusão (ver Turma.eh_segundo_ano()).
+    titulo_ciclo = f'{turma.classe} CICLO DO ENSINO SECUNDÁRIO'
+    elementos.append(Paragraph(titulo_ciclo, estilo_titulo))
+    elementos.append(Paragraph('CERTIFICADO', estilo_titulo))
     elementos.append(Spacer(1, 16))
 
-    dados = [['Disciplina', 'Média Anual']]
-    for resultado in resultados:
-        dados.append([resultado.disciplina.nome, resultado.mf if resultado.mf else '-'])
+    nome_diretor = escola.nome_autoridade_visto if escola else ''
+    cargo_diretor = (escola.cargo_autoridade_visto if escola and escola.cargo_autoridade_visto
+                      else 'Director do Complexo Escolar')
+    nome_escola = escola.nome if escola else 'Gestão de Pautas'
+    decreto = escola.decreto_criacao if escola else ''
+    base_legal = escola.base_legal_certificado if escola else ''
+    livro_registo = escola.livro_registo_certificado if escola else ''
+    provincia = escola.provincia if escola else ''
 
-    tabela = Table(dados, repeatRows=1, colWidths=[300, 120])
+    resultados = list(resultados)
+    valores_mf = [r.mf for r in resultados if r.mf is not None]
+    media_geral = None
+    if valores_mf:
+        media_geral = (sum(valores_mf, Decimal('0')) / len(valores_mf)).quantize(
+            Decimal('1'), rounding=ROUND_HALF_UP
+        )
+
+    filiacao = f'{aluno.nome_pai} e de {aluno.nome_mae}' if aluno.nome_pai else f'{aluno.nome_mae or "-"}'
+    texto = (
+        f'<b>{nome_diretor}</b>, {cargo_diretor}, certifica que <b>{aluno.nome}</b>, filho(a) de '
+        f'{filiacao}, natural de {aluno.naturalidade or "-"}, Município de '
+        f'{aluno.municipio_natural or "-"}, Província de {aluno.provincia_natal or "-"}, nascido(a) aos '
+        f'{_data_por_extenso(aluno.data_nascimento)}, portador(a) do B.I. nº {aluno.numero_bi or "-"}, '
+        f'passado {aluno.local_emissao_bi or "-"} aos {_data_por_extenso(aluno.data_emissao_bi)}, '
+        f'concluiu no {nome_escola}'
+        + (f', criado sob decreto nº {decreto}' if decreto else '')
+        + f', no ano lectivo {ano_letivo} o {titulo_ciclo}'
+        + (f', conforme o disposto na {base_legal}' if base_legal else '')
+        + (f', com a média de {media_geral} Valores' if media_geral is not None else '')
+        + ' obtida nas seguintes classificações por trimestre de aprendizagem:'
+    )
+    elementos.append(Paragraph(texto, estilo_corpo))
+    elementos.append(Spacer(1, 16))
+
+    dados = [['Disciplina', 'Média 1º T', 'Média 2º T', 'Média 3º T', 'Média Final', 'Média por Extenso']]
+    for resultado in resultados:
+        extenso = _valor_por_extenso(resultado.mf)
+        dados.append([
+            resultado.disciplina.nome,
+            resultado.mt1 if resultado.mt1 is not None else '-',
+            resultado.mt2 if resultado.mt2 is not None else '-',
+            resultado.mt3 if resultado.mt3 is not None else '-',
+            resultado.mf if resultado.mf is not None else '-',
+            f'{extenso} Valores' if extenso else '-',
+        ])
+
+    tabela = Table(dados, repeatRows=1, colWidths=[145, 52, 52, 52, 58, 130])
     tabela.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#d9eaf7')),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('ALIGN', (1, 0), (1, -1), 'CENTER'),
+        ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
         ('GRID', (0, 0), (-1, -1), 0.4, colors.grey),
-        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('FONTSIZE', (0, 0), (-1, -1), 8.5),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f7f7f7')]),
     ]))
     elementos.append(tabela)
-    elementos.append(Spacer(1, 10))
-    elementos.append(Paragraph(f'Média Geral: <b>{media_geral if media_geral is not None else "-"}</b>', estilos['Normal']))
+    elementos.append(Spacer(1, 16))
 
+    elementos.append(Paragraph(
+        'Para efeitos legais lhe é passado o presente Certificado'
+        + (f', que consta no livro de registo {livro_registo}' if livro_registo else '')
+        + ', assinado por mim e autenticado com carimbo a óleo/selo branco em uso neste '
+        'estabelecimento de ensino.',
+        estilo_corpo,
+    ))
     elementos.append(Spacer(1, 10))
     elementos.append(Paragraph(
-        'Documento simplificado, gerado automaticamente pelo sistema de gestão de pautas, com base '
-        'nos dados académicos disponíveis.',
-        estilos['Italic'],
+        f'{nome_escola}{f" em {provincia}" if provincia else ""}, aos '
+        f'{_data_por_extenso(timezone.localdate())}.',
+        estilo_corpo,
     ))
+    elementos.append(Spacer(1, 40))
 
-    if escola and escola.nome_autoridade_visto:
-        elementos.append(Spacer(1, 30))
-        elementos.append(Paragraph(f'{escola.cargo_autoridade_visto.upper()}', estilos['Normal']))
-        elementos.append(Paragraph(escola.nome_autoridade_visto, estilos['Normal']))
+    linha_assinatura = '_' * 30
+    tabela_assinaturas = Table(
+        [
+            ['Confirido por', f'O {cargo_diretor}'],
+            [linha_assinatura, linha_assinatura],
+            ['', nome_diretor],
+        ],
+        colWidths=[220, 220],
+    )
+    tabela_assinaturas.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9.5),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    elementos.append(tabela_assinaturas)
 
     documento.build(elementos)
     output.seek(0)

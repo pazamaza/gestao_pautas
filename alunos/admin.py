@@ -88,6 +88,12 @@ class AlunoAdmin(admin.ModelAdmin):
         ('Vínculos', {
             'fields': ('turma', 'encarregado', 'estado')
         }),
+        ('Dados para o Certificado', {
+            'fields': (
+                'nome_pai', 'nome_mae', 'naturalidade', 'municipio_natural', 'provincia_natal',
+                'numero_bi', 'local_emissao_bi', 'data_emissao_bi', 'foto_bi',
+            ),
+        }),
         ('Registo', {
             'fields': ('criado_em', 'atualizado_em')
         }),

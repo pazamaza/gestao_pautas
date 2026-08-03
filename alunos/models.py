@@ -79,6 +79,63 @@ class Aluno(models.Model):
         null=True
     )
 
+    nome_pai = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='Nome do pai'
+    )
+
+    nome_mae = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='Nome da mãe'
+    )
+
+    naturalidade = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='Naturalidade',
+        help_text='Cidade/comuna de nascimento.'
+    )
+
+    municipio_natural = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='Município de naturalidade'
+    )
+
+    provincia_natal = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='Província de naturalidade'
+    )
+
+    numero_bi = models.CharField(
+        max_length=30,
+        blank=True,
+        verbose_name='Número do B.I.'
+    )
+
+    local_emissao_bi = models.CharField(
+        max_length=150,
+        blank=True,
+        verbose_name='Local de emissão do B.I.',
+        help_text='Ex.: Arquivo Nacional de Identificação de Luanda.'
+    )
+
+    data_emissao_bi = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Data de emissão do B.I.'
+    )
+
+    foto_bi = models.FileField(
+        upload_to='alunos/bi/',
+        blank=True,
+        null=True,
+        verbose_name='Fotocópia do B.I.'
+    )
+
     estado = models.CharField(
         max_length=20,
         choices=ESTADO_CHOICES,
@@ -119,6 +176,15 @@ class Aluno(models.Model):
         return hoje.year - self.data_nascimento.year - (
             (hoje.month, hoje.day) < (self.data_nascimento.month, self.data_nascimento.day)
         )
+
+    def dados_certificado_completos(self):
+        """Dados civis exigidos para emitir o Certificado — a filiação
+        paterna fica de fora porque nem todo aluno tem o pai indicado."""
+        campos_obrigatorios = (
+            self.nome_mae, self.naturalidade, self.municipio_natural,
+            self.provincia_natal, self.numero_bi, self.local_emissao_bi,
+        )
+        return all(campos_obrigatorios) and self.data_emissao_bi is not None and bool(self.foto_bi)
 
     def total_faltas(self):
         return self.frequencia_set.filter(estado='F').count()

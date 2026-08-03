@@ -70,6 +70,50 @@ class AlunoForm(forms.ModelForm):
             raise forms.ValidationError('Já existe um aluno com este número.')
         return numero
     
+class DadosCertificadoForm(forms.ModelForm):
+    class Meta:
+        model = Aluno
+        fields = [
+            'nome_pai', 'nome_mae', 'naturalidade', 'municipio_natural', 'provincia_natal',
+            'numero_bi', 'local_emissao_bi', 'data_emissao_bi', 'foto_bi',
+        ]
+        widgets = {
+            'nome_pai': forms.TextInput(attrs={'class': 'form-control'}),
+            'nome_mae': forms.TextInput(attrs={'class': 'form-control'}),
+            'naturalidade': forms.TextInput(attrs={'class': 'form-control'}),
+            'municipio_natural': forms.TextInput(attrs={'class': 'form-control'}),
+            'provincia_natal': forms.TextInput(attrs={'class': 'form-control'}),
+            'numero_bi': forms.TextInput(attrs={'class': 'form-control'}),
+            'local_emissao_bi': forms.TextInput(attrs={'class': 'form-control'}),
+            'data_emissao_bi': forms.DateInput(
+                format='%Y-%m-%d',
+                attrs={'class': 'form-control', 'type': 'date'},
+            ),
+            'foto_bi': forms.ClearableFileInput(attrs={'class': 'form-control'}),
+        }
+        labels = {
+            'naturalidade': 'Naturalidade (cidade/comuna de nascimento)',
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['data_emissao_bi'].input_formats = ['%Y-%m-%d']
+        if self.instance and self.instance.data_emissao_bi:
+            self.initial['data_emissao_bi'] = self.instance.data_emissao_bi.strftime('%Y-%m-%d')
+
+        # Nome do pai fica opcional (pode não se aplicar); os restantes são
+        # exigidos para o certificado. O B.I. só é obrigatório anexar uma
+        # vez — depois disso o aluno pode editar os outros campos sem ter
+        # de voltar a carregar o ficheiro.
+        for campo in (
+            'nome_mae', 'naturalidade', 'municipio_natural', 'provincia_natal',
+            'numero_bi', 'local_emissao_bi', 'data_emissao_bi',
+        ):
+            self.fields[campo].required = True
+        if not (self.instance and self.instance.foto_bi):
+            self.fields['foto_bi'].required = True
+
+
 class EncarregadoCadastroForm(forms.Form):
 
     first_name = forms.CharField(

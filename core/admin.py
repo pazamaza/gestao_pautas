@@ -23,6 +23,13 @@ class EscolaAdmin(admin.ModelAdmin):
                 'nome definido em "Visto" acima.'
             ),
         }),
+        ('Certificado', {
+            'fields': ('provincia', 'decreto_criacao', 'livro_registo_certificado', 'base_legal_certificado'),
+            'description': (
+                'Textos fixos usados no Certificado. A assinatura do Director do '
+                'Complexo Escolar reutiliza o nome definido em "Visto" acima.'
+            ),
+        }),
     )
 
     def has_add_permission(self, request):

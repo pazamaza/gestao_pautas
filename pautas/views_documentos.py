@@ -1,5 +1,3 @@
-from decimal import Decimal
-
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
@@ -14,6 +12,8 @@ from accounts.decoracors import (
     aluno_requerido,
 )
 from accounts.utils import eh_administrador
+from alunos.forms import DadosCertificadoForm
+from alunos.models import Matricula
 from notificacoes.models import Notificacao
 from notificacoes.services import notificar
 from professores.models import DiretorTurma
@@ -71,6 +71,17 @@ def solicitar_documento(request):
     if request.method == 'POST':
         form = SolicitarDocumentoForm(request.POST)
         if form.is_valid():
+            if (
+                form.cleaned_data['tipo'] == PedidoDocumento.TIPO_CERTIFICADO
+                and not aluno.dados_certificado_completos()
+            ):
+                messages.warning(
+                    request,
+                    'Antes de solicitar o Certificado, complete os seus dados pessoais '
+                    'e anexe a fotocópia do B.I.',
+                )
+                return redirect('completar_dados_certificado')
+
             pedido = PedidoDocumento.objects.create(
                 aluno=aluno,
                 tipo=form.cleaned_data['tipo'],
@@ -91,6 +102,24 @@ def solicitar_documento(request):
         form = SolicitarDocumentoForm()
 
     return render(request, 'pautas/solicitar_documento.html', {'form': form})
+
+
+@aluno_requerido
+def completar_dados_certificado(request):
+    aluno = getattr(request.user, 'aluno', None)
+    if not aluno:
+        return render(request, 'dashboards/sem_permissao.html', status=403)
+
+    if request.method == 'POST':
+        form = DadosCertificadoForm(request.POST, request.FILES, instance=aluno)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Dados guardados com sucesso.')
+            return redirect('meus_pedidos_documentos')
+    else:
+        form = DadosCertificadoForm(instance=aluno)
+
+    return render(request, 'pautas/completar_dados_certificado.html', {'form': form, 'aluno': aluno})
 
 
 @aluno_requerido
@@ -293,12 +322,11 @@ def pedido_emitir_pdf(request, pk):
         arquivo = exportar_boletim_pdf(pedido.aluno, pedido.ano_letivo, resultados)
         nome = f'boletim_{pedido.aluno.numero_processo}_{pedido.ano_letivo_id}.pdf'
     else:
-        media_geral = None
-        if resultados:
-            media_geral = (
-                sum((r.mf for r in resultados), Decimal('0')) / len(resultados)
-            ).quantize(Decimal('0.1'))
-        arquivo = exportar_certificado_pdf(pedido.aluno, pedido.ano_letivo, resultados, media_geral)
+        matricula = Matricula.objects.filter(
+            aluno=pedido.aluno, ano_letivo=pedido.ano_letivo
+        ).select_related('turma__classe').first()
+        turma = matricula.turma if matricula else pedido.aluno.turma
+        arquivo = exportar_certificado_pdf(pedido.aluno, turma, pedido.ano_letivo, resultados)
         nome = f'certificado_{pedido.aluno.numero_processo}_{pedido.ano_letivo_id}.pdf'
 
     return FileResponse(

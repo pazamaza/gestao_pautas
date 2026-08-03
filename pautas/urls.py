@@ -38,6 +38,7 @@ from .views import (
     resultado_validar,
 )
 from .views_documentos import (
+    completar_dados_certificado,
     meus_pedidos_documentos,
     pedido_autorizar,
     pedido_carregar_comprovativo,
@@ -104,6 +105,11 @@ urlpatterns = [
 
     path('documentos/solicitar/', solicitar_documento, name='solicitar_documento'),
     path('documentos/meus-pedidos/', meus_pedidos_documentos, name='meus_pedidos_documentos'),
+    path(
+        'documentos/dados-certificado/',
+        completar_dados_certificado,
+        name='completar_dados_certificado',
+    ),
     path(
         'documentos/<int:pk>/comprovativo/',
         pedido_carregar_comprovativo,

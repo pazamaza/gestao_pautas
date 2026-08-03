@@ -8,7 +8,12 @@ Meus Pedidos de Documentos
 <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h2 class="mb-0">Meus Pedidos de Documentos</h2>
-        <a href="{% url 'solicitar_documento' %}" class="btn btn-primary">Novo Pedido</a>
+        <div class="d-flex gap-2">
+            <a href="{% url 'completar_dados_certificado' %}" class="btn btn-outline-secondary">
+                Dados para o Certificado
+            </a>
+            <a href="{% url 'solicitar_documento' %}" class="btn btn-primary">Novo Pedido</a>
+        </div>
     </div>
 
     <div class="table-responsive">
