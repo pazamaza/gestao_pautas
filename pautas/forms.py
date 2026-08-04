@@ -74,11 +74,11 @@ class NotaForm(forms.ModelForm):
             ),
 
             'mac': forms.NumberInput(
-                attrs={'class': 'form-control'}
+                attrs={'class': 'form-control', 'inputmode': 'decimal'}
             ),
 
             'npt': forms.NumberInput(
-                attrs={'class': 'form-control'}
+                attrs={'class': 'form-control', 'inputmode': 'decimal'}
             ),
 
             'observacao': forms.Textarea(
@@ -125,7 +125,10 @@ class LancamentoNotaForm(forms.Form):
         min_value=0, max_value=20,
         required=False,
         widget=forms.NumberInput(
-            attrs={'class': 'form-control form-control-sm', 'step': '0.1', 'data-campo': 'mac'}
+            attrs={
+                'class': 'form-control form-control-sm', 'step': '0.1',
+                'data-campo': 'mac', 'inputmode': 'decimal',
+            }
         ),
     )
     npt = forms.DecimalField(
@@ -133,7 +136,10 @@ class LancamentoNotaForm(forms.Form):
         min_value=0, max_value=20,
         required=False,
         widget=forms.NumberInput(
-            attrs={'class': 'form-control form-control-sm', 'step': '0.1', 'data-campo': 'npt'}
+            attrs={
+                'class': 'form-control form-control-sm', 'step': '0.1',
+                'data-campo': 'npt', 'inputmode': 'decimal',
+            }
         ),
     )
 
@@ -172,18 +178,18 @@ class ResultadoDisciplinaForm(forms.ModelForm):
             ),
 
             'mt1': forms.NumberInput(
-                attrs={'class': 'form-control'}
+                attrs={'class': 'form-control', 'inputmode': 'decimal'}
             ),
 
             'mt2': forms.NumberInput(
-                attrs={'class': 'form-control'}
+                attrs={'class': 'form-control', 'inputmode': 'decimal'}
             ),
 
             'mt3': forms.NumberInput(
-                attrs={'class': 'form-control'}
+                attrs={'class': 'form-control', 'inputmode': 'decimal'}
             ),
 
             'nota_recurso': forms.NumberInput(
-                attrs={'class': 'form-control'}
+                attrs={'class': 'form-control', 'inputmode': 'decimal'}
             ),
         }
