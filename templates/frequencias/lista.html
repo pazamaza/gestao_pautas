@@ -23,8 +23,8 @@
             <label class="form-label">Filtrar por dia</label>
             <input type="date" name="data" class="form-control" value="{{ data_filtro }}" onchange="this.form.submit()">
         </div>
-        <input type="hidden" name="turma" value="{{ turma_id }}">
-        <input type="hidden" name="mes" value="{{ mes }}">
+        <input type="hidden" name="turma" value="{{ turma_id|default_if_none:'' }}">
+        <input type="hidden" name="mes" value="{{ mes|default_if_none:'' }}">
         <div class="col-md-3">
             <button type="submit" class="btn btn-outline-primary">Filtrar</button>
             <a href="{% url 'frequencia_lista' %}" class="btn btn-outline-secondary">Limpar</a>
@@ -39,7 +39,7 @@
                 <th>Disciplina</th>
                 <th>
                     <a class="link-dark text-decoration-none"
-                       href="?data={{ data_filtro }}&turma={{ turma_id }}&mes={{ mes }}&ordenar={% if ordenacao == '-data' %}data{% else %}-data{% endif %}">
+                       href="?data={{ data_filtro }}&turma={{ turma_id|default_if_none:'' }}&mes={{ mes|default_if_none:'' }}&ordenar={% if ordenacao == '-data' %}data{% else %}-data{% endif %}">
                         Data {% if ordenacao == '-data' %}&#9660;{% else %}&#9650;{% endif %}
                     </a>
                 </th>

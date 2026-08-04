@@ -9,6 +9,46 @@ document.addEventListener('DOMContentLoaded', function () {
         return el ? JSON.parse(el.textContent) : [];
     }
 
+    function paraNumero(valor) {
+        if (valor === null || valor === undefined || valor === '') return null;
+        const numero = parseFloat(valor);
+        return isNaN(numero) ? null : numero;
+    }
+
+    function arredondar(valor) {
+        return Math.round(valor);
+    }
+
+    // Calculadora "Nota necessária" — mesmo cálculo usado no dashboard do
+    // professor (static/js/lancamento_notas.js): MT = (MAC + NPT) / 2.
+    const btnCalcAluno = document.getElementById('calcAlunoNotaNecessariaBtn');
+    if (btnCalcAluno) {
+        btnCalcAluno.addEventListener('click', function () {
+            const resultado = document.getElementById('calcAlunoNotaNecessariaResultado');
+            const mac = paraNumero(document.getElementById('calcAlunoMac').value);
+            const npt = paraNumero(document.getElementById('calcAlunoNpt').value);
+            const mtDesejada = paraNumero(document.getElementById('calcAlunoMtDesejada').value);
+
+            const preenchidos = [mac, npt].filter(function (v) { return v !== null; }).length;
+
+            resultado.classList.remove('d-none', 'alert-danger', 'alert-info');
+            if (mtDesejada === null || preenchidos !== 1) {
+                resultado.textContent = 'Preenche a média desejada e exatamente um dos campos (MAC ou NPT) — o outro será calculado.';
+                resultado.classList.add('alert-danger');
+                return;
+            }
+
+            if (mac === null) {
+                const macNecessario = arredondar(2 * mtDesejada - npt);
+                resultado.textContent = 'Precisa de MAC = ' + macNecessario.toFixed(1) + ' para atingir a média ' + mtDesejada.toFixed(1) + '.';
+            } else {
+                const nptNecessario = arredondar(2 * mtDesejada - mac);
+                resultado.textContent = 'Precisa de NPT = ' + nptNecessario.toFixed(1) + ' para atingir a média ' + mtDesejada.toFixed(1) + '.';
+            }
+            resultado.classList.add('alert-info');
+        });
+    }
+
     // Desenha um "anel"/gauge (doughnut com um buraco grande, cutout: 75%,
     // e um texto escrito no centro via um plugin custom 'afterDraw' — o
     // Chart.js não tem texto central nativo em doughnuts, por isso o valor

@@ -64,7 +64,7 @@ class FrequenciaListView(LoginRequiredMixin, ListView):
             queryset = queryset.filter(data=data)
 
         turma_id = self.request.GET.get('turma')
-        if turma_id:
+        if turma_id and turma_id.isdigit():
             queryset = queryset.filter(atribuicao__turma_id=turma_id)
 
         mes_str = self.request.GET.get('mes')
@@ -89,6 +89,7 @@ class FrequenciaListView(LoginRequiredMixin, ListView):
         )
         context['mes'] = self.request.GET.get('mes', '')
         turma_id = self.request.GET.get('turma')
+        turma_id = turma_id if turma_id and turma_id.isdigit() else None
         context['turma_id'] = turma_id
         context['turma_selecionada'] = (
             Turma.objects.filter(pk=turma_id).first() if turma_id else None

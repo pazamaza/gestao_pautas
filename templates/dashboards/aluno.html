@@ -67,6 +67,31 @@ Dashboard do Aluno
                             {{ frequencia|json_script:"frequencia-valor" }}
                         </div>
                     </div>
+
+                    <hr>
+
+                    <h6 class="mb-2">Calculadora — Nota Necessária</h6>
+                    <p class="text-muted small mb-2">MT = (MAC + NPT) / 2. Preenche a média desejada e um dos campos — calculo o outro.</p>
+                    <div class="row g-2 align-items-end">
+                        <div class="col-sm-3">
+                            <label class="form-label small mb-1">MAC</label>
+                            <input type="number" inputmode="decimal" step="0.1" min="0" max="20" class="form-control form-control-sm" id="calcAlunoMac">
+                        </div>
+                        <div class="col-sm-3">
+                            <label class="form-label small mb-1">NPT</label>
+                            <input type="number" inputmode="decimal" step="0.1" min="0" max="20" class="form-control form-control-sm" id="calcAlunoNpt">
+                        </div>
+                        <div class="col-sm-3">
+                            <label class="form-label small mb-1">Média desejada</label>
+                            <input type="number" inputmode="decimal" step="0.1" min="0" max="20" class="form-control form-control-sm" id="calcAlunoMtDesejada">
+                        </div>
+                        <div class="col-sm-3">
+                            <button type="button" class="btn btn-outline-primary btn-sm w-100" id="calcAlunoNotaNecessariaBtn">
+                                Calcular
+                            </button>
+                        </div>
+                    </div>
+                    <div class="alert alert-info mt-2 mb-0 d-none" id="calcAlunoNotaNecessariaResultado"></div>
                 </div>
             </div>
         </div>
@@ -77,7 +102,7 @@ Dashboard do Aluno
                         Avaliações do Período Atual
                         {% if periodo_atual %}<span class="text-muted small">({{ periodo_atual.nome }})</span>{% endif %}
                     </h6>
-                    <ul class="list-group list-group-flush">
+                    <ul class="list-group list-group-flush" style="max-height:360px;overflow-y:auto;">
                         {% for avaliacao in avaliacoes_periodo %}
                         <li class="list-group-item d-flex justify-content-between align-items-center px-0">
                             <span>{{ avaliacao.atribuicao.disciplina }}</span>
