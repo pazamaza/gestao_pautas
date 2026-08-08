@@ -1,10 +1,16 @@
 from django import forms
 from django.contrib import messages
-from django.shortcuts import render, redirect
+from django.db.models import Q
+from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse_lazy
 from django.contrib.auth import login, update_session_auth_hash
 from django.contrib.auth import logout
 from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Group, User
+from django.views import View
+from django.views.generic import ListView, DetailView, DeleteView
+from .forms import AdministradorCadastroForm, AdministradorEdicaoForm
+from .mixins import SuperuserRequeridoMixin
 from .models import Perfil
 from django.contrib.auth.decorators import login_required
 from .utils import usuario_do_grupo, eh_administrador
@@ -556,3 +562,92 @@ def perfil(request):
         'accounts/perfil.html',
         {'dados_form': dados_form, 'senha_form': senha_form},
     )
+
+
+def _administradores_qs():
+    return User.objects.filter(
+        Q(groups__name='Administrador') | Q(is_superuser=True)
+    ).distinct()
+
+
+class AdministradorListView(SuperuserRequeridoMixin, ListView):
+    model = User
+    template_name = 'accounts/administrador_lista.html'
+    context_object_name = 'administradores'
+
+    def get_queryset(self):
+        return _administradores_qs().order_by('username')
+
+
+class AdministradorCreateView(SuperuserRequeridoMixin, View):
+    template_name = 'accounts/administrador_cadastro.html'
+
+    def get(self, request):
+        form = AdministradorCadastroForm()
+        return render(request, self.template_name, {'form': form})
+
+    def post(self, request):
+        form = AdministradorCadastroForm(request.POST)
+        if form.is_valid():
+            user = User.objects.create_user(
+                username=form.cleaned_data['username'],
+                password=form.cleaned_data['password'],
+                first_name=form.cleaned_data['first_name'],
+                last_name=form.cleaned_data['last_name'],
+                email=form.cleaned_data['email'],
+            )
+            grupo_administrador, _ = Group.objects.get_or_create(name='Administrador')
+            user.groups.add(grupo_administrador)
+            messages.success(request, 'Administrador cadastrado com sucesso.')
+            return redirect('administrador_lista')
+        return render(request, self.template_name, {'form': form})
+
+
+class AdministradorDetailView(SuperuserRequeridoMixin, DetailView):
+    template_name = 'accounts/administrador_detalhe.html'
+    context_object_name = 'administrador'
+
+    def get_queryset(self):
+        return _administradores_qs()
+
+
+class AdministradorUpdateView(SuperuserRequeridoMixin, View):
+    template_name = 'accounts/administrador_editar.html'
+
+    def get(self, request, pk):
+        administrador = get_object_or_404(_administradores_qs(), pk=pk)
+        form = AdministradorEdicaoForm(initial={
+            'first_name': administrador.first_name,
+            'last_name': administrador.last_name,
+            'email': administrador.email,
+            'ativo': administrador.is_active,
+        })
+        return render(request, self.template_name, {'form': form, 'administrador': administrador})
+
+    def post(self, request, pk):
+        administrador = get_object_or_404(_administradores_qs(), pk=pk)
+        form = AdministradorEdicaoForm(request.POST)
+        if form.is_valid():
+            administrador.first_name = form.cleaned_data['first_name']
+            administrador.last_name = form.cleaned_data['last_name']
+            administrador.email = form.cleaned_data['email']
+            administrador.is_active = form.cleaned_data['ativo']
+            administrador.save()
+            messages.success(request, 'Administrador atualizado com sucesso.')
+            return redirect('administrador_lista')
+        return render(request, self.template_name, {'form': form, 'administrador': administrador})
+
+
+class AdministradorDeleteView(SuperuserRequeridoMixin, DeleteView):
+    template_name = 'accounts/administrador_excluir.html'
+    context_object_name = 'administrador'
+    success_url = reverse_lazy('administrador_lista')
+
+    def get_queryset(self):
+        return _administradores_qs()
+
+    def post(self, request, *args, **kwargs):
+        if self.get_object() == request.user:
+            messages.error(request, 'Não é possível eliminar a sua própria conta.')
+            return redirect('administrador_lista')
+        return super().post(request, *args, **kwargs)

@@ -1,33 +1,67 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="container mt-4">
-    <h2>Atribuições Docentes</h2>
-    <a href="{% url 'atribuicao_nova' %}"
-       class="btn btn-primary mb-3">
-        Nova Atribuição </a>
-    <table class="table table-striped">
-        <thead>
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h2>Atribuições Docentes {% if ano_letivo %}<small class="text-muted">— {{ ano_letivo }}</small>{% endif %}</h2>
+        <a href="{% url 'atribuicao_nova' %}" class="btn btn-primary">Nova Atribuição</a>
+    </div>
+
+    {% if not ano_letivo %}
+    <div class="alert alert-warning mt-3">Nenhum ano letivo cadastrado.</div>
+    {% elif not colunas_classes %}
+    <div class="alert alert-warning mt-3">Nenhuma turma ativa cadastrada em {{ ano_letivo }}.</div>
+    {% endif %}
+
+    <div class="table-responsive">
+    <table class="table table-striped table-bordered mt-3 text-center align-middle">
+        <thead class="table-primary">
             <tr>
-                <th>Professor</th>
-                <th>Disciplina</th>
-                <th>Turma</th>
+                <th rowspan="2" class="align-middle">Professor</th>
+                <th rowspan="2" class="align-middle">Disciplina</th>
+                {% for bloco in colunas_classes %}
+                <th colspan="{{ bloco.turmas|length }}">{{ bloco.classe }}</th>
+                {% endfor %}
+            </tr>
+            <tr>
+                {% for bloco in colunas_classes %}
+                    {% for turma in bloco.turmas %}
+                    <th title="{{ turma }}">{{ turma.nome }}</th>
+                    {% endfor %}
+                {% endfor %}
             </tr>
         </thead>
         <tbody>
-            {% for item in atribuicoes %}
+            {% for professor_bloco in blocos_professores %}
+            {% for linha in professor_bloco.linhas %}
             <tr>
-                <td>{{ item.professor }}</td>
-                <td>{{ item.disciplina }}</td>
-                <td>{{ item.turma }}</td>
+                {% if forloop.first %}
+                <td rowspan="{{ professor_bloco.rowspan }}" class="text-start">{{ professor_bloco.professor }}</td>
+                {% endif %}
+                <td class="text-start">{{ linha.disciplina }}</td>
+                {% for celula in linha.celulas %}
+                <td>
+                    {% if celula %}
+                    <a href="{% url 'atribuicao_detalhe' celula.pk %}"
+                       class="badge text-decoration-none {% if celula.ativo %}bg-success{% else %}bg-secondary{% endif %}"
+                       title="{{ celula.turma }} — {% if celula.ativo %}Ativa{% else %}Inativa{% endif %}">
+                        ✓
+                    </a>
+                    {% else %}
+                    <span class="text-muted">—</span>
+                    {% endif %}
+                </td>
+                {% endfor %}
             </tr>
+            {% endfor %}
             {% empty %}
             <tr>
-                <td colspan="3">
+                <td colspan="{{ colunas_classes|length|add:2 }}">
                     Nenhuma atribuição encontrada.
                 </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
+    </div>
 </div>
 {% endblock %}

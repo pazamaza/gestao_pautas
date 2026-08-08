@@ -4,57 +4,56 @@
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between">
         <h2>Professores</h2>
+        <a href="{% url 'professor_novo' %}" class="btn btn-primary">Novo Professor</a>
     </div>
 
     <div class="table-responsive">
-   <table class="table table-striped mt-3" style="width:100%;">
+   <table class="table table-striped table-bordered mt-3" style="width:100%;">
         <thead>
             <tr>
-                <th>Nº Funcionario</th>
-                <th>Nome</th>
-                <th>Disciplina</th>
-                <th>Turma</th>
-                <th>Diretor de Turma</th>
+                <th>Nº Func</th>
+                <th>Professor</th>
                 <th>Telefone</th>
+                <th>Disciplina</th>
+                <th>Turmas</th>
+                <th>Dir/Turma</th>
+                <!--<th>Estado</th>-->
+                <th>Ações</th>
             </tr>
         </thead>
         <tbody>
-{% for professor in professores %}
+{% for linha in linhas_professores %}
+{% for item in linha.disciplinas %}
 <tr>
-    <td>{{ professor.numero_funcionario }}</td>
+    {% if forloop.first %}
+    <td rowspan="{{ linha.rowspan }}">{{ linha.professor.numero_funcionario }}</td>
+    <td rowspan="{{ linha.rowspan }}">{{ linha.professor }}</td>
+    <td rowspan="{{ linha.rowspan }}">{{ linha.professor.telefone|default:"—" }}</td>
+    {% endif %}
 
-    <td>{{ professor }}</td>
+    <td>{{ item.disciplina|default:"—" }}</td>
+    <td>{{ item.turmas|default:"—" }}</td>
 
-    <td>
-        {% for atr in professor.atribuicaodocente_set.all %}
-            {{ atr.disciplina }}<br>
-        {% empty %}
-            —
-        {% endfor %}
+    {% if forloop.first %}
+    <td rowspan="{{ linha.rowspan }}">{{ linha.dir_turma|default:"—" }}</td>
+    <!--<td rowspan="{{ linha.rowspan }}">
+        {% if linha.professor.ativo %}
+        <span class="badge bg-success">Ativo</span>
+        {% else %}
+        <span class="badge bg-secondary">Inativo</span>
+        {% endif %}
+    </td>-->
+    <td rowspan="{{ linha.rowspan }}">
+        <a href="{% url 'professor_detalhe' linha.professor.pk %}" class="btn btn-info btn-sm">Detalhes</a>
+        <a href="{% url 'professor_editar' linha.professor.pk %}" class="btn btn-warning btn-sm">Editar</a>
+        <a href="{% url 'professor_excluir' linha.professor.pk %}" class="btn btn-danger btn-sm">Excluir</a>
     </td>
-
-    <td>
-        {% for atr in professor.atribuicaodocente_set.all %}
-            {{ atr.turma }}<br>
-        {% empty %}
-            —
-        {% endfor %}
-    </td>
-
-    <td>
-        {% for diretoria in professor.diretorias_ativas %}
-            {{ diretoria.turma }}<br>
-        {% empty %}
-            —
-        {% endfor %}
-    </td>
-
-    <td>{{ professor.telefone }}</td>
+    {% endif %}
 </tr>
-
+{% endfor %}
 {% empty %}
 <tr>
-    <td colspan="6">Nenhum professor cadastrado.</td>
+    <td colspan="8">Nenhum professor cadastrado.</td>
 </tr>
 {% endfor %}
 </tbody>

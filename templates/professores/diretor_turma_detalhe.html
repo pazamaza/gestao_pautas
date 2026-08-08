@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}Detalhes do Diretor de Turma{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h3>Diretor de Turma</h3>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <tr>
+                    <th>Professor</th>
+                    <td>{{ diretor.professor }}</td>
+                </tr>
+                <tr>
+                    <th>Turma</th>
+                    <td>{{ diretor.turma }}</td>
+                </tr>
+                <tr>
+                    <th>Estado</th>
+                    <td>{{ diretor.ativo|yesno:"Ativo,Inativo" }}</td>
+                </tr>
+            </table>
+
+            <a href="{% url 'diretor_turma_editar' diretor.pk %}" class="btn btn-primary">Editar</a>
+            <a href="{% url 'diretor_turma_lista' %}" class="btn btn-secondary">Voltar</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

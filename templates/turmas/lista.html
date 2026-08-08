@@ -1,28 +1,13 @@
 {% extends 'base.html' %}
-
-{% block title %}
-Turmas
-{% endblock %}
-
+{% block title %}Turmas{% endblock %}
 {% block content %}
-
 <div class="container-fluid mt-4">
-
     <div class="d-flex justify-content-between">
-
         <h2>Turmas</h2>
-
-        <!--<a href="{% url 'turma_novo' %}"
-           class="btn btn-primary">
-
-            Nova Turma
-
-        </a>-->
-
+        <a href="{% url 'turma_novo' %}"
+           class="btn btn-primary">Nova Turma</a>
     </div>
-
     <form method="get" class="row g-2 mt-3 align-items-center">
-
         <div class="col-auto">
             <input
                 type="text"
@@ -31,7 +16,6 @@ Turmas
                 class="form-control"
                 placeholder="Pesquisar turma">
         </div>
-
         <div class="col-auto">
             <select name="ano_letivo" class="form-select">
                 <option value="">Todos os Anos Letivos</option>
@@ -43,19 +27,13 @@ Turmas
                 {% endfor %}
             </select>
         </div>
-
         <div class="col-auto">
             <button type="submit" class="btn btn-outline-primary">Filtrar</button>
         </div>
-
     </form>
-
     <div class="table-responsive">
-
         <table class="table table-striped table-hover mt-3">
-
             <thead class="table-primary">
-
                 <tr>
                     <th>ID</th>
                     <th>Turma</th>
@@ -64,6 +42,7 @@ Turmas
                     <th>Período</th>
                     <th>Nº Alunos</th>
                     <th>Estado</th>
+                    <th>Ações</th>
                 </tr>
             </thead>
             <tbody>
@@ -83,10 +62,25 @@ Turmas
                         {% endif %}
                     </td>
                     <td>
-                        <!--<a href="{% url 'turma_editar' turma.id %}"
+                        <a href="{% url 'turma_detalhe' turma.id %}"
+                           class="btn btn-info btn-sm">
+                            Detalhes
+                        </a>
+                        <a href="{% url 'turma_editar' turma.id %}"
                            class="btn btn-warning btn-sm">
                             Editar
-                        </a>-->
+                        </a>
+                        {% if turma.ativo %}
+                        <a href="{% url 'turma_desativar' turma.id %}"
+                           class="btn btn-danger btn-sm">
+                            Desativar
+                        </a>
+                        {% else %}
+                        <a href="{% url 'turma_reativar' turma.id %}"
+                           class="btn btn-success btn-sm">
+                            Reativar
+                        </a>
+                        {% endif %}
                     </td>
                 </tr>
             {% empty %}

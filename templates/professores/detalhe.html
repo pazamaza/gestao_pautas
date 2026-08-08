@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% block title %}Detalhes do Professor{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h3>{{ professor }}</h3>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <tr>
+                    <th>Nº Funcionário</th>
+                    <td>{{ professor.numero_funcionario }}</td>
+                </tr>
+                <tr>
+                    <th>Utilizador</th>
+                    <td>{{ professor.user.username }}</td>
+                </tr>
+                <tr>
+                    <th>Email</th>
+                    <td>{{ professor.user.email|default:"—" }}</td>
+                </tr>
+                <tr>
+                    <th>Telefone</th>
+                    <td>{{ professor.telefone|default:"—" }}</td>
+                </tr>
+                <tr>
+                    <th>Estado</th>
+                    <td>{{ professor.ativo|yesno:"Ativo,Inativo" }}</td>
+                </tr>
+            </table>
+
+            <h5>Atribuições</h5>
+            <ul class="list-group mb-3">
+                {% for atr in professor.atribuicaodocente_set.all %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    {{ atr.disciplina }} — {{ atr.turma }}
+                    <a href="{% url 'atribuicao_editar' atr.pk %}" class="btn btn-outline-warning btn-sm">Editar</a>
+                </li>
+                {% empty %}
+                <li class="list-group-item">Nenhuma atribuição.</li>
+                {% endfor %}
+            </ul>
+
+            <h5>Diretor de Turma</h5>
+            <ul class="list-group mb-3">
+                {% for diretoria in diretorias_ativas %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    {{ diretoria.turma }}
+                    <a href="{% url 'diretor_turma_editar' diretoria.pk %}" class="btn btn-outline-warning btn-sm">Editar</a>
+                </li>
+                {% empty %}
+                <li class="list-group-item">Nenhuma diretoria ativa.</li>
+                {% endfor %}
+            </ul>
+
+            <a href="{% url 'professor_editar' professor.pk %}" class="btn btn-primary">Editar</a>
+            <a href="{% url 'professor_lista' %}" class="btn btn-secondary">Voltar</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

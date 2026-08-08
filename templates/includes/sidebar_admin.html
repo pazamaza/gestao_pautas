@@ -1,0 +1,23 @@
+<div class="admin-sidebar bg-light border-end p-3">
+    <h6 class="text-uppercase text-muted small fw-bold mb-2">Cadastros</h6>
+    <ul class="nav nav-pills flex-column mb-3">
+        <li class="nav-item"><a class="nav-link" href="{% url 'aluno_lista' %}">Estudantes</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'encarregado_lista' %}">Encarregados</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'professor_lista' %}">Professores</a></li>
+        {% if user.is_superuser %}
+        <li class="nav-item"><a class="nav-link" href="{% url 'administrador_lista' %}">Administradores</a></li>
+        {% endif %}
+        <li class="nav-item"><a class="nav-link" href="{% url 'turma_lista' %}">Turmas</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'disciplina_lista' %}">Disciplinas</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'diretor_turma_lista' %}">Diretores de Turma</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'periodo_lista' %}">Períodos de Lançamento</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'atribuicao_lista' %}">Atribuições Docentes</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'frequencia_lista' %}">Frequências</a></li>
+    </ul>
+
+    <h6 class="text-uppercase text-muted small fw-bold mb-2">Pautas</h6>
+    <ul class="nav nav-pills flex-column">
+        <li class="nav-item"><a class="nav-link" href="{% url 'pauta_final_turma' %}">Pautas Finais</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'mini_pauta_trimestral' %}">Mini-Pauta Trimestral</a></li>
+    </ul>
+</div>

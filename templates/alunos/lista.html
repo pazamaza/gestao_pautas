@@ -3,6 +3,7 @@
 <div class="container mt-4">
     <div class="d-flex justify-content-between">
         <h2>Alunos</h2>
+        <a href="{% url 'aluno_novo' %}" class="btn btn-primary">Novo Aluno</a>
     </div>
     <form method="get" class="row g-2 align-items-end mt-3">
         <div class="col-md-4">
@@ -52,10 +53,10 @@
                 <td>{{ aluno.encarregado }}</td>
                 <td>{{ aluno.get_estado_display }}</td>
                 <td>
-
-    <a href="{% url 'aluno_detalhe' aluno.id %}"
-       class="btn btn-info btn-sm">Detalhes</a>
-</td>
+                    <a href="{% url 'aluno_detalhe' aluno.id %}" class="btn btn-info btn-sm">Detalhes</a>
+                    <a href="{% url 'aluno_editar' aluno.id %}" class="btn btn-warning btn-sm">Editar</a>
+                    <a href="{% url 'aluno_excluir' aluno.id %}" class="btn btn-danger btn-sm">Excluir</a>
+                </td>
             </tr>
             {% endfor %}
         </tbody>

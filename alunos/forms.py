@@ -164,3 +164,41 @@ class EncarregadoCadastroForm(forms.Form):
             attrs={'class': 'form-control'}
         )
     )
+
+
+class EncarregadoEdicaoForm(forms.Form):
+
+    first_name = forms.CharField(
+        label='Nome',
+        widget=forms.TextInput(
+            attrs={'class': 'form-control'}
+        )
+    )
+
+    last_name = forms.CharField(
+        label='Apelido',
+        required=False,
+        widget=forms.TextInput(
+            attrs={'class': 'form-control'}
+        )
+    )
+
+    email = forms.EmailField(
+        required=False,
+        widget=forms.EmailInput(
+            attrs={'class': 'form-control'}
+        )
+    )
+
+    telefone = forms.CharField(
+        widget=forms.TextInput(
+            attrs={'class': 'form-control'}
+        )
+    )
+
+    profissao = forms.CharField(
+        required=False,
+        widget=forms.TextInput(
+            attrs={'class': 'form-control'}
+        )
+    )

@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block title %}Detalhes do Encarregado{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h3>{{ encarregado }}</h3>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <tr>
+                    <th>Nome</th>
+                    <td>{{ encarregado.user.get_full_name|default:"—" }}</td>
+                </tr>
+                <tr>
+                    <th>Utilizador</th>
+                    <td>{{ encarregado.user.username }}</td>
+                </tr>
+                <tr>
+                    <th>Email</th>
+                    <td>{{ encarregado.user.email|default:"—" }}</td>
+                </tr>
+                <tr>
+                    <th>Telefone</th>
+                    <td>{{ encarregado.telefone|default:"—" }}</td>
+                </tr>
+                <tr>
+                    <th>Profissão</th>
+                    <td>{{ encarregado.profissao|default:"—" }}</td>
+                </tr>
+            </table>
+
+            <a href="{% url 'encarregado_editar' encarregado.pk %}" class="btn btn-primary">Editar</a>
+            <a href="{% url 'encarregado_lista' %}" class="btn btn-secondary">Voltar</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

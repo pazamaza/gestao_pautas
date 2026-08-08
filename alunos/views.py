@@ -1,10 +1,12 @@
+from django.contrib import messages
+from django.db.models import ProtectedError
 from django.urls import reverse_lazy
 from django.views.generic import (ListView, CreateView,
     UpdateView, DeleteView, DetailView)
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from .models import ( Aluno, Encarregado)
-from .forms import (AlunoForm, EncarregadoCadastroForm)
+from .forms import (AlunoForm, EncarregadoCadastroForm, EncarregadoEdicaoForm)
 from django.contrib.auth.models import Group, User
 from django.shortcuts import (render, redirect,
     get_object_or_404)
@@ -81,6 +83,9 @@ class EncarregadoListView(AdministradorRequeridoMixin, ListView):
     context_object_name = 'encarregados'
     paginate_by = 10
 
+    def get_queryset(self):
+        return Encarregado.objects.select_related('user').order_by('user__first_name', 'user__last_name')
+
 class EncarregadoCreateView(AdministradorRequeridoMixin, View):
     template_name = 'encarregados/cadastro.html'
     def get(self, request):
@@ -112,4 +117,59 @@ class EncarregadoCreateView(AdministradorRequeridoMixin, View):
             return redirect('encarregado_lista')
         return render(request,  self.template_name,
             {'form': form} )
-    
+
+
+class EncarregadoDetailView(AdministradorRequeridoMixin, DetailView):
+    model = Encarregado
+    template_name = 'encarregados/detalhe.html'
+    context_object_name = 'encarregado'
+
+
+class EncarregadoUpdateView(AdministradorRequeridoMixin, View):
+    template_name = 'encarregados/editar.html'
+
+    def get(self, request, pk):
+        encarregado = get_object_or_404(Encarregado, pk=pk)
+        form = EncarregadoEdicaoForm(initial={
+            'first_name': encarregado.user.first_name,
+            'last_name': encarregado.user.last_name,
+            'email': encarregado.user.email,
+            'telefone': encarregado.telefone,
+            'profissao': encarregado.profissao,
+        })
+        return render(request, self.template_name, {'form': form, 'encarregado': encarregado})
+
+    def post(self, request, pk):
+        encarregado = get_object_or_404(Encarregado, pk=pk)
+        form = EncarregadoEdicaoForm(request.POST)
+        if form.is_valid():
+            encarregado.user.first_name = form.cleaned_data['first_name']
+            encarregado.user.last_name = form.cleaned_data['last_name']
+            encarregado.user.email = form.cleaned_data['email']
+            encarregado.user.save()
+
+            encarregado.telefone = form.cleaned_data['telefone']
+            encarregado.profissao = form.cleaned_data['profissao']
+            encarregado.save()
+
+            messages.success(request, 'Encarregado atualizado com sucesso.')
+            return redirect('encarregado_lista')
+        return render(request, self.template_name, {'form': form, 'encarregado': encarregado})
+
+
+class EncarregadoDeleteView(AdministradorRequeridoMixin, DeleteView):
+    model = Encarregado
+    template_name = 'encarregados/excluir.html'
+    context_object_name = 'encarregado'
+    success_url = reverse_lazy('encarregado_lista')
+
+    def post(self, request, *args, **kwargs):
+        try:
+            return super().post(request, *args, **kwargs)
+        except ProtectedError:
+            messages.error(
+                request,
+                'Não é possível eliminar este encarregado: existem alunos associados a ele.'
+            )
+            return redirect('encarregado_lista')
+

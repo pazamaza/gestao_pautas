@@ -1,6 +1,6 @@
 from django.urls import reverse_lazy
 from django.views.generic import (ListView, CreateView,
-    UpdateView)
+    UpdateView, DetailView)
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
 from accounts.mixins import AdministradorRequeridoMixin
@@ -66,6 +66,11 @@ class TurmaUpdateView(AdministradorRequeridoMixin, UpdateView):
         'turma_lista'
     )
 
+class TurmaDetailView(AdministradorRequeridoMixin, DetailView):
+    model = Turma
+    template_name = 'turmas/detalhe.html'
+    context_object_name = 'turma'
+
 class TurmaInativaListView(AdministradorRequeridoMixin, ListView):
 
     model = Turma
@@ -98,3 +103,9 @@ class PeriodoAcademicoUpdateView(AdministradorRequeridoMixin, UpdateView):
     form_class = PeriodoAcademicoForm
     template_name = 'turmas/periodo_form.html'
     success_url = reverse_lazy('periodo_lista')
+
+
+class PeriodoAcademicoDetailView(AdministradorRequeridoMixin, DetailView):
+    model = PeriodoAcademico
+    template_name = 'turmas/periodo_detalhe.html'
+    context_object_name = 'periodo'

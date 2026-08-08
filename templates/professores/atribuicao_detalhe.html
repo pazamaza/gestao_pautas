@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Detalhes da Atribuição{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h3>Atribuição Docente</h3>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <tr>
+                    <th>Professor</th>
+                    <td>{{ atribuicao.professor }}</td>
+                </tr>
+                <tr>
+                    <th>Disciplina</th>
+                    <td>{{ atribuicao.disciplina }}</td>
+                </tr>
+                <tr>
+                    <th>Turma</th>
+                    <td>{{ atribuicao.turma }}</td>
+                </tr>
+                <tr>
+                    <th>Estado</th>
+                    <td>{{ atribuicao.ativo|yesno:"Ativa,Inativa" }}</td>
+                </tr>
+            </table>
+
+            <a href="{% url 'atribuicao_editar' atribuicao.pk %}" class="btn btn-primary">Editar</a>
+            {% if atribuicao.ativo %}
+            <a href="{% url 'atribuicao_desativar' atribuicao.pk %}" class="btn btn-danger">Desativar</a>
+            {% else %}
+            <a href="{% url 'atribuicao_reativar' atribuicao.pk %}" class="btn btn-success">Reativar</a>
+            {% endif %}
+            <a href="{% url 'atribuicao_lista' %}" class="btn btn-secondary">Voltar</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

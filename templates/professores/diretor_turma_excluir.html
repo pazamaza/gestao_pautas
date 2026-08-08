@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block title %}Eliminar Diretor de Turma{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-danger text-white">
+            Confirmar Eliminação
+        </div>
+        <div class="card-body">
+            <p>Tem certeza que deseja eliminar: <strong>{{ diretor }}</strong> ?</p>
+            <form method="post">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">Sim, Eliminar</button>
+                <a href="{% url 'diretor_turma_lista' %}" class="btn btn-secondary">Cancelar</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -48,6 +48,10 @@ Períodos de Lançamento
                         {% endif %}
                     </td>
                     <td>
+                        <a href="{% url 'periodo_detalhe' periodo.id %}"
+                           class="btn btn-info btn-sm">
+                            Detalhes
+                        </a>
                         <a href="{% url 'periodo_editar' periodo.id %}"
                            class="btn btn-warning btn-sm">
                             Editar

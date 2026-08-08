@@ -17,9 +17,14 @@
     <div class="container-fluid page-wrapper">
         <div class="row">
             <div class="col-12">
-                {% include 'includes/messages.html' %}
-                {% block content %}
-                {% endblock %}
+                <div class="{% if eh_administrador_nav %}admin-layout d-flex align-items-start{% endif %}">
+                    {% if eh_administrador_nav %}{% include 'includes/sidebar_admin.html' %}{% endif %}
+                    <div class="{% if eh_administrador_nav %}admin-main flex-grow-1{% endif %}">
+                        {% include 'includes/messages.html' %}
+                        {% block content %}
+                        {% endblock %}
+                    </div>
+                </div>
             </div>
         </div>
     </div>

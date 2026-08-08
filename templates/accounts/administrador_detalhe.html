@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block title %}Detalhes do Administrador{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h3>{{ administrador.get_full_name|default:administrador.username }}</h3>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <tr>
+                    <th>Utilizador</th>
+                    <td>{{ administrador.username }}</td>
+                </tr>
+                <tr>
+                    <th>Nome</th>
+                    <td>{{ administrador.first_name|default:"—" }}</td>
+                </tr>
+                <tr>
+                    <th>Apelido</th>
+                    <td>{{ administrador.last_name|default:"—" }}</td>
+                </tr>
+                <tr>
+                    <th>Email</th>
+                    <td>{{ administrador.email|default:"—" }}</td>
+                </tr>
+                <tr>
+                    <th>Superuser</th>
+                    <td>{{ administrador.is_superuser|yesno:"Sim,Não" }}</td>
+                </tr>
+                <tr>
+                    <th>Estado</th>
+                    <td>{{ administrador.is_active|yesno:"Ativo,Inativo" }}</td>
+                </tr>
+                <tr>
+                    <th>Último login</th>
+                    <td>{{ administrador.last_login|default:"—" }}</td>
+                </tr>
+            </table>
+
+            <a href="{% url 'administrador_editar' administrador.pk %}"
+               class="btn btn-primary">
+                Editar
+            </a>
+            <a href="{% url 'administrador_lista' %}"
+               class="btn btn-secondary">
+                Voltar
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

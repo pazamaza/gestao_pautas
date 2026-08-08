@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}Detalhes do Período{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h3>{{ periodo }}</h3>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <tr>
+                    <th>Nome</th>
+                    <td>{{ periodo.nome }}</td>
+                </tr>
+                <tr>
+                    <th>Ano Letivo</th>
+                    <td>{{ periodo.ano_letivo }}</td>
+                </tr>
+                <tr>
+                    <th>Início Lançamento</th>
+                    <td>{{ periodo.data_inicio_lancamento|default:"—" }}</td>
+                </tr>
+                <tr>
+                    <th>Fim Lançamento</th>
+                    <td>{{ periodo.data_fim_lancamento|default:"—" }}</td>
+                </tr>
+                <tr>
+                    <th>Estado</th>
+                    <td>
+                        {% if periodo.periodo_lancamento_ativo %}
+                        <span class="badge bg-success">Aberto para lançamento</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Fechado</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            </table>
+
+            <a href="{% url 'periodo_editar' periodo.pk %}" class="btn btn-primary">Editar</a>
+            <a href="{% url 'periodo_lista' %}" class="btn btn-secondary">Voltar</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
