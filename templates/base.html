@@ -17,14 +17,24 @@
     <div class="container-fluid page-wrapper">
         <div class="row">
             <div class="col-12">
-                <div class="{% if eh_administrador_nav %}admin-layout d-flex align-items-start{% endif %}">
-                    {% if eh_administrador_nav %}{% include 'includes/sidebar_admin.html' %}{% endif %}
-                    <div class="{% if eh_administrador_nav %}admin-main flex-grow-1{% endif %}">
+                {% comment %}
+                Sidebar do Administrador desactivado a pedido do utilizador:
+                repetia os mesmos links já disponíveis nos dropdowns
+                "Cadastros"/"Pautas" da navbar (includes/navbar.html) e
+                reduzia o espaço útil das páginas. Ficheiro mantido em
+                includes/sidebar_admin.html para reactivar facilmente, se
+                necessário — bastaria descomentar este bloco.
+                <div class="admin-layout d-flex align-items-start">
+                    {% include 'includes/sidebar_admin.html' %}
+                    <div class="admin-main flex-grow-1">
+                {% endcomment %}
                         {% include 'includes/messages.html' %}
                         {% block content %}
                         {% endblock %}
+                {% comment %}
                     </div>
                 </div>
+                {% endcomment %}
             </div>
         </div>
     </div>

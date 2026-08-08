@@ -30,7 +30,7 @@ ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
     #['*'],
-    '192.168.216.79',  # IP local para testes noutros dispositivos (rede Wi-Fi/LAN)
+    '192.168.184.79',  # IP local para testes noutros dispositivos (rede Wi-Fi/LAN)
 ]
 
 
