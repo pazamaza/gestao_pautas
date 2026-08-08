@@ -170,7 +170,18 @@ Pauta Final da Turma
                         —
                         {% endif %}
                     </td>
-                    <td class="text-start small">{{ linha.observacao|default:"—" }}</td>
+                    <td class="text-start small">
+                        {% if linha.recurso_detalhes %}
+                        {{ linha.recurso_detalhes|json_script:linha.recurso_detalhes_id }}
+                        <button type="button" class="btn btn-outline-info btn-sm recurso-detalhe-btn"
+                                data-aluno="{{ linha.aluno.nome }}"
+                                data-detalhes-id="{{ linha.recurso_detalhes_id }}">
+                            Recurso
+                        </button>
+                        {% else %}
+                        {{ linha.observacao|default:"—" }}
+                        {% endif %}
+                    </td>
                 </tr>
                 {% empty %}
                 <tr>
@@ -200,6 +211,21 @@ Pauta Final da Turma
                 <div class="modal-body" id="modalResumoAlunoBody">
                     <div class="text-center text-muted py-4">A carregar…</div>
                 </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalRecursoDetalhe" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Disciplinas em Recurso</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body" id="modalRecursoDetalheBody"></div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
                 </div>

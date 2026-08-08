@@ -92,4 +92,56 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
     }
+
+    // Botão "Recurso" na coluna Observação: abre um modal simples com as
+    // disciplinas em que o aluno fez recurso e o resultado de cada uma —
+    // os dados já vêm prontos do servidor (json_script por linha), sem
+    // pedido adicional.
+    const modalRecurso = document.getElementById('modalRecursoDetalhe');
+    const modalRecursoTitulo = modalRecurso ? modalRecurso.querySelector('.modal-title') : null;
+    const modalRecursoCorpo = document.getElementById('modalRecursoDetalheBody');
+    if (modalRecurso && modalRecursoCorpo && window.bootstrap) {
+        const modal = new window.bootstrap.Modal(modalRecurso);
+
+        document.querySelectorAll('.recurso-detalhe-btn').forEach(function (botao) {
+            botao.addEventListener('click', function () {
+                const dadosElemento = document.getElementById(botao.getAttribute('data-detalhes-id'));
+                const detalhes = dadosElemento ? JSON.parse(dadosElemento.textContent) : [];
+
+                if (modalRecursoTitulo) {
+                    modalRecursoTitulo.textContent = 'Recurso — ' + botao.getAttribute('data-aluno');
+                }
+
+                const tabela = document.createElement('table');
+                tabela.className = 'table table-bordered table-sm text-center align-middle mb-0';
+                tabela.innerHTML = (
+                    '<thead class="table-light"><tr><th class="text-start">Disciplina</th><th>Resultado</th></tr></thead>'
+                );
+                const corpoTabela = document.createElement('tbody');
+                detalhes.forEach(function (item) {
+                    const linha = document.createElement('tr');
+
+                    const celulaDisciplina = document.createElement('td');
+                    celulaDisciplina.className = 'text-start';
+                    celulaDisciplina.textContent = item.disciplina;
+
+                    const celulaResultado = document.createElement('td');
+                    const badge = document.createElement('span');
+                    badge.className = 'badge ' + (item.resultado === 'Aprovado' ? 'bg-success' : 'bg-danger');
+                    badge.textContent = item.resultado;
+                    celulaResultado.appendChild(badge);
+
+                    linha.appendChild(celulaDisciplina);
+                    linha.appendChild(celulaResultado);
+                    corpoTabela.appendChild(linha);
+                });
+                tabela.appendChild(corpoTabela);
+
+                modalRecursoCorpo.innerHTML = '';
+                modalRecursoCorpo.appendChild(tabela);
+
+                modal.show();
+            });
+        });
+    }
 });

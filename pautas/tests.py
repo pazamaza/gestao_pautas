@@ -694,8 +694,9 @@ class FaltasReprovamDisciplinaTests(BaseLegalCalculoTestBase):
 
 class PautaGeralObservacaoTests(BaseLegalCalculoTestBase):
     """A coluna "Observação" da pauta geral: lista as disciplinas ainda
-    pendentes de recurso, ou um "Aprovado"/"Reprovado" curto depois de
-    resolvido — ver services/resultados.py:_observacao_recurso."""
+    pendentes de recurso, ou um simples "Recurso" depois de resolvido — o
+    resultado (Aprovado/Reprovado) já vai na coluna "Situação Geral", não é
+    repetido aqui — ver services/resultados.py:_info_recurso."""
 
     def setUp(self):
         super().setUp()
@@ -719,27 +720,23 @@ class PautaGeralObservacaoTests(BaseLegalCalculoTestBase):
 
         self.assertEqual(self._observacao_do_aluno(self.turma_2ano, aluno), 'Recurso: Física')
 
-    def test_aprovado_apos_recurso_mantem_disciplinas(self):
+    def test_aprovado_apos_recurso_reduz_a_recurso(self):
         aluno = self._aluno(self.turma_2ano)
         r = self._resultado(aluno, self.fisica, mt1=7, mt2=7, mt3=7)
         r.nota_recurso = 12
         r.save()
         self._resultado(aluno, self.quimica, mt1=14, mt2=14, mt3=14)
 
-        self.assertEqual(
-            self._observacao_do_aluno(self.turma_2ano, aluno), 'Aprovado após recurso: Física'
-        )
+        self.assertEqual(self._observacao_do_aluno(self.turma_2ano, aluno), 'Recurso')
 
-    def test_reprovado_apos_recurso_mantem_disciplinas(self):
+    def test_reprovado_apos_recurso_reduz_a_recurso(self):
         aluno = self._aluno(self.turma_2ano)
         r = self._resultado(aluno, self.fisica, mt1=7, mt2=7, mt3=7)
         r.nota_recurso = 5
         r.save()
         self._resultado(aluno, self.quimica, mt1=14, mt2=14, mt3=14)
 
-        self.assertEqual(
-            self._observacao_do_aluno(self.turma_2ano, aluno), 'Reprovado após recurso: Física'
-        )
+        self.assertEqual(self._observacao_do_aluno(self.turma_2ano, aluno), 'Recurso')
 
     def test_aprovado_directo_fica_em_branco_mesmo_com_outro_aluno_em_recurso(self):
         aluno_directo = self._aluno(self.turma_2ano)
@@ -760,6 +757,46 @@ class PautaGeralObservacaoTests(BaseLegalCalculoTestBase):
         self._resultado(aluno, self.fisica, mt1=14, mt2=14, mt3=14)
 
         self.assertEqual(self._observacao_do_aluno(self.turma_1ano, aluno), '')
+
+    def test_pagina_pauta_final_mostra_botao_de_detalhe_apos_recurso_resolvido(self):
+        grupo_admin, _ = Group.objects.get_or_create(name='Administrador')
+        admin_user = User.objects.create_user(username='admin_obs', password='senha123')
+        admin_user.groups.add(grupo_admin)
+
+        aluno = self._aluno(self.turma_2ano)
+        r = self._resultado(aluno, self.fisica, mt1=7, mt2=7, mt3=7)
+        r.nota_recurso = 12
+        r.save()
+        self._resultado(aluno, self.quimica, mt1=14, mt2=14, mt3=14)
+
+        self.client.login(username='admin_obs', password='senha123')
+        response = self.client.get(
+            reverse('pauta_final_turma'),
+            {'turma': self.turma_2ano.id, 'ano_letivo': self.ano_letivo.id},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'recurso-detalhe-btn')
+        self.assertContains(response, 'id="modalRecursoDetalhe"')
+        self.assertContains(response, '"resultado": "Aprovado"')
+
+    def test_pagina_pauta_final_sem_botao_enquanto_recurso_pendente(self):
+        grupo_admin, _ = Group.objects.get_or_create(name='Administrador')
+        admin_user = User.objects.create_user(username='admin_obs2', password='senha123')
+        admin_user.groups.add(grupo_admin)
+
+        aluno = self._aluno(self.turma_2ano)
+        self._resultado(aluno, self.fisica, mt1=7, mt2=7, mt3=7)  # Recurso, sem NER ainda
+
+        self.client.login(username='admin_obs2', password='senha123')
+        response = self.client.get(
+            reverse('pauta_final_turma'),
+            {'turma': self.turma_2ano.id, 'ano_letivo': self.ano_letivo.id},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'recurso-detalhe-btn')
+        self.assertContains(response, 'Recurso: Física')
 
 
 class MiniPautaRecursoTests(BaseLegalCalculoTestBase):

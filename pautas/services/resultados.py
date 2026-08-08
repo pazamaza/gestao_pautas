@@ -222,29 +222,32 @@ def verificar_transicao_aluno(aluno, ano_letivo):
     return situacao_anual
 
 
-def _observacao_recurso(resultados_aluno, situacao_anual):
-    """Texto para a coluna "Observação" da pauta geral — reservada apenas
-    aos casos que passaram por recurso, para discriminar quem aprovou/
-    reprovou directamente (fica em branco) de quem só aprovou/reprovou
-    DEPOIS do recurso (fica identificado, com as disciplinas). Enquanto a
-    disciplina está "Recurso" (pendente de NER) lista quais; resolvido o
-    recurso (NER lançada ou vetada), o texto mantém-se — não volta a ficar
-    em branco nem colapsa para um "Aprovado"/"Reprovado" genérico, que já é
-    mostrado à parte na coluna "Situação Geral". Só o IIº Ano tem recurso —
-    para quem nunca passou por lá isto fica sempre em branco."""
+def _info_recurso(resultados_aluno, situacao_anual):
+    """(observação, detalhes) para a coluna "Observação" da pauta geral —
+    reservados apenas aos casos que passaram por recurso; quem aprovou/
+    reprovou directamente fica com ambos vazios. Enquanto a disciplina está
+    "Recurso" (pendente de NER) a observação lista quais, sem detalhes
+    (ainda não há resultado a mostrar). Resolvido o recurso (NER lançada ou
+    vetada), a observação reduz-se a um simples "Recurso" — usado no
+    template como rótulo de um botão — e `detalhes` traz a lista
+    [{'disciplina', 'resultado'}, ...] só das disciplinas com recurso, para
+    o popup accionado por esse botão (o resultado por disciplina não
+    aparece em mais lado nenhum da pauta geral). Só o IIº Ano tem recurso —
+    para quem nunca passou por lá isto fica sempre vazio."""
     pendentes = [r for r in resultados_aluno if r.resultado == ResultadoDisciplina.RESULTADO_RECURSO]
     if pendentes:
         nomes = ', '.join(sorted(r.disciplina.nome for r in pendentes))
-        return f'Recurso: {nomes}'
+        return f'Recurso: {nomes}', []
 
     com_recurso = [r for r in resultados_aluno if r.nota_recurso is not None]
     if not com_recurso or not situacao_anual:
-        return ''
+        return '', []
 
-    nomes = ', '.join(sorted(r.disciplina.nome for r in com_recurso))
-    if situacao_anual.situacao == SituacaoAnual.SITUACAO_REPROVADO:
-        return f'Reprovado após recurso: {nomes}'
-    return f'Aprovado após recurso: {nomes}'
+    detalhes = [
+        {'disciplina': r.disciplina.nome, 'resultado': r.resultado}
+        for r in sorted(com_recurso, key=lambda r: r.disciplina.nome)
+    ]
+    return 'Recurso', detalhes
 
 
 def montar_pauta_final_turma(turma, ano_letivo):
@@ -273,12 +276,15 @@ def montar_pauta_final_turma(turma, ano_letivo):
         aguarda_recurso = not situacao_anual and any(
             c and c.resultado == ResultadoDisciplina.RESULTADO_RECURSO for c in celulas
         )
+        observacao, recurso_detalhes = _info_recurso([c for c in celulas if c], situacao_anual)
         linhas.append({
             'aluno': aluno,
             'celulas': celulas,
             'situacao_anual': situacao_anual,
             'aguarda_recurso': aguarda_recurso,
-            'observacao': _observacao_recurso([c for c in celulas if c], situacao_anual),
+            'observacao': observacao,
+            'recurso_detalhes': recurso_detalhes,
+            'recurso_detalhes_id': f'recurso-detalhes-{aluno.id}',
         })
 
     return disciplinas, linhas
