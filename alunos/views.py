@@ -1,7 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import ProtectedError
-from django.urls import reverse_lazy
+from django.db.models import ProtectedError, Q
+from django.urls import reverse, reverse_lazy
 from django.views.generic import (ListView, CreateView,
     UpdateView, DeleteView, DetailView)
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -20,6 +20,7 @@ from accounts.utils import (
     eh_professor,
     eh_coordenador_pais_encarregados,
     eh_diretor_geral,
+    eh_chefe_secretaria,
 )
 from accounts.mixins import (
     SubdiretorPedagogicoRequeridoMixin,
@@ -27,7 +28,8 @@ from accounts.mixins import (
     AcessoRestritoMixin,
     CoordenadorPaisRequeridoMixin,
 )
-from professores.models import AtribuicaoDocente
+from notificacoes.services import notificar
+from professores.models import AtribuicaoDocente, DiretorTurma
 from turmas.models import Turma
 
 
@@ -188,32 +190,116 @@ class EncarregadoDeleteView(SubdiretorPedagogicoRequeridoMixin, DeleteView):
             return redirect('encarregado_lista')
 
 
+def _usuarios_coordenadores_pais():
+    return User.objects.filter(groups__name='Coordenador de Pais e Encarregados de Educação').distinct()
+
+
+def _usuarios_secretaria():
+    return User.objects.filter(groups__name='Chefe de Secretaria').distinct()
+
+
+def _usuarios_diretor_geral():
+    return User.objects.filter(
+        Q(groups__name='Diretor Geral do Complexo') | Q(is_superuser=True)
+    ).distinct()
+
+
+def _usuarios_subdiretor_pedagogico():
+    return User.objects.filter(
+        Q(groups__name='Sub-diretor Pedagógico') | Q(is_superuser=True)
+    ).distinct()
+
+
+def _diretor_turma_do_aluno(aluno):
+    if not aluno:
+        return None
+    turma = aluno.turma
+    diretor = DiretorTurma.objects.filter(
+        turma=turma, ano_letivo=turma.ano_letivo, ativo=True
+    ).select_related('professor__user').first()
+    return diretor.professor.user if diretor else None
+
+
+def _usuarios_do_destino(destino, reclamacao):
+    if destino == Reclamacao.ENCAMINHAMENTO_SECRETARIA:
+        return _usuarios_secretaria()
+    if destino == Reclamacao.ENCAMINHAMENTO_DIRETOR_GERAL:
+        return _usuarios_diretor_geral()
+    if destino == Reclamacao.ENCAMINHAMENTO_SUBDIRETOR_PEDAGOGICO:
+        return _usuarios_subdiretor_pedagogico()
+    if destino == Reclamacao.ENCAMINHAMENTO_DIRETOR_TURMA:
+        diretor_user = _diretor_turma_do_aluno(reclamacao.aluno)
+        return [diretor_user] if diretor_user else []
+    return []
+
+
 def _pode_ver_reclamacoes(user):
-    return (
-        eh_coordenador_pais_encarregados(user)
-        or eh_diretor_geral(user)
-        or eh_subdiretor_pedagogico(user)
-    )
+    if eh_coordenador_pais_encarregados(user) or eh_chefe_secretaria(user) or eh_diretor_geral(user) \
+            or eh_subdiretor_pedagogico(user):
+        return True
+    return DiretorTurma.objects.filter(professor__user=user, ativo=True).exists()
 
 
 def _reclamacoes_visiveis(user):
     if eh_coordenador_pais_encarregados(user):
         return Reclamacao.objects.all()
-    destinos = []
+    if eh_chefe_secretaria(user):
+        return Reclamacao.objects.exclude(estado=Reclamacao.ESTADO_ABERTA)
     if eh_diretor_geral(user):
-        destinos.append(Reclamacao.ENCAMINHAMENTO_DIRETOR_GERAL)
+        return Reclamacao.objects.filter(encaminhado_para__in=[
+            Reclamacao.ENCAMINHAMENTO_DIRETOR_GERAL,
+            Reclamacao.ENCAMINHAMENTO_SUBDIRETOR_PEDAGOGICO,
+            Reclamacao.ENCAMINHAMENTO_DIRETOR_TURMA,
+        ])
     if eh_subdiretor_pedagogico(user):
-        destinos.append(Reclamacao.ENCAMINHAMENTO_SUBDIRETOR_PEDAGOGICO)
-    return Reclamacao.objects.filter(encaminhado_para__in=destinos)
+        return Reclamacao.objects.filter(encaminhado_para=Reclamacao.ENCAMINHAMENTO_SUBDIRETOR_PEDAGOGICO)
+    turmas_dirigidas = DiretorTurma.objects.filter(
+        professor__user=user, ativo=True
+    ).values_list('turma_id', flat=True)
+    return Reclamacao.objects.filter(
+        encaminhado_para=Reclamacao.ENCAMINHAMENTO_DIRETOR_TURMA, aluno__turma_id__in=turmas_dirigidas
+    )
+
+
+def _destinos_possiveis(user, reclamacao):
+    """Para onde o utilizador atual pode encaminhar esta reclamação,
+    consoante o ponto da cadeia em que ela está agora."""
+    if reclamacao.estado == Reclamacao.ESTADO_ABERTA:
+        if eh_coordenador_pais_encarregados(user):
+            return [(Reclamacao.ENCAMINHAMENTO_SECRETARIA, 'Secretaria')]
+        return []
+    if reclamacao.encaminhado_para == Reclamacao.ENCAMINHAMENTO_SECRETARIA:
+        if eh_chefe_secretaria(user):
+            return [(Reclamacao.ENCAMINHAMENTO_DIRETOR_GERAL, 'Diretor Geral')]
+        return []
+    if reclamacao.encaminhado_para == Reclamacao.ENCAMINHAMENTO_DIRETOR_GERAL:
+        if not eh_diretor_geral(user):
+            return []
+        opcoes = [
+            (Reclamacao.ENCAMINHAMENTO_SUBDIRETOR_PEDAGOGICO, 'Sub-diretor Pedagógico (assunto de notas/pautas)'),
+        ]
+        if reclamacao.aluno:
+            opcoes.append(
+                (Reclamacao.ENCAMINHAMENTO_DIRETOR_TURMA, 'Diretor de Turma (assunto de faltas/justificações)')
+            )
+        return opcoes
+    return []
 
 
 def _pode_resolver_reclamacao(user, reclamacao):
-    if eh_coordenador_pais_encarregados(user):
-        return True
-    if reclamacao.encaminhado_para == Reclamacao.ENCAMINHAMENTO_DIRETOR_GERAL:
-        return eh_diretor_geral(user)
     if reclamacao.encaminhado_para == Reclamacao.ENCAMINHAMENTO_SUBDIRETOR_PEDAGOGICO:
         return eh_subdiretor_pedagogico(user)
+    if reclamacao.encaminhado_para == Reclamacao.ENCAMINHAMENTO_DIRETOR_TURMA:
+        if not reclamacao.aluno:
+            return False
+        turma = reclamacao.aluno.turma
+        return DiretorTurma.objects.filter(
+            professor__user=user, turma=turma, ano_letivo=turma.ano_letivo, ativo=True
+        ).exists()
+    if reclamacao.encaminhado_para == Reclamacao.ENCAMINHAMENTO_DIRETOR_GERAL:
+        # Assuntos que não são nem de notas/pautas nem de faltas ficam
+        # com o próprio Diretor Geral.
+        return eh_diretor_geral(user)
     return False
 
 
@@ -255,10 +341,11 @@ class ReclamacaoDetailView(ReclamacaoAcessoMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         contexto = super().get_context_data(**kwargs)
+        destinos = _destinos_possiveis(self.request.user, self.object)
         contexto.update({
-            'form_encaminhar': EncaminharReclamacaoForm(),
+            'form_encaminhar': EncaminharReclamacaoForm(destinos=destinos),
             'form_resolver': ResolverReclamacaoForm(),
-            'pode_encaminhar': eh_coordenador_pais_encarregados(self.request.user),
+            'pode_encaminhar': bool(destinos),
             'pode_resolver': _pode_resolver_reclamacao(self.request.user, self.object),
         })
         return contexto
@@ -267,12 +354,22 @@ class ReclamacaoDetailView(ReclamacaoAcessoMixin, DetailView):
 @login_required
 def reclamacao_encaminhar(request, pk):
     reclamacao = get_object_or_404(_reclamacoes_visiveis(request.user), pk=pk)
-    if not eh_coordenador_pais_encarregados(request.user):
+    destinos = _destinos_possiveis(request.user, reclamacao)
+    destinos_validos = {valor for valor, _ in destinos}
+    if not destinos_validos:
         return render(request, 'dashboards/sem_permissao.html', status=403)
+
     if request.method == 'POST':
-        form = EncaminharReclamacaoForm(request.POST)
-        if form.is_valid():
-            reclamacao.encaminhar(form.cleaned_data['encaminhado_para'])
+        form = EncaminharReclamacaoForm(request.POST, destinos=destinos)
+        if form.is_valid() and form.cleaned_data['encaminhado_para'] in destinos_validos:
+            destino = form.cleaned_data['encaminhado_para']
+            reclamacao.encaminhar(destino)
+            notificar(
+                _usuarios_do_destino(destino, reclamacao),
+                titulo='Reclamação encaminhada para si',
+                mensagem=f'Reclamação de {reclamacao.encarregado} encaminhada para decisão.',
+                link_url=reverse('reclamacao_detalhe', args=[reclamacao.pk]),
+            )
             messages.success(request, 'Reclamação encaminhada.')
     return redirect('reclamacao_detalhe', pk=pk)
 
@@ -286,6 +383,21 @@ def reclamacao_resolver(request, pk):
         form = ResolverReclamacaoForm(request.POST)
         if form.is_valid():
             reclamacao.resolver(form.cleaned_data['observacoes_resolucao'])
+            notificar(
+                _usuarios_coordenadores_pais(),
+                titulo='Reclamação resolvida',
+                mensagem=(
+                    f'A reclamação de {reclamacao.encarregado} foi resolvida: '
+                    f'{form.cleaned_data["observacoes_resolucao"]}'
+                ),
+                link_url=reverse('reclamacao_detalhe', args=[reclamacao.pk]),
+            )
+            notificar(
+                [reclamacao.encarregado.user],
+                titulo='A sua reclamação foi resolvida',
+                mensagem=form.cleaned_data['observacoes_resolucao'],
+                link_url=reverse('reclamacao_detalhe', args=[reclamacao.pk]),
+            )
             messages.success(request, 'Reclamação marcada como resolvida.')
     return redirect('reclamacao_detalhe', pk=pk)
 

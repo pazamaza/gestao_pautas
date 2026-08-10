@@ -558,8 +558,7 @@ def justificacao_aprovar(request, pk):
     if not _pode_validar_justificacao(request.user, justificacao):
         return render(request, 'dashboards/sem_permissao.html', status=403)
 
-    justificacao.aprovada = True
-    justificacao.save()
+    justificacao.aprovar(request.user)
     messages.success(request, 'Justificação aprovada.')
     return redirect('justificacao_lista')
 

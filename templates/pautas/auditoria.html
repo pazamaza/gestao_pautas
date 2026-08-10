@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% block title %}Registo de Auditoria{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2>Registo de Auditoria</h2>
+    <p class="text-muted">Quem validou cada avaliação, quem decidiu cada justificação de falta e quem homologou cada resultado final, por período académico.</p>
+
+    <form method="get" class="row g-2 align-items-end mb-3">
+        <div class="col-md-4">
+            <label class="form-label">Período</label>
+            <select name="periodo" class="form-select" onchange="this.form.submit()">
+                {% for periodo in periodos %}
+                <option value="{{ periodo.id }}" {% if periodo_selecionado.id == periodo.id %}selected{% endif %}>
+                    {{ periodo }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">Avaliações Trimestrais Validadas ({{ avaliacoes|length }})</div>
+        <div class="table-responsive">
+            <table class="table table-sm table-striped mb-0">
+                <thead>
+                    <tr>
+                        <th>Turma</th>
+                        <th>Disciplina</th>
+                        <th>Validado por</th>
+                        <th>Validado em</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for avaliacao in avaliacoes %}
+                    <tr>
+                        <td>{{ avaliacao.atribuicao.turma }}</td>
+                        <td>{{ avaliacao.atribuicao.disciplina }}</td>
+                        <td>{{ avaliacao.validado_por|default:"—" }}</td>
+                        <td>{{ avaliacao.validado_em|date:"d/m/Y H:i" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4">Nenhuma avaliação validada neste período.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">Justificações de Falta Aprovadas ({{ justificacoes|length }})</div>
+        <div class="table-responsive">
+            <table class="table table-sm table-striped mb-0">
+                <thead>
+                    <tr>
+                        <th>Aluno</th>
+                        <th>Aprovado por</th>
+                        <th>Aprovado em</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for justificacao in justificacoes %}
+                    <tr>
+                        <td>{{ justificacao.frequencia.aluno }}</td>
+                        <td>{{ justificacao.aprovado_por|default:"—" }}</td>
+                        <td>{{ justificacao.aprovado_em|date:"d/m/Y H:i" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3">Nenhuma justificação aprovada neste ano letivo.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header">Resultados Finais — Validação e Homologação ({{ homologacoes|length }})</div>
+        <div class="table-responsive">
+            <table class="table table-sm table-striped mb-0">
+                <thead>
+                    <tr>
+                        <th>Aluno</th>
+                        <th>Disciplina</th>
+                        <th>Validado por</th>
+                        <th>Homologado por</th>
+                        <th>Homologado em</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for resultado in homologacoes %}
+                    <tr>
+                        <td>{{ resultado.aluno }}</td>
+                        <td>{{ resultado.disciplina }}</td>
+                        <td>{{ resultado.validado_por|default:"—" }}</td>
+                        <td>
+                            {% if resultado.homologado_por %}
+                            {{ resultado.homologado_por }}
+                            {% elif resultado.esta_atrasada_homologacao %}
+                            <span class="badge bg-danger">Atrasada</span>
+                            {% else %}
+                            <span class="text-muted">Pendente</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ resultado.homologado_em|date:"d/m/Y H:i"|default:"—" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5">Nenhum resultado validado neste ano letivo.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

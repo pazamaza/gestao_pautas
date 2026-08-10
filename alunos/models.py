@@ -232,16 +232,26 @@ class Matricula(models.Model):
 
 
 class Reclamacao(models.Model):
-    """Reclamação de um Encarregado de Educação, registada pelo
-    Coordenador de Pais e Encarregados de Educação (ponto de contacto) e
-    encaminhada ao Diretor Geral ou ao Sub-diretor Pedagógico consoante a
-    natureza do assunto."""
+    """Reclamação de um Encarregado de Educação. O Coordenador de Pais e
+    Encarregados de Educação é o intermediário nos dois sentidos: recebe a
+    reclamação do encarregado e regista-a no sistema, e é notificado da
+    solução final para poder informar o encarregado (que também é
+    notificado diretamente no sistema).
 
+    Cadeia de encaminhamento: Coordenador de Pais -> Secretaria ->
+    Diretor Geral -> (Sub-diretor Pedagógico, se for sobre notas/pautas)
+    ou (Diretor de Turma da turma do aluno, se for sobre faltas/
+    justificações) ou o próprio Diretor Geral, para outros assuntos."""
+
+    ENCAMINHAMENTO_SECRETARIA = 'secretaria'
     ENCAMINHAMENTO_DIRETOR_GERAL = 'diretor_geral'
     ENCAMINHAMENTO_SUBDIRETOR_PEDAGOGICO = 'subdiretor_pedagogico'
+    ENCAMINHAMENTO_DIRETOR_TURMA = 'diretor_turma'
     ENCAMINHAMENTO_CHOICES = [
+        (ENCAMINHAMENTO_SECRETARIA, 'Secretaria'),
         (ENCAMINHAMENTO_DIRETOR_GERAL, 'Diretor Geral'),
         (ENCAMINHAMENTO_SUBDIRETOR_PEDAGOGICO, 'Sub-diretor Pedagógico'),
+        (ENCAMINHAMENTO_DIRETOR_TURMA, 'Diretor de Turma'),
     ]
 
     ESTADO_ABERTA = 'aberta'
@@ -252,6 +262,8 @@ class Reclamacao(models.Model):
         (ESTADO_ENCAMINHADA, 'Encaminhada'),
         (ESTADO_RESOLVIDA, 'Resolvida'),
     ]
+
+    PRAZO_RESOLUCAO_DIAS = 3
 
     encarregado = models.ForeignKey(
         Encarregado,
@@ -326,3 +338,11 @@ class Reclamacao(models.Model):
         self.observacoes_resolucao = observacoes
         self.resolvida_em = timezone.now()
         self.save()
+
+    @property
+    def esta_atrasada(self):
+        if self.estado == self.ESTADO_RESOLVIDA:
+            return False
+        desde = self.encaminhada_em or self.registada_em
+        limite = desde + timezone.timedelta(days=self.PRAZO_RESOLUCAO_DIAS)
+        return timezone.now() > limite

@@ -78,6 +78,19 @@ class JustificacaoFalta(models.Model):
 
     aprovada = models.BooleanField(default=False)
 
+    aprovado_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='+'
+    )
+
+    aprovado_em = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+
     parecer_coordenador = models.TextField(
         blank=True,
         verbose_name='Parecer do Coordenador de Turno'
@@ -103,4 +116,10 @@ class JustificacaoFalta(models.Model):
         self.parecer_coordenador = parecer
         self.coordenador_turno = user
         self.analisada_em = timezone.now()
+        self.save()
+
+    def aprovar(self, user):
+        self.aprovada = True
+        self.aprovado_por = user
+        self.aprovado_em = timezone.now()
         self.save()

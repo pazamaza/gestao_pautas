@@ -13,15 +13,19 @@ from accounts.decoracors import (
     aluno_requerido,
     encarregado_requerido,
     professor_requerido,
+    diretor_geral_requerido,
 )
 from accounts.mixins import (
     AdminOuProfessorRequeridoMixin,
     ProfessorRequeridoMixin,
     SuperuserRequeridoMixin,
+    DiretorGeralRequeridoMixin,
+    AcessoRestritoMixin,
 )
-from accounts.utils import eh_subdiretor_pedagogico
+from accounts.utils import eh_subdiretor_pedagogico, eh_diretor_geral, eh_admin_ou_professor
 from alunos.models import Aluno
 from disciplinas.models import Disciplina
+from frequencias.models import JustificacaoFalta
 from professores.models import AtribuicaoDocente, DiretorTurma
 from turmas.models import AnoLetivo, PeriodoAcademico, Turma
 from notificacoes.services import notificar_erro_pauta
@@ -1003,6 +1007,58 @@ def resultado_validar(request, pk):
     return redirect('resultado_lista')
 
 
+@diretor_geral_requerido
+def resultado_homologar(request, pk):
+    resultado = get_object_or_404(ResultadoDisciplina, pk=pk)
+    if resultado.status != ResultadoDisciplina.STATUS_VALIDADA:
+        messages.error(request, 'Só é possível homologar um resultado já validado pelo Sub-diretor Pedagógico.')
+        return redirect('resultado_lista')
+    resultado.homologar(request.user)
+    messages.success(request, 'Resultado final homologado.')
+    return redirect('resultado_lista')
+
+
+@diretor_geral_requerido
+def auditoria_registo(request):
+    periodos = PeriodoAcademico.objects.select_related('ano_letivo').order_by(
+        '-ano_letivo__descricao', 'nome'
+    )
+    periodo_id = request.GET.get('periodo')
+    periodo_selecionado = (
+        periodos.filter(pk=periodo_id).first() if periodo_id else periodos.first()
+    )
+
+    avaliacoes = Avaliacao.objects.none()
+    justificacoes = JustificacaoFalta.objects.none()
+    homologacoes = ResultadoDisciplina.objects.none()
+
+    if periodo_selecionado:
+        avaliacoes = Avaliacao.objects.filter(
+            periodo=periodo_selecionado, status=Avaliacao.STATUS_VALIDADA
+        ).select_related(
+            'atribuicao__turma', 'atribuicao__disciplina', 'validado_por'
+        ).order_by('atribuicao__turma__nome', 'atribuicao__disciplina__nome')
+
+        justificacoes = JustificacaoFalta.objects.filter(
+            aprovada=True,
+            frequencia__atribuicao__ano_letivo=periodo_selecionado.ano_letivo,
+        ).select_related('frequencia__aluno', 'aprovado_por').order_by('-aprovado_em')
+
+        homologacoes = ResultadoDisciplina.objects.filter(
+            ano_letivo=periodo_selecionado.ano_letivo, status=ResultadoDisciplina.STATUS_VALIDADA
+        ).select_related(
+            'aluno', 'disciplina', 'validado_por', 'homologado_por'
+        ).order_by('aluno__nome', 'disciplina__nome')
+
+    return render(request, 'pautas/auditoria.html', {
+        'periodos': periodos,
+        'periodo_selecionado': periodo_selecionado,
+        'avaliacoes': avaliacoes,
+        'justificacoes': justificacoes,
+        'homologacoes': homologacoes,
+    })
+
+
 @subdiretor_pedagogico_requerido
 def resultado_reportar_erro(request, pk):
     resultado = get_object_or_404(
@@ -1151,7 +1207,12 @@ class AvaliacaoDeleteView(ProfessorRequeridoMixin, DeleteView):
         return Avaliacao.objects.filter(atribuicao__professor__user=self.request.user)
 
 
-class ResultadoDisciplinaListView(AdminOuProfessorRequeridoMixin, ListView):
+class ResultadoAcessoMixin(AcessoRestritoMixin):
+    def test_func(self):
+        return eh_admin_ou_professor(self.request.user) or eh_diretor_geral(self.request.user)
+
+
+class ResultadoDisciplinaListView(ResultadoAcessoMixin, ListView):
     model = ResultadoDisciplina
     template_name = 'pautas/resultado_lista.html'
     context_object_name = 'resultados'
@@ -1195,6 +1256,7 @@ class ResultadoDisciplinaListView(AdminOuProfessorRequeridoMixin, ListView):
         context['anos_letivos'] = AnoLetivo.objects.all()
         context['status_choices'] = ResultadoDisciplina.STATUS_CHOICES
         context['eh_subdiretor_pedagogico'] = eh_subdiretor_pedagogico(self.request.user)
+        context['eh_diretor_geral'] = eh_diretor_geral(self.request.user)
 
         aluno_id = self.request.GET.get('aluno')
         if aluno_id:

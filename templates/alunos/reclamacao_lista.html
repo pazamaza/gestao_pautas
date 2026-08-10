@@ -34,6 +34,9 @@
                         {% else %}
                         <span class="badge bg-secondary">{{ reclamacao.get_estado_display }}</span>
                         {% endif %}
+                        {% if reclamacao.esta_atrasada %}
+                        <span class="badge bg-danger">Atrasada</span>
+                        {% endif %}
                     </td>
                     <td>{{ reclamacao.get_encaminhado_para_display|default:"—" }}</td>
                     <td>{{ reclamacao.registada_em|date:"d/m/Y H:i" }}</td>

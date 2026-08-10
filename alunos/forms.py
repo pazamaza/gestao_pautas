@@ -224,9 +224,12 @@ class ReclamacaoForm(forms.ModelForm):
 class EncaminharReclamacaoForm(forms.Form):
     encaminhado_para = forms.ChoiceField(
         label='Encaminhar para',
-        choices=Reclamacao.ENCAMINHAMENTO_CHOICES,
         widget=forms.Select(attrs={'class': 'form-select'}),
     )
+
+    def __init__(self, *args, destinos=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['encaminhado_para'].choices = destinos or []
 
 
 class ResolverReclamacaoForm(forms.Form):

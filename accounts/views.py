@@ -537,8 +537,17 @@ def dashboard(request):
         )
 
     if eh_diretor_geral(user):
-        # ---- Dashboard do Diretor Geral do Complexo ---- (placeholder,
-        # conteúdo funcional próprio fica para uma fase seguinte)
+        # ---- Dashboard do Diretor Geral do Complexo ---- (Fase 5:
+        # homologações e reclamações pendentes de decisão do Diretor Geral)
+
+        context.update({
+            'resultados_pendentes_homologacao': ResultadoDisciplina.objects.filter(
+                status=ResultadoDisciplina.STATUS_VALIDADA, homologado_em__isnull=True
+            ).count(),
+            'reclamacoes_pendentes_diretor_geral': Reclamacao.objects.filter(
+                encaminhado_para=Reclamacao.ENCAMINHAMENTO_DIRETOR_GERAL
+            ).count(),
+        })
 
         return render(
             request,

@@ -105,6 +105,9 @@ Resultados Finais
                 {% if eh_subdiretor_pedagogico %}
                 <th>Validação</th>
                 {% endif %}
+                {% if eh_diretor_geral %}
+                <th>Homologação</th>
+                {% endif %}
             </tr>
         </thead>
 
@@ -145,6 +148,24 @@ Resultados Finais
                             data-bs-target="#erro-resultado-{{ resultado.id }}">
                         Reportar Erro
                     </button>
+                </td>
+                {% endif %}
+                {% if eh_diretor_geral %}
+                <td>
+                    {% if resultado.homologado_em %}
+                    <span class="badge bg-success">Homologado</span>
+                    {% elif resultado.status == 'validada' %}
+                    <a href="{% url 'resultado_homologar' resultado.id %}"
+                       class="btn btn-primary btn-sm"
+                       onclick="return confirm('Homologar este resultado?');">
+                        Homologar
+                    </a>
+                    {% if resultado.esta_atrasada_homologacao %}
+                    <span class="badge bg-danger">Atrasada</span>
+                    {% endif %}
+                    {% else %}
+                    <span class="text-muted">Aguarda validação</span>
+                    {% endif %}
                 </td>
                 {% endif %}
             </tr>

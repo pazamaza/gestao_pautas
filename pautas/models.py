@@ -62,6 +62,8 @@ class StatusValidacaoMixin(models.Model):
 
 class Avaliacao(StatusValidacaoMixin, models.Model):
 
+    PRAZO_VALIDACAO_DIAS = 10
+
     atribuicao = models.ForeignKey(
         AtribuicaoDocente,
         on_delete=models.CASCADE
@@ -89,6 +91,13 @@ class Avaliacao(StatusValidacaoMixin, models.Model):
             f"{self.atribuicao} - "
             f"{self.periodo}"
         )
+
+    @property
+    def esta_atrasada_validacao(self):
+        if self.status == self.STATUS_VALIDADA:
+            return False
+        limite = self.criado_em + timezone.timedelta(days=self.PRAZO_VALIDACAO_DIAS)
+        return timezone.now() > limite
 
 
 class Pauta(models.Model):
@@ -349,6 +358,21 @@ class ResultadoDisciplina(StatusValidacaoMixin, models.Model):
     RESULTADO_DEFICIENCIA = 'Deficiência'
     RESULTADO_AGUARDA_EXAME_NACIONAL = 'Aguarda Exame Nacional'
 
+    PRAZO_HOMOLOGACAO_DIAS = 3
+
+    homologado_por = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='+'
+    )
+
+    homologado_em = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+
     class Meta:
 
         unique_together = (
@@ -363,6 +387,18 @@ class ResultadoDisciplina(StatusValidacaoMixin, models.Model):
     def excedeu_limite_faltas(self):
         from pautas.services.faltas import aluno_excedeu_faltas_disciplina
         return aluno_excedeu_faltas_disciplina(self.aluno, self.disciplina, self.ano_letivo)
+
+    def homologar(self, user):
+        self.homologado_por = user
+        self.homologado_em = timezone.now()
+        self.save()
+
+    @property
+    def esta_atrasada_homologacao(self):
+        if self.status != self.STATUS_VALIDADA or self.homologado_em or not self.validado_em:
+            return False
+        limite = self.validado_em + timezone.timedelta(days=self.PRAZO_HOMOLOGACAO_DIAS)
+        return timezone.now() > limite
 
     def calcular_mf(self):
         # MF (Iº Ano: "MFD"; IIº Ano: "MFA") = média simples das 3 médias

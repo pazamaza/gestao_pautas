@@ -22,7 +22,12 @@
                 </tr>
                 <tr>
                     <th>Estado</th>
-                    <td>{{ reclamacao.get_estado_display }}</td>
+                    <td>
+                        {{ reclamacao.get_estado_display }}
+                        {% if reclamacao.esta_atrasada %}
+                        <span class="badge bg-danger ms-1">Atrasada (mais de {{ reclamacao.PRAZO_RESOLUCAO_DIAS }} dias)</span>
+                        {% endif %}
+                    </td>
                 </tr>
                 <tr>
                     <th>Encaminhada para</th>
@@ -40,7 +45,7 @@
                 {% endif %}
             </table>
 
-            {% if pode_encaminhar and reclamacao.estado == 'aberta' %}
+            {% if pode_encaminhar %}
             <hr>
             <h5>Encaminhar</h5>
             <form method="post" action="{% url 'reclamacao_encaminhar' reclamacao.pk %}" class="row g-2 align-items-end">

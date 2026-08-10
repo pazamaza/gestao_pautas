@@ -36,6 +36,8 @@ from .views import (
     relatorios_professor,
     resultado_reportar_erro,
     resultado_validar,
+    resultado_homologar,
+    auditoria_registo,
 )
 from .views_documentos import (
     completar_dados_certificado,
@@ -79,6 +81,8 @@ urlpatterns = [
     path('resultados/gerar/', gerar_resultados, name='gerar_resultados'),
     path('resultados/<int:pk>/validar/', resultado_validar, name='resultado_validar'),
     path('resultados/<int:pk>/reportar-erro/', resultado_reportar_erro, name='resultado_reportar_erro'),
+    path('resultados/<int:pk>/homologar/', resultado_homologar, name='resultado_homologar'),
+    path('auditoria/', auditoria_registo, name='auditoria_registo'),
     path('resultados/pauta-final/', pauta_final_turma, name='pauta_final_turma'),
     path(
         'resultados/aluno/<int:aluno_id>/resumo/',
