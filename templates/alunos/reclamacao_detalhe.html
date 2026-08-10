@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% block title %}Detalhes da Reclamação{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h3>Reclamação de {{ reclamacao.encarregado }}</h3>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <tr>
+                    <th>Encarregado</th>
+                    <td>{{ reclamacao.encarregado }}</td>
+                </tr>
+                <tr>
+                    <th>Aluno</th>
+                    <td>{{ reclamacao.aluno|default:"—" }}</td>
+                </tr>
+                <tr>
+                    <th>Motivo</th>
+                    <td>{{ reclamacao.motivo|linebreaksbr }}</td>
+                </tr>
+                <tr>
+                    <th>Estado</th>
+                    <td>{{ reclamacao.get_estado_display }}</td>
+                </tr>
+                <tr>
+                    <th>Encaminhada para</th>
+                    <td>{{ reclamacao.get_encaminhado_para_display|default:"—" }}</td>
+                </tr>
+                <tr>
+                    <th>Registada por</th>
+                    <td>{{ reclamacao.registada_por|default:"—" }} em {{ reclamacao.registada_em|date:"d/m/Y H:i" }}</td>
+                </tr>
+                {% if reclamacao.observacoes_resolucao %}
+                <tr>
+                    <th>Observações da resolução</th>
+                    <td>{{ reclamacao.observacoes_resolucao|linebreaksbr }}</td>
+                </tr>
+                {% endif %}
+            </table>
+
+            {% if pode_encaminhar and reclamacao.estado == 'aberta' %}
+            <hr>
+            <h5>Encaminhar</h5>
+            <form method="post" action="{% url 'reclamacao_encaminhar' reclamacao.pk %}" class="row g-2 align-items-end">
+                {% csrf_token %}
+                <div class="col-auto">{{ form_encaminhar.encaminhado_para }}</div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-warning">Encaminhar</button>
+                </div>
+            </form>
+            {% endif %}
+
+            {% if pode_resolver and reclamacao.estado != 'resolvida' %}
+            <hr>
+            <h5>Resolver</h5>
+            <form method="post" action="{% url 'reclamacao_resolver' reclamacao.pk %}">
+                {% csrf_token %}
+                {{ form_resolver.observacoes_resolucao }}
+                <button type="submit" class="btn btn-success mt-2">Marcar como Resolvida</button>
+            </form>
+            {% endif %}
+
+            <a href="{% url 'reclamacao_lista' %}" class="btn btn-secondary mt-3">Voltar</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

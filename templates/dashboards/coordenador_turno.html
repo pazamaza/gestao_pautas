@@ -2,16 +2,70 @@
 {% block title %}Dashboard{% endblock %}
 {% block content %}
 <div class="container-fluid mt-3">
-    {% include 'includes/perfil_header.html' with subtitulo="Coordenador de Turno." %}
+    {% include 'includes/perfil_header.html' with subtitulo="Coordenador de Turno — "|add:turno_coordenado_display %}
 
-    <div class="card shadow-sm">
-        <div class="card-body">
-            <h4>Painel do Coordenador de Turno</h4>
-            <p class="text-muted mb-0">
-                As funcionalidades específicas deste painel ainda vão ser definidas.
-                Por agora, esta conta tem acesso à área administrativa do sistema.
-            </p>
+    {% if not turmas_turno %}
+    <div class="alert alert-warning">
+        Esta conta ainda não tem um turno atribuído (ou não há turmas ativas nesse turno).
+        Contacte o Diretor Geral / Sub-diretor Pedagógico para o configurar.
+    </div>
+    {% else %}
+    <div class="row g-3 mb-4">
+        <div class="col-md col-6">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Turmas do Turno</h6>
+                    <h3>{{ turmas_turno|length }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md col-6">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Alunos Ativos</h6>
+                    <h3>{{ total_alunos_turno }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md col-6">
+            <div class="card shadow-sm border-warning">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Faltas por Justificar</h6>
+                    <h3 class="text-warning">{{ faltas_por_justificar_turno }}</h3>
+                </div>
+            </div>
         </div>
     </div>
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header">Turmas</div>
+                <ul class="list-group list-group-flush">
+                    {% for turma in turmas_turno %}
+                    <li class="list-group-item">{{ turma }}</li>
+                    {% empty %}
+                    <li class="list-group-item text-muted">Nenhuma turma neste turno.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header">Diretores de Turma</div>
+                <ul class="list-group list-group-flush">
+                    {% for diretor in diretores_turma_turno %}
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>{{ diretor.turma }}</span>
+                        <span class="text-muted">{{ diretor.professor }}</span>
+                    </li>
+                    {% empty %}
+                    <li class="list-group-item text-muted">Nenhum Diretor de Turma atribuído.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

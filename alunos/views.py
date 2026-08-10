@@ -1,18 +1,32 @@
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.db.models import ProtectedError
 from django.urls import reverse_lazy
 from django.views.generic import (ListView, CreateView,
     UpdateView, DeleteView, DetailView)
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
-from .models import ( Aluno, Encarregado)
-from .forms import (AlunoForm, EncarregadoCadastroForm, EncarregadoEdicaoForm)
+from .models import ( Aluno, Encarregado, Reclamacao)
+from .forms import (
+    AlunoForm, EncarregadoCadastroForm, EncarregadoEdicaoForm,
+    ReclamacaoForm, EncaminharReclamacaoForm, ResolverReclamacaoForm,
+)
 from django.contrib.auth.models import Group, User
 from django.shortcuts import (render, redirect,
     get_object_or_404)
 from django.views import View
-from accounts.utils import eh_subdiretor_pedagogico, eh_professor
-from accounts.mixins import SubdiretorPedagogicoRequeridoMixin, AdminOuProfessorRequeridoMixin
+from accounts.utils import (
+    eh_subdiretor_pedagogico,
+    eh_professor,
+    eh_coordenador_pais_encarregados,
+    eh_diretor_geral,
+)
+from accounts.mixins import (
+    SubdiretorPedagogicoRequeridoMixin,
+    AdminOuProfessorRequeridoMixin,
+    AcessoRestritoMixin,
+    CoordenadorPaisRequeridoMixin,
+)
 from professores.models import AtribuicaoDocente
 from turmas.models import Turma
 
@@ -172,4 +186,106 @@ class EncarregadoDeleteView(SubdiretorPedagogicoRequeridoMixin, DeleteView):
                 'Não é possível eliminar este encarregado: existem alunos associados a ele.'
             )
             return redirect('encarregado_lista')
+
+
+def _pode_ver_reclamacoes(user):
+    return (
+        eh_coordenador_pais_encarregados(user)
+        or eh_diretor_geral(user)
+        or eh_subdiretor_pedagogico(user)
+    )
+
+
+def _reclamacoes_visiveis(user):
+    if eh_coordenador_pais_encarregados(user):
+        return Reclamacao.objects.all()
+    destinos = []
+    if eh_diretor_geral(user):
+        destinos.append(Reclamacao.ENCAMINHAMENTO_DIRETOR_GERAL)
+    if eh_subdiretor_pedagogico(user):
+        destinos.append(Reclamacao.ENCAMINHAMENTO_SUBDIRETOR_PEDAGOGICO)
+    return Reclamacao.objects.filter(encaminhado_para__in=destinos)
+
+
+def _pode_resolver_reclamacao(user, reclamacao):
+    if eh_coordenador_pais_encarregados(user):
+        return True
+    if reclamacao.encaminhado_para == Reclamacao.ENCAMINHAMENTO_DIRETOR_GERAL:
+        return eh_diretor_geral(user)
+    if reclamacao.encaminhado_para == Reclamacao.ENCAMINHAMENTO_SUBDIRETOR_PEDAGOGICO:
+        return eh_subdiretor_pedagogico(user)
+    return False
+
+
+class ReclamacaoAcessoMixin(AcessoRestritoMixin):
+    def test_func(self):
+        return _pode_ver_reclamacoes(self.request.user)
+
+
+class ReclamacaoListView(ReclamacaoAcessoMixin, ListView):
+    model = Reclamacao
+    template_name = 'alunos/reclamacao_lista.html'
+    context_object_name = 'reclamacoes'
+
+    def get_queryset(self):
+        return _reclamacoes_visiveis(self.request.user).select_related(
+            'encarregado__user', 'aluno', 'registada_por'
+        )
+
+
+class ReclamacaoCreateView(CoordenadorPaisRequeridoMixin, CreateView):
+    model = Reclamacao
+    form_class = ReclamacaoForm
+    template_name = 'alunos/reclamacao_form.html'
+    success_url = reverse_lazy('reclamacao_lista')
+
+    def form_valid(self, form):
+        form.instance.registada_por = self.request.user
+        messages.success(self.request, 'Reclamação registada com sucesso.')
+        return super().form_valid(form)
+
+
+class ReclamacaoDetailView(ReclamacaoAcessoMixin, DetailView):
+    model = Reclamacao
+    template_name = 'alunos/reclamacao_detalhe.html'
+    context_object_name = 'reclamacao'
+
+    def get_queryset(self):
+        return _reclamacoes_visiveis(self.request.user)
+
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+        contexto.update({
+            'form_encaminhar': EncaminharReclamacaoForm(),
+            'form_resolver': ResolverReclamacaoForm(),
+            'pode_encaminhar': eh_coordenador_pais_encarregados(self.request.user),
+            'pode_resolver': _pode_resolver_reclamacao(self.request.user, self.object),
+        })
+        return contexto
+
+
+@login_required
+def reclamacao_encaminhar(request, pk):
+    reclamacao = get_object_or_404(_reclamacoes_visiveis(request.user), pk=pk)
+    if not eh_coordenador_pais_encarregados(request.user):
+        return render(request, 'dashboards/sem_permissao.html', status=403)
+    if request.method == 'POST':
+        form = EncaminharReclamacaoForm(request.POST)
+        if form.is_valid():
+            reclamacao.encaminhar(form.cleaned_data['encaminhado_para'])
+            messages.success(request, 'Reclamação encaminhada.')
+    return redirect('reclamacao_detalhe', pk=pk)
+
+
+@login_required
+def reclamacao_resolver(request, pk):
+    reclamacao = get_object_or_404(_reclamacoes_visiveis(request.user), pk=pk)
+    if not _pode_resolver_reclamacao(request.user, reclamacao):
+        return render(request, 'dashboards/sem_permissao.html', status=403)
+    if request.method == 'POST':
+        form = ResolverReclamacaoForm(request.POST)
+        if form.is_valid():
+            reclamacao.resolver(form.cleaned_data['observacoes_resolucao'])
+            messages.success(request, 'Reclamação marcada como resolvida.')
+    return redirect('reclamacao_detalhe', pk=pk)
 

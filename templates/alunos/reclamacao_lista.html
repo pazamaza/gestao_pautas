@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Reclamações{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <h2>Reclamações de Encarregados</h2>
+        {% if eh_coordenador_pais_nav %}
+        <a href="{% url 'reclamacao_nova' %}" class="btn btn-primary">Registar Reclamação</a>
+        {% endif %}
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-striped mt-3">
+            <thead>
+                <tr>
+                    <th>Encarregado</th>
+                    <th>Aluno</th>
+                    <th>Estado</th>
+                    <th>Encaminhada para</th>
+                    <th>Registada em</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for reclamacao in reclamacoes %}
+                <tr>
+                    <td>{{ reclamacao.encarregado }}</td>
+                    <td>{{ reclamacao.aluno|default:"—" }}</td>
+                    <td>
+                        {% if reclamacao.estado == 'resolvida' %}
+                        <span class="badge bg-success">{{ reclamacao.get_estado_display }}</span>
+                        {% elif reclamacao.estado == 'encaminhada' %}
+                        <span class="badge bg-warning text-dark">{{ reclamacao.get_estado_display }}</span>
+                        {% else %}
+                        <span class="badge bg-secondary">{{ reclamacao.get_estado_display }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ reclamacao.get_encaminhado_para_display|default:"—" }}</td>
+                    <td>{{ reclamacao.registada_em|date:"d/m/Y H:i" }}</td>
+                    <td>
+                        <a href="{% url 'reclamacao_detalhe' reclamacao.pk %}" class="btn btn-info btn-sm">Ver</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6">Nenhuma reclamação registada.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

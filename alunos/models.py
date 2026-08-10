@@ -2,6 +2,7 @@ from datetime import date
 
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 from turmas.models import Turma
 
 class Encarregado(models.Model):
@@ -228,3 +229,100 @@ class Matricula(models.Model):
 
     def __str__(self):
         return f"{self.aluno} - {self.turma}"
+
+
+class Reclamacao(models.Model):
+    """Reclamação de um Encarregado de Educação, registada pelo
+    Coordenador de Pais e Encarregados de Educação (ponto de contacto) e
+    encaminhada ao Diretor Geral ou ao Sub-diretor Pedagógico consoante a
+    natureza do assunto."""
+
+    ENCAMINHAMENTO_DIRETOR_GERAL = 'diretor_geral'
+    ENCAMINHAMENTO_SUBDIRETOR_PEDAGOGICO = 'subdiretor_pedagogico'
+    ENCAMINHAMENTO_CHOICES = [
+        (ENCAMINHAMENTO_DIRETOR_GERAL, 'Diretor Geral'),
+        (ENCAMINHAMENTO_SUBDIRETOR_PEDAGOGICO, 'Sub-diretor Pedagógico'),
+    ]
+
+    ESTADO_ABERTA = 'aberta'
+    ESTADO_ENCAMINHADA = 'encaminhada'
+    ESTADO_RESOLVIDA = 'resolvida'
+    ESTADO_CHOICES = [
+        (ESTADO_ABERTA, 'Aberta'),
+        (ESTADO_ENCAMINHADA, 'Encaminhada'),
+        (ESTADO_RESOLVIDA, 'Resolvida'),
+    ]
+
+    encarregado = models.ForeignKey(
+        Encarregado,
+        on_delete=models.CASCADE,
+        related_name='reclamacoes'
+    )
+
+    aluno = models.ForeignKey(
+        'alunos.Aluno',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reclamacoes',
+        help_text='Educando a que a reclamação se refere, se aplicável.'
+    )
+
+    motivo = models.TextField()
+
+    estado = models.CharField(
+        max_length=15,
+        choices=ESTADO_CHOICES,
+        default=ESTADO_ABERTA
+    )
+
+    encaminhado_para = models.CharField(
+        max_length=25,
+        choices=ENCAMINHAMENTO_CHOICES,
+        blank=True
+    )
+
+    observacoes_resolucao = models.TextField(
+        blank=True
+    )
+
+    registada_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='+'
+    )
+
+    registada_em = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    encaminhada_em = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+
+    resolvida_em = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+
+    class Meta:
+        ordering = ['-registada_em']
+        verbose_name = 'Reclamação'
+        verbose_name_plural = 'Reclamações'
+
+    def __str__(self):
+        return f"Reclamação de {self.encarregado} - {self.get_estado_display()}"
+
+    def encaminhar(self, destino):
+        self.estado = self.ESTADO_ENCAMINHADA
+        self.encaminhado_para = destino
+        self.encaminhada_em = timezone.now()
+        self.save()
+
+    def resolver(self, observacoes):
+        self.estado = self.ESTADO_RESOLVIDA
+        self.observacoes_resolucao = observacoes
+        self.resolvida_em = timezone.now()
+        self.save()

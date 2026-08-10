@@ -3,7 +3,9 @@ from django.urls import path
 from .views import ( AlunoListView,
     AlunoCreateView, AlunoUpdateView, AlunoDeleteView,
     AlunoDetailView, EncarregadoListView, EncarregadoCreateView,
-    EncarregadoDetailView, EncarregadoUpdateView, EncarregadoDeleteView,)
+    EncarregadoDetailView, EncarregadoUpdateView, EncarregadoDeleteView,
+    ReclamacaoListView, ReclamacaoCreateView, ReclamacaoDetailView,
+    reclamacao_encaminhar, reclamacao_resolver,)
 
 urlpatterns = [
 
@@ -29,4 +31,10 @@ urlpatterns = [
         name='encarregado_editar'),
     path('encarregados/<int:pk>/excluir/', EncarregadoDeleteView.as_view(),
         name='encarregado_excluir'),
+
+    path('reclamacoes/', ReclamacaoListView.as_view(), name='reclamacao_lista'),
+    path('reclamacoes/nova/', ReclamacaoCreateView.as_view(), name='reclamacao_nova'),
+    path('reclamacoes/<int:pk>/', ReclamacaoDetailView.as_view(), name='reclamacao_detalhe'),
+    path('reclamacoes/<int:pk>/encaminhar/', reclamacao_encaminhar, name='reclamacao_encaminhar'),
+    path('reclamacoes/<int:pk>/resolver/', reclamacao_resolver, name='reclamacao_resolver'),
 ]

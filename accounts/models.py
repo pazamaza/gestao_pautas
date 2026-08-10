@@ -32,6 +32,16 @@ class Perfil(models.Model):
         null=True
     )
 
+    turno_coordenado = models.CharField(
+        max_length=10,
+        choices=[('manha', 'Manhã'), ('tarde', 'Tarde'), ('noite', 'Noite')],
+        blank=True,
+        verbose_name='Turno coordenado',
+        help_text='Aplicável apenas a contas de Coordenador de Turno — '
+                   'define quais Turmas (por turmas.Turma.periodo) esta '
+                   'conta supervisiona.'
+    )
+
     def __str__(self):
         return self.user.get_full_name() or self.user.username
 

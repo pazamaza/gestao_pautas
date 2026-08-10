@@ -179,6 +179,12 @@
                 </li>
                 {% endif %}
 
+                {% if eh_coordenador_pais_nav or eh_diretor_geral_nav or eh_subdiretor_pedagogico_nav %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'reclamacao_lista' %}">Reclamações</a>
+                </li>
+                {% endif %}
+
                 {% if user.is_authenticated %}
                 <li class="nav-item">
                     <a class="nav-link position-relative" href="{% url 'notificacao_lista' %}">

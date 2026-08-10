@@ -4,14 +4,70 @@
 <div class="container-fluid mt-3">
     {% include 'includes/perfil_header.html' with subtitulo="Coordenador de Pais e Encarregados de Educação." %}
 
-    <div class="card shadow-sm">
-        <div class="card-body">
-            <h4>Painel do Coordenador de Pais e Encarregados de Educação</h4>
-            <p class="text-muted mb-0">
-                As funcionalidades específicas deste painel ainda vão ser definidas.
-                Por agora, esta conta tem acesso à área administrativa do sistema.
-            </p>
+    <div class="row g-3 mb-4">
+        <div class="col-md col-6">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Alunos em Risco</h6>
+                    <h3 class="text-danger">{{ total_alunos_risco }}</h3>
+                </div>
+            </div>
         </div>
+        <div class="col-md col-6">
+            <a href="{% url 'reclamacao_lista' %}" class="card shadow-sm text-decoration-none text-dark border-info">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Reclamações em Aberto</h6>
+                    <h3 class="text-info">{{ reclamacoes_abertas }}</h3>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Alunos em Risco (média abaixo de 10)</span>
+            <a href="{% url 'reclamacao_nova' %}" class="btn btn-sm btn-outline-primary">Registar Reclamação</a>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm table-striped mb-0">
+                <thead>
+                    <tr>
+                        <th>Aluno</th>
+                        <th>Turma</th>
+                        <th>Média</th>
+                        <th>Encarregado</th>
+                        <th>Contacto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in alunos_risco_media %}
+                    <tr>
+                        <td>{{ item.aluno.nome }}</td>
+                        <td>{{ item.aluno.turma }}</td>
+                        <td class="text-danger">{{ item.media }}</td>
+                        <td>{{ item.encarregado|default:"—" }}</td>
+                        <td>{{ item.encarregado.telefone|default:"—" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5">Nenhum aluno em risco de momento.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header">Faltas por Justificar por Turma</div>
+        <ul class="list-group list-group-flush">
+            {% for item in faltas_por_turma %}
+            <li class="list-group-item d-flex justify-content-between">
+                <span>{{ item.turma }}</span>
+                <span class="text-muted">{{ item.total }}</span>
+            </li>
+            {% empty %}
+            <li class="list-group-item text-muted">Sem faltas por justificar.</li>
+            {% endfor %}
+        </ul>
     </div>
 </div>
 {% endblock %}

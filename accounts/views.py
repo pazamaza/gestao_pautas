@@ -14,6 +14,8 @@ from .forms import (
     SubdiretorPedagogicoEdicaoForm,
     ContaAdministrativaCadastroForm,
     ContaAdministrativaEdicaoForm,
+    CoordenadorTurnoCadastroForm,
+    CoordenadorTurnoEdicaoForm,
 )
 from .mixins import SuperuserRequeridoMixin
 from .models import Perfil
@@ -26,7 +28,7 @@ from .utils import (
     eh_coordenador_turno,
     eh_coordenador_pais_encarregados,
 )
-from alunos.models import Aluno, Encarregado
+from alunos.models import Aluno, Encarregado, Reclamacao
 from professores.models import Professor, AtribuicaoDocente, DiretorTurma
 from turmas.models import Turma, PeriodoAcademico, AnoLetivo
 from disciplinas.models import Disciplina
@@ -569,7 +571,34 @@ def dashboard(request):
         )
 
     if eh_coordenador_turno(user):
-        # ---- Dashboard do Coordenador de Turno ---- (placeholder)
+        # ---- Dashboard do Coordenador de Turno ---- (Fase 2: turmas do seu
+        # turno, escopadas por Turma.periodo — não é preciso nenhum campo
+        # novo, "turno" já existia no modelo com esse nome)
+
+        turno = getattr(user.perfil, 'turno_coordenado', '') if hasattr(user, 'perfil') else ''
+        turmas_turno = (
+            Turma.objects.filter(periodo=turno, ativo=True).select_related('classe')
+            if turno else Turma.objects.none()
+        )
+        turmas_ids = list(turmas_turno.values_list('id', flat=True))
+
+        diretores_turma_turno = DiretorTurma.objects.filter(
+            turma_id__in=turmas_ids, ativo=True
+        ).select_related('professor__user', 'turma__classe')
+
+        faltas_por_justificar_turno = Frequencia.objects.filter(
+            aluno__turma_id__in=turmas_ids, estado=Frequencia.FALTA
+        ).exclude(justificacaofalta__aprovada=True).count()
+
+        context.update({
+            'turno_coordenado_display': dict(Turma.PERIODO_CHOICES).get(turno, '—'),
+            'turmas_turno': turmas_turno,
+            'total_alunos_turno': Aluno.objects.filter(
+                turma_id__in=turmas_ids, estado=Aluno.ESTADO_ATIVO
+            ).count(),
+            'diretores_turma_turno': diretores_turma_turno,
+            'faltas_por_justificar_turno': faltas_por_justificar_turno,
+        })
 
         return render(
             request,
@@ -579,7 +608,48 @@ def dashboard(request):
 
     if eh_coordenador_pais_encarregados(user):
         # ---- Dashboard do Coordenador de Pais e Encarregados de Educação ----
-        # (placeholder)
+        # (Fase 2: alunos em risco com contacto do encarregado, faltas por
+        # justificar por turma, reclamações em aberto)
+
+        ano_letivo_atual = AnoLetivo.objects.filter(ativo=True).first() or AnoLetivo.objects.first()
+
+        resultados = (
+            ResultadoDisciplina.objects.filter(
+                ano_letivo=ano_letivo_atual, status=ResultadoDisciplina.STATUS_VALIDADA
+            ).select_related('aluno', 'aluno__turma', 'aluno__encarregado__user')
+            if ano_letivo_atual else ResultadoDisciplina.objects.none()
+        )
+
+        medias_por_aluno = {}
+        for resultado in resultados:
+            if resultado.mf:
+                medias_por_aluno.setdefault(resultado.aluno, []).append(float(resultado.mf))
+
+        alunos_risco_media = sorted(
+            (
+                {'aluno': aluno, 'encarregado': aluno.encarregado, 'media': _media(valores)}
+                for aluno, valores in medias_por_aluno.items()
+                if _media(valores) is not None and _media(valores) < 10
+            ),
+            key=lambda item: item['media'],
+        )
+
+        faltas_por_turma = {}
+        faltas_sem_justificacao = Frequencia.objects.filter(
+            estado=Frequencia.FALTA
+        ).exclude(justificacaofalta__aprovada=True).select_related('aluno__turma')
+        for falta in faltas_sem_justificacao:
+            chave = str(falta.aluno.turma)
+            faltas_por_turma[chave] = faltas_por_turma.get(chave, 0) + 1
+
+        context.update({
+            'alunos_risco_media': alunos_risco_media[:20],
+            'total_alunos_risco': len(alunos_risco_media),
+            'faltas_por_turma': [
+                {'turma': turma, 'total': total} for turma, total in faltas_por_turma.items()
+            ],
+            'reclamacoes_abertas': Reclamacao.objects.filter(estado=Reclamacao.ESTADO_ABERTA).count(),
+        })
 
         return render(
             request,
@@ -766,13 +836,14 @@ class ContaAdministrativaCreateView(SuperuserRequeridoMixin, View):
     template_name = 'accounts/conta_admin_cadastro.html'
     titulo_singular = ''
     url_lista_name = ''
+    form_class = ContaAdministrativaCadastroForm
 
     def get(self, request):
-        form = ContaAdministrativaCadastroForm()
+        form = self.form_class()
         return render(request, self.template_name, {'form': form, 'titulo_singular': self.titulo_singular})
 
     def post(self, request):
-        form = ContaAdministrativaCadastroForm(request.POST)
+        form = self.form_class(request.POST)
         if form.is_valid():
             user = User.objects.create_user(
                 username=form.cleaned_data['username'],
@@ -783,9 +854,14 @@ class ContaAdministrativaCreateView(SuperuserRequeridoMixin, View):
             )
             grupo, _ = Group.objects.get_or_create(name=self.grupo_nome)
             user.groups.add(grupo)
+            self._pos_criar(user, form)
             messages.success(request, f'{self.titulo_singular} cadastrado(a) com sucesso.')
             return redirect(self.url_lista_name)
         return render(request, self.template_name, {'form': form, 'titulo_singular': self.titulo_singular})
+
+    def _pos_criar(self, user, form):
+        """Hook para subclasses gravarem campos extra (fora do form
+        genérico de conta) depois de o User/Group já estarem criados."""
 
 
 class ContaAdministrativaDetailView(SuperuserRequeridoMixin, DetailView):
@@ -816,32 +892,41 @@ class ContaAdministrativaUpdateView(SuperuserRequeridoMixin, View):
     template_name = 'accounts/conta_admin_editar.html'
     titulo_singular = ''
     url_lista_name = ''
+    form_class = ContaAdministrativaEdicaoForm
 
     def get_queryset(self):
         return _contas_por_grupo_qs(self.grupo_nome, self.incluir_superuser)
 
-    def get(self, request, pk):
-        conta = get_object_or_404(self.get_queryset(), pk=pk)
-        form = ContaAdministrativaEdicaoForm(initial={
+    def _initial(self, conta):
+        return {
             'first_name': conta.first_name,
             'last_name': conta.last_name,
             'email': conta.email,
             'ativo': conta.is_active,
-        })
+        }
+
+    def get(self, request, pk):
+        conta = get_object_or_404(self.get_queryset(), pk=pk)
+        form = self.form_class(initial=self._initial(conta))
         return render(request, self.template_name, {'form': form, 'conta': conta, 'titulo_singular': self.titulo_singular})
 
     def post(self, request, pk):
         conta = get_object_or_404(self.get_queryset(), pk=pk)
-        form = ContaAdministrativaEdicaoForm(request.POST)
+        form = self.form_class(request.POST)
         if form.is_valid():
             conta.first_name = form.cleaned_data['first_name']
             conta.last_name = form.cleaned_data['last_name']
             conta.email = form.cleaned_data['email']
             conta.is_active = form.cleaned_data['ativo']
             conta.save()
+            self._pos_editar(conta, form)
             messages.success(request, f'{self.titulo_singular} atualizado(a) com sucesso.')
             return redirect(self.url_lista_name)
         return render(request, self.template_name, {'form': form, 'conta': conta, 'titulo_singular': self.titulo_singular})
+
+    def _pos_editar(self, conta, form):
+        """Hook para subclasses gravarem campos extra (fora do form
+        genérico de conta) depois dos dados base já terem sido guardados."""
 
 
 class ContaAdministrativaDeleteView(SuperuserRequeridoMixin, DeleteView):
@@ -958,6 +1043,11 @@ class CoordenadorTurnoCreateView(ContaAdministrativaCreateView):
     grupo_nome = GRUPO_COORDENADOR_TURNO
     titulo_singular = 'Coordenador de Turno'
     url_lista_name = 'coordenador_turno_lista'
+    form_class = CoordenadorTurnoCadastroForm
+
+    def _pos_criar(self, user, form):
+        user.perfil.turno_coordenado = form.cleaned_data['turno_coordenado']
+        user.perfil.save()
 
 
 class CoordenadorTurnoDetailView(ContaAdministrativaDetailView):
@@ -971,6 +1061,16 @@ class CoordenadorTurnoUpdateView(ContaAdministrativaUpdateView):
     grupo_nome = GRUPO_COORDENADOR_TURNO
     titulo_singular = 'Coordenador de Turno'
     url_lista_name = 'coordenador_turno_lista'
+    form_class = CoordenadorTurnoEdicaoForm
+
+    def _initial(self, conta):
+        initial = super()._initial(conta)
+        initial['turno_coordenado'] = getattr(conta.perfil, 'turno_coordenado', '')
+        return initial
+
+    def _pos_editar(self, conta, form):
+        conta.perfil.turno_coordenado = form.cleaned_data['turno_coordenado']
+        conta.perfil.save()
 
 
 class CoordenadorTurnoDeleteView(ContaAdministrativaDeleteView):

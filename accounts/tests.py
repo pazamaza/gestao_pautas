@@ -327,3 +327,73 @@ class DiretorGeralCrudTests(TestCase):
 
         self.assertRedirects(response, reverse('diretor_geral_lista'))
         self.assertTrue(User.objects.filter(pk=self.superuser.pk).exists())
+
+
+class CoordenadorTurnoCrudTests(TestCase):
+    """Fase 2: o cadastro de Coordenador de Turno grava o turno
+    (Perfil.turno_coordenado) além dos campos genéricos de conta."""
+
+    def setUp(self):
+        Group.objects.get_or_create(name='Coordenador de Turno')
+        self.superuser = User.objects.create_superuser(
+            username='root3', password='senha123', email='root3@example.com'
+        )
+        self.client.login(username='root3', password='senha123')
+
+    def test_criar_coordenador_turno_grava_turno_no_perfil(self):
+        response = self.client.post(reverse('coordenador_turno_novo'), {
+            'first_name': 'Novo',
+            'last_name': 'Coordenador',
+            'username': 'novo_coord_turno',
+            'email': 'novo_ct@example.com',
+            'password': 'senha123',
+            'turno_coordenado': 'tarde',
+        })
+
+        self.assertRedirects(response, reverse('coordenador_turno_lista'))
+        novo = User.objects.get(username='novo_coord_turno')
+        self.assertTrue(novo.groups.filter(name='Coordenador de Turno').exists())
+        self.assertEqual(novo.perfil.turno_coordenado, 'tarde')
+
+    def test_editar_coordenador_turno_atualiza_turno(self):
+        alvo = User.objects.create_user(username='editar_ct', password='x')
+        alvo.groups.add(Group.objects.get(name='Coordenador de Turno'))
+        alvo.perfil.turno_coordenado = 'manha'
+        alvo.perfil.save()
+
+        response = self.client.post(reverse('coordenador_turno_editar', args=[alvo.pk]), {
+            'first_name': 'Editado',
+            'last_name': 'Sobrenome',
+            'email': 'editado_ct@example.com',
+            'ativo': 'on',
+            'turno_coordenado': 'noite',
+        })
+
+        self.assertRedirects(response, reverse('coordenador_turno_lista'))
+        alvo.perfil.refresh_from_db()
+        self.assertEqual(alvo.perfil.turno_coordenado, 'noite')
+
+
+class CoordenadorTurnoDashboardTests(TestCase):
+    def setUp(self):
+        Group.objects.get_or_create(name='Coordenador de Turno')
+
+    def test_dashboard_mostra_turmas_do_turno(self):
+        from turmas.models import AnoLetivo, Classe, Turma
+
+        ano_letivo = AnoLetivo.objects.create(descricao='2026')
+        classe = Classe.objects.create(nome='10ª Classe')
+        Turma.objects.create(nome='A', classe=classe, ano_letivo=ano_letivo, periodo='tarde', ativo=True)
+        Turma.objects.create(nome='B', classe=classe, ano_letivo=ano_letivo, periodo='manha', ativo=True)
+
+        coordenador = User.objects.create_user(username='coord_turno_dash', password='senha123')
+        coordenador.groups.add(Group.objects.get(name='Coordenador de Turno'))
+        coordenador.perfil.turno_coordenado = 'tarde'
+        coordenador.perfil.save()
+
+        self.client.login(username='coord_turno_dash', password='senha123')
+        response = self.client.get(reverse('dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'dashboards/coordenador_turno.html')
+        self.assertEqual(len(response.context['turmas_turno']), 1)

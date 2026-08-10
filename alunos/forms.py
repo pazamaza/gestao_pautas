@@ -1,6 +1,6 @@
 from django import forms
 from django.db.models import Q
-from .models import Aluno
+from .models import Aluno, Encarregado, Reclamacao
 from django.contrib.auth.models import User
 
 
@@ -201,4 +201,36 @@ class EncarregadoEdicaoForm(forms.Form):
         widget=forms.TextInput(
             attrs={'class': 'form-control'}
         )
+    )
+
+class ReclamacaoForm(forms.ModelForm):
+    class Meta:
+        model = Reclamacao
+        fields = ['encarregado', 'aluno', 'motivo']
+        widgets = {
+            'encarregado': forms.Select(attrs={'class': 'form-select'}),
+            'aluno': forms.Select(attrs={'class': 'form-select'}),
+            'motivo': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['encarregado'].queryset = Encarregado.objects.select_related('user').order_by(
+            'user__first_name', 'user__last_name'
+        )
+        self.fields['aluno'].required = False
+
+
+class EncaminharReclamacaoForm(forms.Form):
+    encaminhado_para = forms.ChoiceField(
+        label='Encaminhar para',
+        choices=Reclamacao.ENCAMINHAMENTO_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+
+
+class ResolverReclamacaoForm(forms.Form):
+    observacoes_resolucao = forms.CharField(
+        label='Observações da resolução',
+        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
     )

@@ -156,3 +156,22 @@ class ContaAdministrativaEdicaoForm(forms.Form):
         label='Ativo',
         required=False
     )
+
+
+TURNO_CHOICES = [('manha', 'Manhã'), ('tarde', 'Tarde'), ('noite', 'Noite')]
+
+
+class CoordenadorTurnoCadastroForm(ContaAdministrativaCadastroForm):
+    turno_coordenado = forms.ChoiceField(
+        label='Turno',
+        choices=TURNO_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+
+
+class CoordenadorTurnoEdicaoForm(ContaAdministrativaEdicaoForm):
+    turno_coordenado = forms.ChoiceField(
+        label='Turno',
+        choices=TURNO_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
