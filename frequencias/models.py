@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.contrib.auth.models import User
 from django.db import models
 from django.utils import timezone
 from alunos.models import Aluno
@@ -77,5 +78,29 @@ class JustificacaoFalta(models.Model):
 
     aprovada = models.BooleanField(default=False)
 
+    parecer_coordenador = models.TextField(
+        blank=True,
+        verbose_name='Parecer do Coordenador de Turno'
+    )
+
+    coordenador_turno = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='+'
+    )
+
+    analisada_em = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+
     def __str__(self):
         return (f"Justificação - " f"{self.frequencia.aluno}")
+
+    def registar_parecer(self, user, parecer):
+        self.parecer_coordenador = parecer
+        self.coordenador_turno = user
+        self.analisada_em = timezone.now()
+        self.save()

@@ -185,6 +185,12 @@
                 </li>
                 {% endif %}
 
+                {% if eh_coordenador_turno_nav %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'justificacao_lista' %}">Justificações</a>
+                </li>
+                {% endif %}
+
                 {% if user.is_authenticated %}
                 <li class="nav-item">
                     <a class="nav-link position-relative" href="{% url 'notificacao_lista' %}">

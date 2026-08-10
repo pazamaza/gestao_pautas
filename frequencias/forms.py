@@ -48,3 +48,12 @@ class JustificacaoFaltaForm(forms.ModelForm):
             'documento': forms.ClearableFileInput(
                 attrs={'class': 'form-control'}),
         }
+
+
+class ParecerCoordenadorForm(forms.Form):
+    parecer_coordenador = forms.CharField(
+        label='Parecer',
+        widget=forms.Textarea(
+            attrs={'class': 'form-control', 'rows': 3,
+                'placeholder': 'Análise do histórico de frequência do aluno'}),
+    )

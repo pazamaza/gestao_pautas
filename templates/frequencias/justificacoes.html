@@ -17,6 +17,7 @@ Justificações
                     <th>Disciplina</th>
                     <th>Data da Falta</th>
                     <th>Motivo</th>
+                    <th>Parecer do Coordenador</th>
                     <th>Estado</th>
                     <th>Ações</th>
                 </tr>
@@ -30,6 +31,13 @@ Justificações
                     <td>{{ justificacao.frequencia.data }}</td>
                     <td>{{ justificacao.motivo|truncatewords:15 }}</td>
                     <td>
+                        {% if justificacao.parecer_coordenador %}
+                        {{ justificacao.parecer_coordenador|truncatewords:15 }}
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
                         {% if justificacao.aprovada %}
                         <span class="badge bg-success">Aprovada</span>
                         {% else %}
@@ -37,7 +45,7 @@ Justificações
                         {% endif %}
                     </td>
                     <td>
-                        <div class="d-flex gap-2 align-items-center">
+                        <div class="d-flex gap-2 align-items-center flex-wrap">
                             {% if justificacao.documento %}
                             <a href="{% url 'justificacao_documento' justificacao.pk %}"
                                 target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm">
@@ -47,7 +55,16 @@ Justificações
                             <span class="badge bg-secondary">Sem documento</span>
                             {% endif %}
 
-                            {% if not justificacao.aprovada %}
+                            {% if not justificacao.aprovada and justificacao.pode_analisar %}
+                            <form method="post" action="{% url 'justificacao_analisar' justificacao.pk %}" class="d-flex gap-1">
+                                {% csrf_token %}
+                                <input type="text" name="parecer_coordenador" class="form-control form-control-sm"
+                                       placeholder="Parecer" required>
+                                <button type="submit" class="btn btn-outline-warning btn-sm">Analisar</button>
+                            </form>
+                            {% endif %}
+
+                            {% if not justificacao.aprovada and justificacao.pode_decidir %}
                             <form method="post" action="{% url 'justificacao_aprovar' justificacao.pk %}">
                                 {% csrf_token %}
                                 <button type="submit" class="btn btn-success btn-sm">Aprovar</button>
@@ -58,7 +75,7 @@ Justificações
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="7">Nenhuma justificação submetida.</td>
+                    <td colspan="8">Nenhuma justificação submetida.</td>
                 </tr>
                 {% endfor %}
             </tbody>

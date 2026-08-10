@@ -28,12 +28,12 @@
             </div>
         </div>
         <div class="col-md col-6">
-            <div class="card shadow-sm border-warning">
+            <a href="{% url 'justificacao_lista' %}" class="card shadow-sm text-decoration-none text-dark border-warning">
                 <div class="card-body text-center">
                     <h6 class="text-muted">Faltas por Justificar</h6>
                     <h3 class="text-warning">{{ faltas_por_justificar_turno }}</h3>
                 </div>
-            </div>
+            </a>
         </div>
     </div>
 

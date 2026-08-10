@@ -12,13 +12,23 @@ from django.views.generic import (ListView, CreateView,
     UpdateView, DeleteView)
 
 from accounts.decoracors import admin_ou_professor_requerido
-from accounts.mixins import AdminOuProfessorRequeridoMixin
-from accounts.utils import eh_subdiretor_pedagogico, eh_professor, eh_aluno, eh_encarregado
+from accounts.mixins import AdminOuProfessorRequeridoMixin, AcessoRestritoMixin
+from accounts.utils import (
+    eh_subdiretor_pedagogico,
+    eh_professor,
+    eh_aluno,
+    eh_encarregado,
+    eh_coordenador_turno,
+)
 from alunos.models import Aluno
-from professores.models import AtribuicaoDocente
+from notificacoes.services import notificar
+from professores.models import AtribuicaoDocente, DiretorTurma
 from turmas.models import HorarioAula, Turma
 from .models import Frequencia, JustificacaoFalta
-from .forms import FrequenciaForm, JustificacaoFaltaForm, RegistoFrequenciaFormSet
+from .forms import (
+    FrequenciaForm, JustificacaoFaltaForm, RegistoFrequenciaFormSet,
+    ParecerCoordenadorForm,
+)
 
 DIA_SEMANA_POR_WEEKDAY = {
     0: HorarioAula.SEGUNDA,
@@ -480,7 +490,38 @@ def relatorio_assiduidade(request):
     return render(request, 'frequencias/relatorio_assiduidade.html', contexto)
 
 
-class JustificacaoListView(AdminOuProfessorRequeridoMixin, ListView):
+def _turno_do_coordenador(user):
+    perfil = getattr(user, 'perfil', None)
+    return getattr(perfil, 'turno_coordenado', '') if perfil else ''
+
+
+def _pode_validar_justificacao(user, justificacao):
+    if eh_subdiretor_pedagogico(user):
+        return True
+    turma = justificacao.frequencia.atribuicao.turma
+    return DiretorTurma.objects.filter(
+        professor__user=user, turma=turma, ano_letivo=turma.ano_letivo, ativo=True
+    ).exists()
+
+
+def _pode_analisar_justificacao(user, justificacao):
+    if not eh_coordenador_turno(user):
+        return False
+    turno = _turno_do_coordenador(user)
+    return bool(turno) and justificacao.frequencia.atribuicao.turma.periodo == turno
+
+
+class JustificacaoAcessoMixin(AcessoRestritoMixin):
+    def test_func(self):
+        user = self.request.user
+        return (
+            eh_subdiretor_pedagogico(user)
+            or eh_professor(user)
+            or eh_coordenador_turno(user)
+        )
+
+
+class JustificacaoListView(JustificacaoAcessoMixin, ListView):
     model = JustificacaoFalta
     template_name = 'frequencias/justificacoes.html'
     context_object_name = 'justificacoes'
@@ -493,22 +534,63 @@ class JustificacaoListView(AdminOuProfessorRequeridoMixin, ListView):
             'frequencia__atribuicao__turma',
         ).order_by('-data_submissao')
 
-        if eh_subdiretor_pedagogico(self.request.user):
+        user = self.request.user
+        if eh_subdiretor_pedagogico(user):
             return queryset
-        return queryset.filter(frequencia__atribuicao__professor__user=self.request.user)
+        if eh_coordenador_turno(user):
+            turno = _turno_do_coordenador(user)
+            return queryset.filter(frequencia__atribuicao__turma__periodo=turno) if turno else queryset.none()
+        return queryset.filter(frequencia__atribuicao__professor__user=user)
+
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+        user = self.request.user
+        for justificacao in contexto[self.context_object_name]:
+            justificacao.pode_decidir = _pode_validar_justificacao(user, justificacao)
+            justificacao.pode_analisar = _pode_analisar_justificacao(user, justificacao)
+        return contexto
 
 
 @admin_ou_professor_requerido
 def justificacao_aprovar(request, pk):
     justificacao = get_object_or_404(JustificacaoFalta, pk=pk)
 
-    if not eh_subdiretor_pedagogico(request.user) and \
-            justificacao.frequencia.atribuicao.professor.user_id != request.user.id:
+    if not _pode_validar_justificacao(request.user, justificacao):
         return render(request, 'dashboards/sem_permissao.html', status=403)
 
     justificacao.aprovada = True
     justificacao.save()
     messages.success(request, 'Justificação aprovada.')
+    return redirect('justificacao_lista')
+
+
+@login_required
+def justificacao_analisar(request, pk):
+    justificacao = get_object_or_404(JustificacaoFalta, pk=pk)
+
+    if not _pode_analisar_justificacao(request.user, justificacao):
+        return render(request, 'dashboards/sem_permissao.html', status=403)
+
+    if request.method == 'POST':
+        form = ParecerCoordenadorForm(request.POST)
+        if form.is_valid():
+            justificacao.registar_parecer(request.user, form.cleaned_data['parecer_coordenador'])
+
+            turma = justificacao.frequencia.atribuicao.turma
+            diretor = DiretorTurma.objects.filter(
+                turma=turma, ano_letivo=turma.ano_letivo, ativo=True
+            ).select_related('professor__user').first()
+            if diretor:
+                notificar(
+                    [diretor.professor.user],
+                    titulo='Justificação de falta com parecer do Coordenador de Turno',
+                    mensagem=(
+                        f'{justificacao.frequencia.aluno.nome} tem uma justificação de falta '
+                        f'com parecer do Coordenador de Turno, a aguardar a sua decisão.'
+                    ),
+                    link_url=reverse('justificacao_lista'),
+                )
+            messages.success(request, 'Parecer registado.')
     return redirect('justificacao_lista')
 
 
