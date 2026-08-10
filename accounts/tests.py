@@ -397,3 +397,45 @@ class CoordenadorTurnoDashboardTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'dashboards/coordenador_turno.html')
         self.assertEqual(len(response.context['turmas_turno']), 1)
+
+
+class ContaAdministrativaPaginasGetTests(TestCase):
+    """Regressão: as views genéricas de conta administrativa
+    (ContaAdministrativa{Create,Update,Delete}View) chegaram a não passar
+    `url_lista_name` ao contexto em GET (só em POST-sucesso, que nunca
+    chega a renderizar o template) — os templates usam `{% url
+    url_lista_name %}` no botão Cancelar, e isso rebentava com
+    NoReverseMatch assim que alguém abria a página a sério (não só via
+    POST direto, como os testes de CRUD faziam)."""
+
+    def setUp(self):
+        for nome in [
+            'Diretor Geral do Complexo', 'Chefe de Secretaria',
+            'Coordenador de Turno', 'Coordenador de Pais e Encarregados de Educação',
+        ]:
+            Group.objects.get_or_create(name=nome)
+        self.superuser = User.objects.create_superuser(
+            username='root_get', password='senha123', email='root_get@example.com'
+        )
+        self.client.login(username='root_get', password='senha123')
+
+    def test_paginas_novo_editar_excluir_renderizam_sem_erro(self):
+        papeis = [
+            ('diretor_geral', 'Diretor Geral do Complexo'),
+            ('chefe_secretaria', 'Chefe de Secretaria'),
+            ('coordenador_turno', 'Coordenador de Turno'),
+            ('coordenador_pais', 'Coordenador de Pais e Encarregados de Educação'),
+        ]
+        for prefixo, grupo_nome in papeis:
+            with self.subTest(papel=prefixo):
+                response_novo = self.client.get(reverse(f'{prefixo}_novo'))
+                self.assertEqual(response_novo.status_code, 200)
+
+                alvo = User.objects.create_user(username=f'alvo_{prefixo}', password='x')
+                alvo.groups.add(Group.objects.get(name=grupo_nome))
+
+                response_editar = self.client.get(reverse(f'{prefixo}_editar', args=[alvo.pk]))
+                self.assertEqual(response_editar.status_code, 200)
+
+                response_excluir = self.client.get(reverse(f'{prefixo}_excluir', args=[alvo.pk]))
+                self.assertEqual(response_excluir.status_code, 200)

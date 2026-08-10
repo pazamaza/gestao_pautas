@@ -847,9 +847,16 @@ class ContaAdministrativaCreateView(SuperuserRequeridoMixin, View):
     url_lista_name = ''
     form_class = ContaAdministrativaCadastroForm
 
+    def _contexto(self, form):
+        return {
+            'form': form,
+            'titulo_singular': self.titulo_singular,
+            'url_lista_name': self.url_lista_name,
+        }
+
     def get(self, request):
         form = self.form_class()
-        return render(request, self.template_name, {'form': form, 'titulo_singular': self.titulo_singular})
+        return render(request, self.template_name, self._contexto(form))
 
     def post(self, request):
         form = self.form_class(request.POST)
@@ -866,7 +873,7 @@ class ContaAdministrativaCreateView(SuperuserRequeridoMixin, View):
             self._pos_criar(user, form)
             messages.success(request, f'{self.titulo_singular} cadastrado(a) com sucesso.')
             return redirect(self.url_lista_name)
-        return render(request, self.template_name, {'form': form, 'titulo_singular': self.titulo_singular})
+        return render(request, self.template_name, self._contexto(form))
 
     def _pos_criar(self, user, form):
         """Hook para subclasses gravarem campos extra (fora do form
@@ -914,10 +921,18 @@ class ContaAdministrativaUpdateView(SuperuserRequeridoMixin, View):
             'ativo': conta.is_active,
         }
 
+    def _contexto(self, form, conta):
+        return {
+            'form': form,
+            'conta': conta,
+            'titulo_singular': self.titulo_singular,
+            'url_lista_name': self.url_lista_name,
+        }
+
     def get(self, request, pk):
         conta = get_object_or_404(self.get_queryset(), pk=pk)
         form = self.form_class(initial=self._initial(conta))
-        return render(request, self.template_name, {'form': form, 'conta': conta, 'titulo_singular': self.titulo_singular})
+        return render(request, self.template_name, self._contexto(form, conta))
 
     def post(self, request, pk):
         conta = get_object_or_404(self.get_queryset(), pk=pk)
@@ -931,7 +946,7 @@ class ContaAdministrativaUpdateView(SuperuserRequeridoMixin, View):
             self._pos_editar(conta, form)
             messages.success(request, f'{self.titulo_singular} atualizado(a) com sucesso.')
             return redirect(self.url_lista_name)
-        return render(request, self.template_name, {'form': form, 'conta': conta, 'titulo_singular': self.titulo_singular})
+        return render(request, self.template_name, self._contexto(form, conta))
 
     def _pos_editar(self, conta, form):
         """Hook para subclasses gravarem campos extra (fora do form
@@ -952,6 +967,7 @@ class ContaAdministrativaDeleteView(SuperuserRequeridoMixin, DeleteView):
     def get_context_data(self, **kwargs):
         contexto = super().get_context_data(**kwargs)
         contexto['titulo_singular'] = self.titulo_singular
+        contexto['url_lista_name'] = self.url_lista_name
         return contexto
 
     def get_success_url(self):
