@@ -8,8 +8,8 @@ from .forms import (ProfessorForm, ProfessorUpdateForm,
     ProfessorCadastroForm, ProfessorEdicaoForm,
     AtribuicaoDocenteForm, DiretorTurmaForm)
 
-from accounts.mixins import AdministradorRequeridoMixin
-from accounts.decoracors import administrador_requerido
+from accounts.mixins import SubdiretorPedagogicoRequeridoMixin
+from accounts.decoracors import subdiretor_pedagogico_requerido
 from django.contrib import messages
 from django.contrib.auth.models import Group, User
 from django.views import View
@@ -26,7 +26,7 @@ def _juntar_com_e(itens):
     return ', '.join(itens[:-1]) + ' e ' + itens[-1]
 
 
-class ProfessorCreateView(AdministradorRequeridoMixin, View):
+class ProfessorCreateView(SubdiretorPedagogicoRequeridoMixin, View):
     template_name = 'professores/cadastro.html'
     def get(self, request):
         form = ProfessorCadastroForm()
@@ -78,7 +78,7 @@ class ProfessorCreateView(AdministradorRequeridoMixin, View):
         )
 
 
-class ProfessorDetailView(AdministradorRequeridoMixin, DetailView):
+class ProfessorDetailView(SubdiretorPedagogicoRequeridoMixin, DetailView):
     model = Professor
     template_name = 'professores/detalhe.html'
     context_object_name = 'professor'
@@ -91,7 +91,7 @@ class ProfessorDetailView(AdministradorRequeridoMixin, DetailView):
         return context
 
 
-class ProfessorListView(AdministradorRequeridoMixin, ListView):
+class ProfessorListView(SubdiretorPedagogicoRequeridoMixin, ListView):
     model = Professor
     template_name = 'professores/lista.html'
     context_object_name = 'professores'
@@ -128,7 +128,7 @@ class ProfessorListView(AdministradorRequeridoMixin, ListView):
         context['linhas_professores'] = linhas_professores
         return context
 
-class ProfessorUpdateView(AdministradorRequeridoMixin, View):
+class ProfessorUpdateView(SubdiretorPedagogicoRequeridoMixin, View):
 
     template_name = 'professores/editar.html'
 
@@ -236,14 +236,14 @@ class ProfessorUpdateView(AdministradorRequeridoMixin, View):
             }
         )
 
-class ProfessorDeleteView(AdministradorRequeridoMixin, DeleteView):
+class ProfessorDeleteView(SubdiretorPedagogicoRequeridoMixin, DeleteView):
     model = Professor
     template_name = 'professores/excluir.html'
     success_url = reverse_lazy(
         'professor_lista'
     )
 
-class AtribuicaoDocenteListView(AdministradorRequeridoMixin, ListView):
+class AtribuicaoDocenteListView(SubdiretorPedagogicoRequeridoMixin, ListView):
     model = AtribuicaoDocente
     template_name = (
         'professores/atribuicao_lista.html' )
@@ -311,7 +311,7 @@ class AtribuicaoDocenteListView(AdministradorRequeridoMixin, ListView):
         context['blocos_professores'] = blocos_professores
         return context
 
-class AtribuicaoDocenteCreateView(AdministradorRequeridoMixin, CreateView):
+class AtribuicaoDocenteCreateView(SubdiretorPedagogicoRequeridoMixin, CreateView):
     model = AtribuicaoDocente
     form_class = AtribuicaoDocenteForm
     template_name = ('professores/atribuicao_form.html' )
@@ -319,20 +319,20 @@ class AtribuicaoDocenteCreateView(AdministradorRequeridoMixin, CreateView):
     initial = {'ativo': True}
 
 
-class AtribuicaoDocenteDetailView(AdministradorRequeridoMixin, DetailView):
+class AtribuicaoDocenteDetailView(SubdiretorPedagogicoRequeridoMixin, DetailView):
     model = AtribuicaoDocente
     template_name = 'professores/atribuicao_detalhe.html'
     context_object_name = 'atribuicao'
 
 
-class AtribuicaoDocenteUpdateView(AdministradorRequeridoMixin, UpdateView):
+class AtribuicaoDocenteUpdateView(SubdiretorPedagogicoRequeridoMixin, UpdateView):
     model = AtribuicaoDocente
     form_class = AtribuicaoDocenteForm
     template_name = 'professores/atribuicao_form.html'
     success_url = reverse_lazy('atribuicao_lista')
 
 
-@administrador_requerido
+@subdiretor_pedagogico_requerido
 def atribuicao_desativar(request, pk):
     atribuicao = get_object_or_404(AtribuicaoDocente, pk=pk)
     atribuicao.ativo = False
@@ -341,7 +341,7 @@ def atribuicao_desativar(request, pk):
     return redirect('atribuicao_lista')
 
 
-@administrador_requerido
+@subdiretor_pedagogico_requerido
 def atribuicao_reativar(request, pk):
     atribuicao = get_object_or_404(AtribuicaoDocente, pk=pk)
     atribuicao.ativo = True
@@ -350,7 +350,7 @@ def atribuicao_reativar(request, pk):
     return redirect('atribuicao_lista')
 
 
-class DiretorTurmaListView(AdministradorRequeridoMixin, ListView):
+class DiretorTurmaListView(SubdiretorPedagogicoRequeridoMixin, ListView):
     model = DiretorTurma
     template_name = 'professores/diretor_turma_lista.html'
     context_object_name = 'diretores'
@@ -361,7 +361,7 @@ class DiretorTurmaListView(AdministradorRequeridoMixin, ListView):
         ).order_by('-ano_letivo__descricao', 'turma__classe__nome', 'turma__nome')
 
 
-class DiretorTurmaCreateView(AdministradorRequeridoMixin, CreateView):
+class DiretorTurmaCreateView(SubdiretorPedagogicoRequeridoMixin, CreateView):
     model = DiretorTurma
     form_class = DiretorTurmaForm
     template_name = 'professores/diretor_turma_form.html'
@@ -369,20 +369,20 @@ class DiretorTurmaCreateView(AdministradorRequeridoMixin, CreateView):
     initial = {'ativo': True}
 
 
-class DiretorTurmaUpdateView(AdministradorRequeridoMixin, UpdateView):
+class DiretorTurmaUpdateView(SubdiretorPedagogicoRequeridoMixin, UpdateView):
     model = DiretorTurma
     form_class = DiretorTurmaForm
     template_name = 'professores/diretor_turma_form.html'
     success_url = reverse_lazy('diretor_turma_lista')
 
 
-class DiretorTurmaDetailView(AdministradorRequeridoMixin, DetailView):
+class DiretorTurmaDetailView(SubdiretorPedagogicoRequeridoMixin, DetailView):
     model = DiretorTurma
     template_name = 'professores/diretor_turma_detalhe.html'
     context_object_name = 'diretor'
 
 
-class DiretorTurmaDeleteView(AdministradorRequeridoMixin, DeleteView):
+class DiretorTurmaDeleteView(SubdiretorPedagogicoRequeridoMixin, DeleteView):
     model = DiretorTurma
     template_name = 'professores/diretor_turma_excluir.html'
     context_object_name = 'diretor'

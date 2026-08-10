@@ -9,7 +9,7 @@ from django.views.generic import (
 )
 from django.contrib.auth.mixins import LoginRequiredMixin
 
-from accounts.mixins import AdministradorRequeridoMixin
+from accounts.mixins import SubdiretorPedagogicoRequeridoMixin
 from .models import Disciplina
 from .forms import DisciplinaForm
 
@@ -39,7 +39,7 @@ class DisciplinaListView(LoginRequiredMixin, ListView):
         return queryset
 
 
-class DisciplinaCreateView(AdministradorRequeridoMixin, CreateView):
+class DisciplinaCreateView(SubdiretorPedagogicoRequeridoMixin, CreateView):
 
     model = Disciplina
 
@@ -52,7 +52,7 @@ class DisciplinaCreateView(AdministradorRequeridoMixin, CreateView):
     )
 
 
-class DisciplinaUpdateView(AdministradorRequeridoMixin, UpdateView):
+class DisciplinaUpdateView(SubdiretorPedagogicoRequeridoMixin, UpdateView):
 
     model = Disciplina
 
@@ -65,7 +65,7 @@ class DisciplinaUpdateView(AdministradorRequeridoMixin, UpdateView):
     )
 
 
-class DisciplinaDeleteView(AdministradorRequeridoMixin, DeleteView):
+class DisciplinaDeleteView(SubdiretorPedagogicoRequeridoMixin, DeleteView):
 
     model = Disciplina
 

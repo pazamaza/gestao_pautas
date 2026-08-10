@@ -13,7 +13,7 @@ from django.views.generic import (ListView, CreateView,
 
 from accounts.decoracors import admin_ou_professor_requerido
 from accounts.mixins import AdminOuProfessorRequeridoMixin
-from accounts.utils import eh_administrador, eh_professor, eh_aluno, eh_encarregado
+from accounts.utils import eh_subdiretor_pedagogico, eh_professor, eh_aluno, eh_encarregado
 from alunos.models import Aluno
 from professores.models import AtribuicaoDocente
 from turmas.models import HorarioAula, Turma
@@ -46,7 +46,7 @@ class FrequenciaListView(LoginRequiredMixin, ListView):
             'atribuicao__disciplina', 'atribuicao__turma', 'justificacaofalta'
         )
 
-        if eh_administrador(user):
+        if eh_subdiretor_pedagogico(user):
             pass
         elif eh_professor(user):
             queryset = queryset.filter(atribuicao__professor__user=user)
@@ -82,7 +82,7 @@ class FrequenciaListView(LoginRequiredMixin, ListView):
         context['data_filtro'] = self.request.GET.get('data', '')
         context['ordenacao'] = self.get_ordenacao()
         context['pode_gerir'] = (
-            eh_administrador(self.request.user) or eh_professor(self.request.user)
+            eh_subdiretor_pedagogico(self.request.user) or eh_professor(self.request.user)
         )
         context['pode_justificar'] = (
             eh_aluno(self.request.user) or eh_encarregado(self.request.user)
@@ -100,7 +100,7 @@ class FrequenciaListView(LoginRequiredMixin, ListView):
 @login_required
 def frequencia_lista_view(request):
     user = request.user
-    pode_gerir = eh_administrador(user) or eh_professor(user)
+    pode_gerir = eh_subdiretor_pedagogico(user) or eh_professor(user)
 
     if not pode_gerir or request.GET.get('turma'):
         return FrequenciaListView.as_view()(request)
@@ -111,7 +111,7 @@ def frequencia_lista_view(request):
 def _resumo_frequencia_por_turma(request):
     user = request.user
     atribuicoes = AtribuicaoDocente.objects.filter(ativo=True).select_related('turma', 'disciplina')
-    if not eh_administrador(user):
+    if not eh_subdiretor_pedagogico(user):
         atribuicoes = atribuicoes.filter(professor__user=user)
 
     turmas = (
@@ -224,7 +224,7 @@ class FrequenciaUpdateView(AdminOuProfessorRequeridoMixin, UpdateView):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        if eh_administrador(self.request.user):
+        if eh_subdiretor_pedagogico(self.request.user):
             return queryset
         return queryset.filter(atribuicao__professor__user=self.request.user)
 
@@ -236,7 +236,7 @@ class FrequenciaDeleteView(AdminOuProfessorRequeridoMixin, DeleteView):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        if eh_administrador(self.request.user):
+        if eh_subdiretor_pedagogico(self.request.user):
             return queryset
         return queryset.filter(atribuicao__professor__user=self.request.user)
 
@@ -246,7 +246,7 @@ def lancamento_frequencia(request):
     atribuicoes = AtribuicaoDocente.objects.filter(ativo=True).select_related(
         'disciplina', 'turma', 'ano_letivo'
     ).prefetch_related('horarios')
-    if not eh_administrador(request.user):
+    if not eh_subdiretor_pedagogico(request.user):
         atribuicoes = atribuicoes.filter(professor__user=request.user)
     atribuicoes = atribuicoes.order_by('turma__classe__nome', 'turma__nome', 'disciplina__nome')
 
@@ -323,7 +323,7 @@ def lancamento_frequencia(request):
             )
         return render(request, 'frequencias/lancamento.html', contexto)
 
-    pode_editar = eh_administrador(request.user) or atribuicao.professor.user_id == request.user.id
+    pode_editar = eh_subdiretor_pedagogico(request.user) or atribuicao.professor.user_id == request.user.id
 
     alunos = list(
         Aluno.objects.filter(turma=atribuicao.turma, estado=Aluno.ESTADO_ATIVO).order_by('nome')
@@ -386,7 +386,7 @@ def relatorio_assiduidade(request):
     atribuicoes = AtribuicaoDocente.objects.filter(ativo=True).select_related(
         'disciplina', 'turma', 'ano_letivo'
     )
-    if not eh_administrador(request.user):
+    if not eh_subdiretor_pedagogico(request.user):
         atribuicoes = atribuicoes.filter(professor__user=request.user)
     atribuicoes = atribuicoes.order_by('turma__classe__nome', 'turma__nome', 'disciplina__nome')
 
@@ -493,7 +493,7 @@ class JustificacaoListView(AdminOuProfessorRequeridoMixin, ListView):
             'frequencia__atribuicao__turma',
         ).order_by('-data_submissao')
 
-        if eh_administrador(self.request.user):
+        if eh_subdiretor_pedagogico(self.request.user):
             return queryset
         return queryset.filter(frequencia__atribuicao__professor__user=self.request.user)
 
@@ -502,7 +502,7 @@ class JustificacaoListView(AdminOuProfessorRequeridoMixin, ListView):
 def justificacao_aprovar(request, pk):
     justificacao = get_object_or_404(JustificacaoFalta, pk=pk)
 
-    if not eh_administrador(request.user) and \
+    if not eh_subdiretor_pedagogico(request.user) and \
             justificacao.frequencia.atribuicao.professor.user_id != request.user.id:
         return render(request, 'dashboards/sem_permissao.html', status=403)
 
@@ -513,7 +513,7 @@ def justificacao_aprovar(request, pk):
 
 
 def _pode_ver_justificacao(user, justificacao):
-    if eh_administrador(user):
+    if eh_subdiretor_pedagogico(user):
         return True
     if eh_professor(user):
         return justificacao.frequencia.atribuicao.professor.user_id == user.id

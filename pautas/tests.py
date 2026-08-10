@@ -20,7 +20,7 @@ from .services.resultados import montar_pauta_final_turma, verificar_transicao_a
 
 class PautasTestBase(TestCase):
     def setUp(self):
-        self.grupo_admin, _ = Group.objects.get_or_create(name='Administrador')
+        self.grupo_admin, _ = Group.objects.get_or_create(name='Sub-diretor Pedagógico')
         self.grupo_professor, _ = Group.objects.get_or_create(name='Professor')
 
         self.admin_user = User.objects.create_user(username='admin', password='senha123')
@@ -759,7 +759,7 @@ class PautaGeralObservacaoTests(BaseLegalCalculoTestBase):
         self.assertEqual(self._observacao_do_aluno(self.turma_1ano, aluno), '')
 
     def test_pagina_pauta_final_mostra_botao_de_detalhe_apos_recurso_resolvido(self):
-        grupo_admin, _ = Group.objects.get_or_create(name='Administrador')
+        grupo_admin, _ = Group.objects.get_or_create(name='Sub-diretor Pedagógico')
         admin_user = User.objects.create_user(username='admin_obs', password='senha123')
         admin_user.groups.add(grupo_admin)
 
@@ -781,7 +781,7 @@ class PautaGeralObservacaoTests(BaseLegalCalculoTestBase):
         self.assertContains(response, '"resultado": "Aprovado"')
 
     def test_pagina_pauta_final_sem_botao_enquanto_recurso_pendente(self):
-        grupo_admin, _ = Group.objects.get_or_create(name='Administrador')
+        grupo_admin, _ = Group.objects.get_or_create(name='Sub-diretor Pedagógico')
         admin_user = User.objects.create_user(username='admin_obs2', password='senha123')
         admin_user.groups.add(grupo_admin)
 
@@ -806,7 +806,7 @@ class MiniPautaRecursoTests(BaseLegalCalculoTestBase):
 
     def setUp(self):
         super().setUp()
-        grupo_admin, _ = Group.objects.get_or_create(name='Administrador')
+        grupo_admin, _ = Group.objects.get_or_create(name='Sub-diretor Pedagógico')
         grupo_professor, _ = Group.objects.get_or_create(name='Professor')
 
         self.admin_user = User.objects.create_user(username='admin_mp', password='senha123')

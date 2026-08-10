@@ -11,20 +11,20 @@ from django.contrib.auth.models import Group, User
 from django.shortcuts import (render, redirect,
     get_object_or_404)
 from django.views import View
-from accounts.utils import eh_administrador, eh_professor
-from accounts.mixins import AdministradorRequeridoMixin, AdminOuProfessorRequeridoMixin
+from accounts.utils import eh_subdiretor_pedagogico, eh_professor
+from accounts.mixins import SubdiretorPedagogicoRequeridoMixin, AdminOuProfessorRequeridoMixin
 from professores.models import AtribuicaoDocente
 from turmas.models import Turma
 
 
-class AlunoCreateView(AdministradorRequeridoMixin, SuccessMessageMixin, CreateView):
+class AlunoCreateView(SubdiretorPedagogicoRequeridoMixin, SuccessMessageMixin, CreateView):
     model = Aluno
     form_class = AlunoForm
     template_name = 'alunos/forms.html'
     success_url = reverse_lazy('aluno_lista' )
     success_message = ('Aluno cadastrado com sucesso.' )
 
-class AlunoUpdateView(AdministradorRequeridoMixin, SuccessMessageMixin, UpdateView):
+class AlunoUpdateView(SubdiretorPedagogicoRequeridoMixin, SuccessMessageMixin, UpdateView):
     model = Aluno
     form_class = AlunoForm
     template_name = 'alunos/forms.html'
@@ -35,7 +35,7 @@ class AlunoDetailView(AdminOuProfessorRequeridoMixin, DetailView):
     model = Aluno
     template_name = 'alunos/detalhe.html'
 #Eliminar
-class AlunoDeleteView(AdministradorRequeridoMixin, DeleteView):
+class AlunoDeleteView(SubdiretorPedagogicoRequeridoMixin, DeleteView):
     model = Aluno
     template_name = 'alunos/excluir.html'
     success_url = reverse_lazy('aluno_lista' )
@@ -48,7 +48,7 @@ class AlunoListView(LoginRequiredMixin, ListView):
     paginate_by = 10
     def get_turmas_permitidas(self):
         user = self.request.user
-        if eh_administrador(user):
+        if eh_subdiretor_pedagogico(user):
             return Turma.objects.filter(ativo=True).order_by('classe__nome', 'nome')
         if eh_professor(user):
             turmas_ids = AtribuicaoDocente.objects.filter(
@@ -77,7 +77,7 @@ class AlunoListView(LoginRequiredMixin, ListView):
         context['turmas'] = self.get_turmas_permitidas()
         return context
 
-class EncarregadoListView(AdministradorRequeridoMixin, ListView):
+class EncarregadoListView(SubdiretorPedagogicoRequeridoMixin, ListView):
     model = Encarregado
     template_name = 'encarregados/lista.html'
     context_object_name = 'encarregados'
@@ -86,7 +86,7 @@ class EncarregadoListView(AdministradorRequeridoMixin, ListView):
     def get_queryset(self):
         return Encarregado.objects.select_related('user').order_by('user__first_name', 'user__last_name')
 
-class EncarregadoCreateView(AdministradorRequeridoMixin, View):
+class EncarregadoCreateView(SubdiretorPedagogicoRequeridoMixin, View):
     template_name = 'encarregados/cadastro.html'
     def get(self, request):
         form = EncarregadoCadastroForm()
@@ -119,13 +119,13 @@ class EncarregadoCreateView(AdministradorRequeridoMixin, View):
             {'form': form} )
 
 
-class EncarregadoDetailView(AdministradorRequeridoMixin, DetailView):
+class EncarregadoDetailView(SubdiretorPedagogicoRequeridoMixin, DetailView):
     model = Encarregado
     template_name = 'encarregados/detalhe.html'
     context_object_name = 'encarregado'
 
 
-class EncarregadoUpdateView(AdministradorRequeridoMixin, View):
+class EncarregadoUpdateView(SubdiretorPedagogicoRequeridoMixin, View):
     template_name = 'encarregados/editar.html'
 
     def get(self, request, pk):
@@ -157,7 +157,7 @@ class EncarregadoUpdateView(AdministradorRequeridoMixin, View):
         return render(request, self.template_name, {'form': form, 'encarregado': encarregado})
 
 
-class EncarregadoDeleteView(AdministradorRequeridoMixin, DeleteView):
+class EncarregadoDeleteView(SubdiretorPedagogicoRequeridoMixin, DeleteView):
     model = Encarregado
     template_name = 'encarregados/excluir.html'
     context_object_name = 'encarregado'

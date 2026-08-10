@@ -9,10 +9,10 @@ from .models import AtribuicaoDocente, DiretorTurma, Professor
 
 class CadastroCrudTests(TestCase):
     def setUp(self):
-        Group.objects.get_or_create(name='Administrador')
+        Group.objects.get_or_create(name='Sub-diretor Pedagógico')
         Group.objects.get_or_create(name='Professor')
         self.admin = User.objects.create_user(username='admin', password='senha123')
-        self.admin.groups.add(Group.objects.get(name='Administrador'))
+        self.admin.groups.add(Group.objects.get(name='Sub-diretor Pedagógico'))
         self.client.login(username='admin', password='senha123')
 
         prof_user = User.objects.create_user(username='prof1', password='x')

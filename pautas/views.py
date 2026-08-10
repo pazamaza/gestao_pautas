@@ -9,7 +9,7 @@ from django.views.generic import CreateView, DeleteView, ListView, UpdateView
 
 from accounts.decoracors import (
     admin_ou_professor_requerido,
-    administrador_requerido,
+    subdiretor_pedagogico_requerido,
     aluno_requerido,
     encarregado_requerido,
     professor_requerido,
@@ -19,7 +19,7 @@ from accounts.mixins import (
     ProfessorRequeridoMixin,
     SuperuserRequeridoMixin,
 )
-from accounts.utils import eh_administrador
+from accounts.utils import eh_subdiretor_pedagogico
 from alunos.models import Aluno
 from disciplinas.models import Disciplina
 from professores.models import AtribuicaoDocente, DiretorTurma
@@ -100,13 +100,13 @@ def _eh_diretor_da_turma(user, turma, ano_letivo):
 
 
 def _pode_ver_avaliacao(user, avaliacao):
-    if eh_administrador(user) or _eh_professor_titular(user, avaliacao):
+    if eh_subdiretor_pedagogico(user) or _eh_professor_titular(user, avaliacao):
         return True
     return _eh_diretor_da_turma(user, avaliacao.atribuicao.turma, avaliacao.atribuicao.ano_letivo)
 
 
 def _pode_ver_pauta_final(user, turma, ano_letivo):
-    if eh_administrador(user):
+    if eh_subdiretor_pedagogico(user):
         return True
     return bool(ano_letivo and _eh_diretor_da_turma(user, turma, ano_letivo))
 
@@ -161,7 +161,7 @@ def lancamento_notas(request):
     atribuicoes = AtribuicaoDocente.objects.filter(ativo=True).select_related(
         'disciplina', 'turma', 'ano_letivo'
     )
-    if not eh_administrador(request.user):
+    if not eh_subdiretor_pedagogico(request.user):
         atribuicoes = atribuicoes.filter(professor__user=request.user)
     atribuicoes = atribuicoes.order_by('turma__classe__nome', 'turma__nome', 'disciplina__nome')
 
@@ -193,7 +193,7 @@ def lancamento_notas(request):
     if not _pode_ver_avaliacao(request.user, avaliacao):
         return render(request, 'dashboards/sem_permissao.html', status=403)
 
-    pode_editar = eh_administrador(request.user) or _eh_professor_titular(request.user, avaliacao)
+    pode_editar = eh_subdiretor_pedagogico(request.user) or _eh_professor_titular(request.user, avaliacao)
     periodo_ativo = periodo.periodo_lancamento_ativo()
 
     alunos = list(
@@ -321,7 +321,7 @@ def relatorios_professor(request):
     atribuicoes = AtribuicaoDocente.objects.filter(ativo=True).select_related(
         'disciplina', 'turma', 'ano_letivo'
     )
-    if not eh_administrador(request.user):
+    if not eh_subdiretor_pedagogico(request.user):
         atribuicoes = atribuicoes.filter(professor__user=request.user)
     atribuicoes = atribuicoes.order_by('turma__classe__nome', 'turma__nome', 'disciplina__nome')
 
@@ -435,7 +435,7 @@ class NotaListView(AdminOuProfessorRequeridoMixin, ListView):
             .order_by('avaliacao__periodo__nome', 'aluno__nome')
         )
 
-        if not eh_administrador(self.request.user):
+        if not eh_subdiretor_pedagogico(self.request.user):
             queryset = queryset.filter(
                 avaliacao__atribuicao__professor__user=self.request.user
             )
@@ -477,7 +477,7 @@ def pauta_trimestral(request, avaliacao_id):
             'notas': notas,
             'form_importacao': ImportarNotasExcelForm(),
             'form_erro_validacao': ObservacoesValidacaoForm(),
-            'eh_administrador': eh_administrador(request.user),
+            'eh_subdiretor_pedagogico': eh_subdiretor_pedagogico(request.user),
             'pode_editar': _eh_professor_titular(request.user, avaliacao),
         },
     )
@@ -580,14 +580,14 @@ def exportar_pdf(request, avaliacao_id):
     )
 
 
-@administrador_requerido
+@subdiretor_pedagogico_requerido
 def gerar_resultados(request):
     total = gerar_resultados_finais()
     messages.success(request, f'{total} resultados finais gerados com sucesso.')
     return redirect('resultado_lista')
 
 
-@administrador_requerido
+@subdiretor_pedagogico_requerido
 def avaliacao_validar(request, avaliacao_id):
     avaliacao = get_object_or_404(Avaliacao, pk=avaliacao_id)
     avaliacao.marcar_validada(request.user)
@@ -598,7 +598,7 @@ def avaliacao_validar(request, avaliacao_id):
     return redirect('avaliacao_lista')
 
 
-@administrador_requerido
+@subdiretor_pedagogico_requerido
 def avaliacao_reportar_erro(request, avaliacao_id):
     avaliacao = get_object_or_404(
         Avaliacao.objects.select_related(
@@ -891,7 +891,7 @@ def _turma_disciplina_e_ano_da_mini_pauta(request):
 
 
 def _pode_ver_mini_pauta(user, turma, disciplina, ano_letivo):
-    if eh_administrador(user):
+    if eh_subdiretor_pedagogico(user):
         return True
     if AtribuicaoDocente.objects.filter(
         professor__user=user, turma=turma, disciplina=disciplina, ano_letivo=ano_letivo
@@ -904,7 +904,7 @@ def _pode_editar_mini_pauta(user, turma, disciplina, ano_letivo):
     # Só quem lança notas (professor titular) ou o admin — ao contrário de
     # _pode_ver_mini_pauta, o diretor de turma não entra aqui: só pode
     # consultar, não lançar NER de uma disciplina que não é sua.
-    if eh_administrador(user):
+    if eh_subdiretor_pedagogico(user):
         return True
     return AtribuicaoDocente.objects.filter(
         professor__user=user, turma=turma, disciplina=disciplina, ano_letivo=ano_letivo, ativo=True
@@ -995,7 +995,7 @@ def mini_pauta_exportar_pdf(request):
     )
 
 
-@administrador_requerido
+@subdiretor_pedagogico_requerido
 def resultado_validar(request, pk):
     resultado = get_object_or_404(ResultadoDisciplina, pk=pk)
     resultado.marcar_validada(request.user)
@@ -1003,7 +1003,7 @@ def resultado_validar(request, pk):
     return redirect('resultado_lista')
 
 
-@administrador_requerido
+@subdiretor_pedagogico_requerido
 def resultado_reportar_erro(request, pk):
     resultado = get_object_or_404(
         ResultadoDisciplina.objects.select_related('aluno__turma', 'disciplina', 'ano_letivo'),
@@ -1094,7 +1094,7 @@ class AvaliacaoListView(AdminOuProfessorRequeridoMixin, ListView):
             .order_by('-criado_em')
         )
 
-        if not eh_administrador(self.request.user):
+        if not eh_subdiretor_pedagogico(self.request.user):
             queryset = queryset.filter(atribuicao__professor__user=self.request.user)
 
         turma_id = self.request.GET.get('turma')
@@ -1121,7 +1121,7 @@ class AvaliacaoListView(AdminOuProfessorRequeridoMixin, ListView):
             '-ano_letivo__descricao', 'nome'
         )
         context['status_choices'] = Avaliacao.STATUS_CHOICES
-        context['eh_administrador'] = eh_administrador(self.request.user)
+        context['eh_subdiretor_pedagogico'] = eh_subdiretor_pedagogico(self.request.user)
         return context
 
 
@@ -1163,7 +1163,7 @@ class ResultadoDisciplinaListView(AdminOuProfessorRequeridoMixin, ListView):
             .order_by('aluno__nome', 'disciplina__nome')
         )
 
-        if not eh_administrador(self.request.user):
+        if not eh_subdiretor_pedagogico(self.request.user):
             disciplinas_professor = AtribuicaoDocente.objects.filter(
                 professor__user=self.request.user
             ).values('disciplina')
@@ -1194,7 +1194,7 @@ class ResultadoDisciplinaListView(AdminOuProfessorRequeridoMixin, ListView):
         context['disciplinas'] = Disciplina.objects.all().order_by('nome')
         context['anos_letivos'] = AnoLetivo.objects.all()
         context['status_choices'] = ResultadoDisciplina.STATUS_CHOICES
-        context['eh_administrador'] = eh_administrador(self.request.user)
+        context['eh_subdiretor_pedagogico'] = eh_subdiretor_pedagogico(self.request.user)
 
         aluno_id = self.request.GET.get('aluno')
         if aluno_id:

@@ -597,9 +597,11 @@ class SituacaoAnual(models.Model):
 class PedidoDocumento(models.Model):
 
     TIPO_BOLETIM = 'boletim'
+    TIPO_DECLARACAO = 'declaracao'
     TIPO_CERTIFICADO = 'certificado'
     TIPO_CHOICES = [
         (TIPO_BOLETIM, 'Boletim de Notas'),
+        (TIPO_DECLARACAO, 'Declaração de Notas'),
         (TIPO_CERTIFICADO, 'Certificado'),
     ]
 

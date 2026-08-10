@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="container-fluid mt-3">
+    {% include 'includes/perfil_header.html' with subtitulo="Diretor Geral do Complexo Escolar." %}
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <h4>Painel do Diretor Geral</h4>
+            <p class="text-muted mb-0">
+                As funcionalidades específicas deste painel ainda vão ser definidas.
+                Por agora, esta conta tem acesso à área administrativa do sistema.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

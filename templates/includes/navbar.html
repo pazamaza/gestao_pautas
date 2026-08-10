@@ -30,7 +30,7 @@
                     </a>
                 </li>
 
-                {% if eh_administrador_nav %}
+                {% if eh_subdiretor_pedagogico_nav %}
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'admin:index' %}">
                         Painel Admin
@@ -38,7 +38,7 @@
                 </li>
                 {% endif %}
 
-                {% if eh_administrador_nav %}
+                {% if eh_subdiretor_pedagogico_nav %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle"
                        href="#"
@@ -54,7 +54,11 @@
                         <li><a class="dropdown-item" href="{% url 'encarregado_lista' %}">Encarregados</a></li>
                         <li><a class="dropdown-item" href="{% url 'professor_lista' %}">Professores</a></li>
                         {% if user.is_superuser %}
-                        <li><a class="dropdown-item" href="{% url 'administrador_lista' %}">Administradores</a></li>
+                        <li><a class="dropdown-item" href="{% url 'subdiretor_pedagogico_lista' %}">Sub-diretores Pedagógicos</a></li>
+                        <li><a class="dropdown-item" href="{% url 'diretor_geral_lista' %}">Diretores Gerais</a></li>
+                        <li><a class="dropdown-item" href="{% url 'chefe_secretaria_lista' %}">Chefes de Secretaria</a></li>
+                        <li><a class="dropdown-item" href="{% url 'coordenador_turno_lista' %}">Coordenadores de Turno</a></li>
+                        <li><a class="dropdown-item" href="{% url 'coordenador_pais_lista' %}">Coordenadores de Pais/EE</a></li>
                         {% endif %}
                         <li><a class="dropdown-item" href="{% url 'turma_lista' %}">Turmas</a></li>
                         <li><a class="dropdown-item" href="{% url 'disciplina_lista' %}">Disciplinas</a></li>
@@ -67,7 +71,7 @@
                 </li>
                 {% endif %}
 
-                {% if eh_administrador_nav %}
+                {% if eh_subdiretor_pedagogico_nav %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle"
                        href="#"

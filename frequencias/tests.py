@@ -14,7 +14,7 @@ from .models import Frequencia, JustificacaoFalta
 
 class FrequenciaTestBase(TestCase):
     def setUp(self):
-        self.grupo_admin, _ = Group.objects.get_or_create(name='Administrador')
+        self.grupo_admin, _ = Group.objects.get_or_create(name='Sub-diretor Pedagógico')
         self.grupo_professor, _ = Group.objects.get_or_create(name='Professor')
         self.grupo_aluno, _ = Group.objects.get_or_create(name='Aluno')
         self.grupo_encarregado, _ = Group.objects.get_or_create(name='Encarregado')

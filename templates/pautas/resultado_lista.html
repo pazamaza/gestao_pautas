@@ -26,7 +26,7 @@ Resultados Finais
                class="btn btn-outline-secondary">
                 Ver Mini-Pauta Trimestral
             </a>
-            {% if eh_administrador %}
+            {% if eh_subdiretor_pedagogico %}
             <!--<a href="{% url 'gerar_resultados' %}"
                class="btn btn-success">
                 Gerar Resultados
@@ -102,7 +102,7 @@ Resultados Finais
                 <!--<th>Exame</th>-->
                 <th>Resultado</th>
                 <th>Estado</th>
-                {% if eh_administrador %}
+                {% if eh_subdiretor_pedagogico %}
                 <th>Validação</th>
                 {% endif %}
             </tr>
@@ -132,7 +132,7 @@ Resultados Finais
                         <span class="badge bg-secondary">Rascunho</span>
                     {% endif %}
                 </td>
-                {% if eh_administrador %}
+                {% if eh_subdiretor_pedagogico %}
                 <td class="d-flex flex-wrap gap-1">
                     <a href="{% url 'resultado_validar' resultado.id %}"
                        class="btn btn-success btn-sm"
@@ -148,7 +148,7 @@ Resultados Finais
                 </td>
                 {% endif %}
             </tr>
-            {% if eh_administrador %}
+            {% if eh_subdiretor_pedagogico %}
             <tr class="collapse" id="erro-resultado-{{ resultado.id }}">
                 <td colspan="11">
                     <form method="post" action="{% url 'resultado_reportar_erro' resultado.id %}" class="row g-2">

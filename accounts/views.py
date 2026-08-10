@@ -9,11 +9,23 @@ from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm
 from django.contrib.auth.models import Group, User
 from django.views import View
 from django.views.generic import ListView, DetailView, DeleteView
-from .forms import AdministradorCadastroForm, AdministradorEdicaoForm
+from .forms import (
+    SubdiretorPedagogicoCadastroForm,
+    SubdiretorPedagogicoEdicaoForm,
+    ContaAdministrativaCadastroForm,
+    ContaAdministrativaEdicaoForm,
+)
 from .mixins import SuperuserRequeridoMixin
 from .models import Perfil
 from django.contrib.auth.decorators import login_required
-from .utils import usuario_do_grupo, eh_administrador
+from .utils import (
+    usuario_do_grupo,
+    eh_subdiretor_pedagogico,
+    eh_diretor_geral,
+    eh_chefe_secretaria,
+    eh_coordenador_turno,
+    eh_coordenador_pais_encarregados,
+)
 from alunos.models import Aluno, Encarregado
 from professores.models import Professor, AtribuicaoDocente, DiretorTurma
 from turmas.models import Turma, PeriodoAcademico, AnoLetivo
@@ -247,10 +259,11 @@ def logout_view(request):
 
 @login_required
 def dashboard(request):
-    # Ponto de entrada único para os 4 perfis (Administrador, Professor,
-    # Aluno, Encarregado) — cada bloco 'if' monta o context e escolhe o
-    # template do respectivo dashboard. Só um dos blocos é executado por
-    # pedido, conforme o grupo do utilizador (ver accounts/utils.py).
+    # Ponto de entrada único para os 4 perfis (Sub-diretor Pedagógico,
+    # Professor, Aluno, Encarregado) — cada bloco 'if' monta o context e
+    # escolhe o template do respectivo dashboard. Só um dos blocos é
+    # executado por pedido, conforme o grupo do utilizador (ver
+    # accounts/utils.py).
 
     user = request.user
     context = {
@@ -261,8 +274,8 @@ def dashboard(request):
         'total_encarregados': Encarregado.objects.count(),
     }
 
-    if eh_administrador(user):
-        # ---- Dashboard do Administrador ----
+    if eh_subdiretor_pedagogico(user):
+        # ---- Dashboard do Sub-diretor Pedagógico ----
 
         # Ano lectivo seleccionado (via querystring ?ano_letivo=) ou, por
         # omissão, o ano activo.
@@ -426,12 +439,6 @@ def dashboard(request):
                 round(presentes_por_mes.get(mes, 0) / total_por_mes[mes] * 100, 1)
                 for mes in meses_com_dados
             ],
-            'pedidos_documentos_pendentes': PedidoDocumento.objects.filter(
-                status=PedidoDocumento.STATUS_PENDENTE
-            ).count(),
-            'pedidos_pagamento_pendentes': PedidoDocumento.objects.filter(
-                status=PedidoDocumento.STATUS_PAGAMENTO_SUBMETIDO
-            ).count(),
         })
 
         return render(
@@ -527,6 +534,59 @@ def dashboard(request):
             context
         )
 
+    if eh_diretor_geral(user):
+        # ---- Dashboard do Diretor Geral do Complexo ---- (placeholder,
+        # conteúdo funcional próprio fica para uma fase seguinte)
+
+        return render(
+            request,
+            'dashboards/diretor_geral.html',
+            context
+        )
+
+    if eh_chefe_secretaria(user):
+        # ---- Dashboard do Chefe de Secretaria ---- (Fase 1: a Secretaria
+        # passa a ser o ponto único de entrada de pedidos de documentos e
+        # pagamentos — responsabilidade que antes estava só no Sub-diretor
+        # Pedagógico, ver dashboards/admin.html)
+
+        context.update({
+            'pedidos_documentos_pendentes': PedidoDocumento.objects.filter(
+                status=PedidoDocumento.STATUS_PENDENTE
+            ).count(),
+            'pedidos_pagamento_pendentes': PedidoDocumento.objects.filter(
+                status=PedidoDocumento.STATUS_PAGAMENTO_SUBMETIDO
+            ).count(),
+            'pedidos_prontos_levantamento': PedidoDocumento.objects.filter(
+                status=PedidoDocumento.STATUS_PRONTO
+            ).count(),
+        })
+
+        return render(
+            request,
+            'dashboards/chefe_secretaria.html',
+            context
+        )
+
+    if eh_coordenador_turno(user):
+        # ---- Dashboard do Coordenador de Turno ---- (placeholder)
+
+        return render(
+            request,
+            'dashboards/coordenador_turno.html',
+            context
+        )
+
+    if eh_coordenador_pais_encarregados(user):
+        # ---- Dashboard do Coordenador de Pais e Encarregados de Educação ----
+        # (placeholder)
+
+        return render(
+            request,
+            'dashboards/coordenador_pais.html',
+            context
+        )
+
     return render(
         request,
         'dashboards/sem_permissao.html'
@@ -564,30 +624,30 @@ def perfil(request):
     )
 
 
-def _administradores_qs():
+def _subdiretores_pedagogicos_qs():
     return User.objects.filter(
-        Q(groups__name='Administrador') | Q(is_superuser=True)
+        Q(groups__name='Sub-diretor Pedagógico') | Q(is_superuser=True)
     ).distinct()
 
 
-class AdministradorListView(SuperuserRequeridoMixin, ListView):
+class SubdiretorPedagogicoListView(SuperuserRequeridoMixin, ListView):
     model = User
-    template_name = 'accounts/administrador_lista.html'
-    context_object_name = 'administradores'
+    template_name = 'accounts/subdiretor_pedagogico_lista.html'
+    context_object_name = 'subdiretores_pedagogicos'
 
     def get_queryset(self):
-        return _administradores_qs().order_by('username')
+        return _subdiretores_pedagogicos_qs().order_by('username')
 
 
-class AdministradorCreateView(SuperuserRequeridoMixin, View):
-    template_name = 'accounts/administrador_cadastro.html'
+class SubdiretorPedagogicoCreateView(SuperuserRequeridoMixin, View):
+    template_name = 'accounts/subdiretor_pedagogico_cadastro.html'
 
     def get(self, request):
-        form = AdministradorCadastroForm()
+        form = SubdiretorPedagogicoCadastroForm()
         return render(request, self.template_name, {'form': form})
 
     def post(self, request):
-        form = AdministradorCadastroForm(request.POST)
+        form = SubdiretorPedagogicoCadastroForm(request.POST)
         if form.is_valid():
             user = User.objects.create_user(
                 username=form.cleaned_data['username'],
@@ -596,58 +656,359 @@ class AdministradorCreateView(SuperuserRequeridoMixin, View):
                 last_name=form.cleaned_data['last_name'],
                 email=form.cleaned_data['email'],
             )
-            grupo_administrador, _ = Group.objects.get_or_create(name='Administrador')
-            user.groups.add(grupo_administrador)
-            messages.success(request, 'Administrador cadastrado com sucesso.')
-            return redirect('administrador_lista')
+            grupo_subdiretor_pedagogico, _ = Group.objects.get_or_create(name='Sub-diretor Pedagógico')
+            user.groups.add(grupo_subdiretor_pedagogico)
+            messages.success(request, 'Sub-diretor Pedagógico cadastrado com sucesso.')
+            return redirect('subdiretor_pedagogico_lista')
         return render(request, self.template_name, {'form': form})
 
 
-class AdministradorDetailView(SuperuserRequeridoMixin, DetailView):
-    template_name = 'accounts/administrador_detalhe.html'
-    context_object_name = 'administrador'
+class SubdiretorPedagogicoDetailView(SuperuserRequeridoMixin, DetailView):
+    template_name = 'accounts/subdiretor_pedagogico_detalhe.html'
+    context_object_name = 'subdiretor_pedagogico'
 
     def get_queryset(self):
-        return _administradores_qs()
+        return _subdiretores_pedagogicos_qs()
 
 
-class AdministradorUpdateView(SuperuserRequeridoMixin, View):
-    template_name = 'accounts/administrador_editar.html'
+class SubdiretorPedagogicoUpdateView(SuperuserRequeridoMixin, View):
+    template_name = 'accounts/subdiretor_pedagogico_editar.html'
 
     def get(self, request, pk):
-        administrador = get_object_or_404(_administradores_qs(), pk=pk)
-        form = AdministradorEdicaoForm(initial={
-            'first_name': administrador.first_name,
-            'last_name': administrador.last_name,
-            'email': administrador.email,
-            'ativo': administrador.is_active,
+        subdiretor_pedagogico = get_object_or_404(_subdiretores_pedagogicos_qs(), pk=pk)
+        form = SubdiretorPedagogicoEdicaoForm(initial={
+            'first_name': subdiretor_pedagogico.first_name,
+            'last_name': subdiretor_pedagogico.last_name,
+            'email': subdiretor_pedagogico.email,
+            'ativo': subdiretor_pedagogico.is_active,
         })
-        return render(request, self.template_name, {'form': form, 'administrador': administrador})
+        return render(request, self.template_name, {'form': form, 'subdiretor_pedagogico': subdiretor_pedagogico})
 
     def post(self, request, pk):
-        administrador = get_object_or_404(_administradores_qs(), pk=pk)
-        form = AdministradorEdicaoForm(request.POST)
+        subdiretor_pedagogico = get_object_or_404(_subdiretores_pedagogicos_qs(), pk=pk)
+        form = SubdiretorPedagogicoEdicaoForm(request.POST)
         if form.is_valid():
-            administrador.first_name = form.cleaned_data['first_name']
-            administrador.last_name = form.cleaned_data['last_name']
-            administrador.email = form.cleaned_data['email']
-            administrador.is_active = form.cleaned_data['ativo']
-            administrador.save()
-            messages.success(request, 'Administrador atualizado com sucesso.')
-            return redirect('administrador_lista')
-        return render(request, self.template_name, {'form': form, 'administrador': administrador})
+            subdiretor_pedagogico.first_name = form.cleaned_data['first_name']
+            subdiretor_pedagogico.last_name = form.cleaned_data['last_name']
+            subdiretor_pedagogico.email = form.cleaned_data['email']
+            subdiretor_pedagogico.is_active = form.cleaned_data['ativo']
+            subdiretor_pedagogico.save()
+            messages.success(request, 'Sub-diretor Pedagógico atualizado com sucesso.')
+            return redirect('subdiretor_pedagogico_lista')
+        return render(request, self.template_name, {'form': form, 'subdiretor_pedagogico': subdiretor_pedagogico})
 
 
-class AdministradorDeleteView(SuperuserRequeridoMixin, DeleteView):
-    template_name = 'accounts/administrador_excluir.html'
-    context_object_name = 'administrador'
-    success_url = reverse_lazy('administrador_lista')
+class SubdiretorPedagogicoDeleteView(SuperuserRequeridoMixin, DeleteView):
+    template_name = 'accounts/subdiretor_pedagogico_excluir.html'
+    context_object_name = 'subdiretor_pedagogico'
+    success_url = reverse_lazy('subdiretor_pedagogico_lista')
 
     def get_queryset(self):
-        return _administradores_qs()
+        return _subdiretores_pedagogicos_qs()
 
     def post(self, request, *args, **kwargs):
         if self.get_object() == request.user:
             messages.error(request, 'Não é possível eliminar a sua própria conta.')
-            return redirect('administrador_lista')
+            return redirect('subdiretor_pedagogico_lista')
         return super().post(request, *args, **kwargs)
+
+
+# ---------------------------------------------------------------------------
+# CRUD genérico de "contas administrativas puras" (sem modelo de domínio
+# próprio, tal como Sub-diretor Pedagógico) — reaproveitado pelos 4 novos
+# papéis administrativos do Complexo Escolar. Cada subclasse só define o
+# grupo Django e os textos/urls; a lógica fica centralizada aqui.
+# ---------------------------------------------------------------------------
+
+GRUPO_DIRETOR_GERAL = 'Diretor Geral do Complexo'
+GRUPO_CHEFE_SECRETARIA = 'Chefe de Secretaria'
+GRUPO_COORDENADOR_TURNO = 'Coordenador de Turno'
+GRUPO_COORDENADOR_PAIS = 'Coordenador de Pais e Encarregados de Educação'
+
+
+def _contas_por_grupo_qs(grupo_nome, incluir_superuser=False):
+    if incluir_superuser:
+        return User.objects.filter(Q(groups__name=grupo_nome) | Q(is_superuser=True)).distinct()
+    return User.objects.filter(groups__name=grupo_nome).distinct()
+
+
+class ContaAdministrativaListView(SuperuserRequeridoMixin, ListView):
+    model = User
+    grupo_nome = None
+    incluir_superuser = False
+    template_name = 'accounts/conta_admin_lista.html'
+    context_object_name = 'contas'
+    titulo_singular = ''
+    titulo_plural = ''
+    url_novo_name = ''
+    url_detalhe_name = ''
+    url_editar_name = ''
+    url_excluir_name = ''
+
+    def get_queryset(self):
+        return _contas_por_grupo_qs(self.grupo_nome, self.incluir_superuser).order_by('username')
+
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+        contexto.update({
+            'titulo_singular': self.titulo_singular,
+            'titulo_plural': self.titulo_plural,
+            'url_novo_name': self.url_novo_name,
+            'url_detalhe_name': self.url_detalhe_name,
+            'url_editar_name': self.url_editar_name,
+            'url_excluir_name': self.url_excluir_name,
+        })
+        return contexto
+
+
+class ContaAdministrativaCreateView(SuperuserRequeridoMixin, View):
+    grupo_nome = None
+    template_name = 'accounts/conta_admin_cadastro.html'
+    titulo_singular = ''
+    url_lista_name = ''
+
+    def get(self, request):
+        form = ContaAdministrativaCadastroForm()
+        return render(request, self.template_name, {'form': form, 'titulo_singular': self.titulo_singular})
+
+    def post(self, request):
+        form = ContaAdministrativaCadastroForm(request.POST)
+        if form.is_valid():
+            user = User.objects.create_user(
+                username=form.cleaned_data['username'],
+                password=form.cleaned_data['password'],
+                first_name=form.cleaned_data['first_name'],
+                last_name=form.cleaned_data['last_name'],
+                email=form.cleaned_data['email'],
+            )
+            grupo, _ = Group.objects.get_or_create(name=self.grupo_nome)
+            user.groups.add(grupo)
+            messages.success(request, f'{self.titulo_singular} cadastrado(a) com sucesso.')
+            return redirect(self.url_lista_name)
+        return render(request, self.template_name, {'form': form, 'titulo_singular': self.titulo_singular})
+
+
+class ContaAdministrativaDetailView(SuperuserRequeridoMixin, DetailView):
+    grupo_nome = None
+    incluir_superuser = False
+    template_name = 'accounts/conta_admin_detalhe.html'
+    context_object_name = 'conta'
+    titulo_singular = ''
+    url_lista_name = ''
+    url_editar_name = ''
+
+    def get_queryset(self):
+        return _contas_por_grupo_qs(self.grupo_nome, self.incluir_superuser)
+
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+        contexto.update({
+            'titulo_singular': self.titulo_singular,
+            'url_lista_name': self.url_lista_name,
+            'url_editar_name': self.url_editar_name,
+        })
+        return contexto
+
+
+class ContaAdministrativaUpdateView(SuperuserRequeridoMixin, View):
+    grupo_nome = None
+    incluir_superuser = False
+    template_name = 'accounts/conta_admin_editar.html'
+    titulo_singular = ''
+    url_lista_name = ''
+
+    def get_queryset(self):
+        return _contas_por_grupo_qs(self.grupo_nome, self.incluir_superuser)
+
+    def get(self, request, pk):
+        conta = get_object_or_404(self.get_queryset(), pk=pk)
+        form = ContaAdministrativaEdicaoForm(initial={
+            'first_name': conta.first_name,
+            'last_name': conta.last_name,
+            'email': conta.email,
+            'ativo': conta.is_active,
+        })
+        return render(request, self.template_name, {'form': form, 'conta': conta, 'titulo_singular': self.titulo_singular})
+
+    def post(self, request, pk):
+        conta = get_object_or_404(self.get_queryset(), pk=pk)
+        form = ContaAdministrativaEdicaoForm(request.POST)
+        if form.is_valid():
+            conta.first_name = form.cleaned_data['first_name']
+            conta.last_name = form.cleaned_data['last_name']
+            conta.email = form.cleaned_data['email']
+            conta.is_active = form.cleaned_data['ativo']
+            conta.save()
+            messages.success(request, f'{self.titulo_singular} atualizado(a) com sucesso.')
+            return redirect(self.url_lista_name)
+        return render(request, self.template_name, {'form': form, 'conta': conta, 'titulo_singular': self.titulo_singular})
+
+
+class ContaAdministrativaDeleteView(SuperuserRequeridoMixin, DeleteView):
+    grupo_nome = None
+    incluir_superuser = False
+    template_name = 'accounts/conta_admin_excluir.html'
+    context_object_name = 'conta'
+    titulo_singular = ''
+    url_lista_name = ''
+
+    def get_queryset(self):
+        return _contas_por_grupo_qs(self.grupo_nome, self.incluir_superuser)
+
+    def get_context_data(self, **kwargs):
+        contexto = super().get_context_data(**kwargs)
+        contexto['titulo_singular'] = self.titulo_singular
+        return contexto
+
+    def get_success_url(self):
+        return reverse_lazy(self.url_lista_name)
+
+    def post(self, request, *args, **kwargs):
+        if self.get_object() == request.user:
+            messages.error(request, 'Não é possível eliminar a sua própria conta.')
+            return redirect(self.url_lista_name)
+        return super().post(request, *args, **kwargs)
+
+
+class DiretorGeralListView(ContaAdministrativaListView):
+    grupo_nome = GRUPO_DIRETOR_GERAL
+    incluir_superuser = True
+    titulo_singular = 'Diretor Geral'
+    titulo_plural = 'Diretores Gerais'
+    url_novo_name = 'diretor_geral_novo'
+    url_detalhe_name = 'diretor_geral_detalhe'
+    url_editar_name = 'diretor_geral_editar'
+    url_excluir_name = 'diretor_geral_excluir'
+
+
+class DiretorGeralCreateView(ContaAdministrativaCreateView):
+    grupo_nome = GRUPO_DIRETOR_GERAL
+    titulo_singular = 'Diretor Geral'
+    url_lista_name = 'diretor_geral_lista'
+
+
+class DiretorGeralDetailView(ContaAdministrativaDetailView):
+    grupo_nome = GRUPO_DIRETOR_GERAL
+    incluir_superuser = True
+    titulo_singular = 'Diretor Geral'
+    url_lista_name = 'diretor_geral_lista'
+    url_editar_name = 'diretor_geral_editar'
+
+
+class DiretorGeralUpdateView(ContaAdministrativaUpdateView):
+    grupo_nome = GRUPO_DIRETOR_GERAL
+    incluir_superuser = True
+    titulo_singular = 'Diretor Geral'
+    url_lista_name = 'diretor_geral_lista'
+
+
+class DiretorGeralDeleteView(ContaAdministrativaDeleteView):
+    grupo_nome = GRUPO_DIRETOR_GERAL
+    incluir_superuser = True
+    titulo_singular = 'Diretor Geral'
+    url_lista_name = 'diretor_geral_lista'
+
+
+class ChefeSecretariaListView(ContaAdministrativaListView):
+    grupo_nome = GRUPO_CHEFE_SECRETARIA
+    titulo_singular = 'Chefe de Secretaria'
+    titulo_plural = 'Chefes de Secretaria'
+    url_novo_name = 'chefe_secretaria_novo'
+    url_detalhe_name = 'chefe_secretaria_detalhe'
+    url_editar_name = 'chefe_secretaria_editar'
+    url_excluir_name = 'chefe_secretaria_excluir'
+
+
+class ChefeSecretariaCreateView(ContaAdministrativaCreateView):
+    grupo_nome = GRUPO_CHEFE_SECRETARIA
+    titulo_singular = 'Chefe de Secretaria'
+    url_lista_name = 'chefe_secretaria_lista'
+
+
+class ChefeSecretariaDetailView(ContaAdministrativaDetailView):
+    grupo_nome = GRUPO_CHEFE_SECRETARIA
+    titulo_singular = 'Chefe de Secretaria'
+    url_lista_name = 'chefe_secretaria_lista'
+    url_editar_name = 'chefe_secretaria_editar'
+
+
+class ChefeSecretariaUpdateView(ContaAdministrativaUpdateView):
+    grupo_nome = GRUPO_CHEFE_SECRETARIA
+    titulo_singular = 'Chefe de Secretaria'
+    url_lista_name = 'chefe_secretaria_lista'
+
+
+class ChefeSecretariaDeleteView(ContaAdministrativaDeleteView):
+    grupo_nome = GRUPO_CHEFE_SECRETARIA
+    titulo_singular = 'Chefe de Secretaria'
+    url_lista_name = 'chefe_secretaria_lista'
+
+
+class CoordenadorTurnoListView(ContaAdministrativaListView):
+    grupo_nome = GRUPO_COORDENADOR_TURNO
+    titulo_singular = 'Coordenador de Turno'
+    titulo_plural = 'Coordenadores de Turno'
+    url_novo_name = 'coordenador_turno_novo'
+    url_detalhe_name = 'coordenador_turno_detalhe'
+    url_editar_name = 'coordenador_turno_editar'
+    url_excluir_name = 'coordenador_turno_excluir'
+
+
+class CoordenadorTurnoCreateView(ContaAdministrativaCreateView):
+    grupo_nome = GRUPO_COORDENADOR_TURNO
+    titulo_singular = 'Coordenador de Turno'
+    url_lista_name = 'coordenador_turno_lista'
+
+
+class CoordenadorTurnoDetailView(ContaAdministrativaDetailView):
+    grupo_nome = GRUPO_COORDENADOR_TURNO
+    titulo_singular = 'Coordenador de Turno'
+    url_lista_name = 'coordenador_turno_lista'
+    url_editar_name = 'coordenador_turno_editar'
+
+
+class CoordenadorTurnoUpdateView(ContaAdministrativaUpdateView):
+    grupo_nome = GRUPO_COORDENADOR_TURNO
+    titulo_singular = 'Coordenador de Turno'
+    url_lista_name = 'coordenador_turno_lista'
+
+
+class CoordenadorTurnoDeleteView(ContaAdministrativaDeleteView):
+    grupo_nome = GRUPO_COORDENADOR_TURNO
+    titulo_singular = 'Coordenador de Turno'
+    url_lista_name = 'coordenador_turno_lista'
+
+
+class CoordenadorPaisListView(ContaAdministrativaListView):
+    grupo_nome = GRUPO_COORDENADOR_PAIS
+    titulo_singular = 'Coordenador de Pais e Encarregados de Educação'
+    titulo_plural = 'Coordenadores de Pais e Encarregados de Educação'
+    url_novo_name = 'coordenador_pais_novo'
+    url_detalhe_name = 'coordenador_pais_detalhe'
+    url_editar_name = 'coordenador_pais_editar'
+    url_excluir_name = 'coordenador_pais_excluir'
+
+
+class CoordenadorPaisCreateView(ContaAdministrativaCreateView):
+    grupo_nome = GRUPO_COORDENADOR_PAIS
+    titulo_singular = 'Coordenador de Pais e Encarregados de Educação'
+    url_lista_name = 'coordenador_pais_lista'
+
+
+class CoordenadorPaisDetailView(ContaAdministrativaDetailView):
+    grupo_nome = GRUPO_COORDENADOR_PAIS
+    titulo_singular = 'Coordenador de Pais e Encarregados de Educação'
+    url_lista_name = 'coordenador_pais_lista'
+    url_editar_name = 'coordenador_pais_editar'
+
+
+class CoordenadorPaisUpdateView(ContaAdministrativaUpdateView):
+    grupo_nome = GRUPO_COORDENADOR_PAIS
+    titulo_singular = 'Coordenador de Pais e Encarregados de Educação'
+    url_lista_name = 'coordenador_pais_lista'
+
+
+class CoordenadorPaisDeleteView(ContaAdministrativaDeleteView):
+    grupo_nome = GRUPO_COORDENADOR_PAIS
+    titulo_singular = 'Coordenador de Pais e Encarregados de Educação'
+    url_lista_name = 'coordenador_pais_lista'

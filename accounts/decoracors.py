@@ -4,11 +4,15 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import render
 
 from .utils import (
-    eh_administrador,
+    eh_subdiretor_pedagogico,
     eh_admin_ou_professor,
     eh_aluno,
     eh_encarregado,
     eh_professor,
+    eh_diretor_geral,
+    eh_chefe_secretaria,
+    eh_coordenador_turno,
+    eh_coordenador_pais_encarregados,
 )
 
 
@@ -33,8 +37,8 @@ def _acesso_requerido(teste):
     return decorator
 
 
-def administrador_requerido(view_func):
-    return _acesso_requerido(eh_administrador)(view_func)
+def subdiretor_pedagogico_requerido(view_func):
+    return _acesso_requerido(eh_subdiretor_pedagogico)(view_func)
 
 
 def professor_requerido(view_func):
@@ -51,3 +55,19 @@ def aluno_requerido(view_func):
 
 def encarregado_requerido(view_func):
     return _acesso_requerido(eh_encarregado)(view_func)
+
+
+def diretor_geral_requerido(view_func):
+    return _acesso_requerido(eh_diretor_geral)(view_func)
+
+
+def chefe_secretaria_requerido(view_func):
+    return _acesso_requerido(eh_chefe_secretaria)(view_func)
+
+
+def coordenador_turno_requerido(view_func):
+    return _acesso_requerido(eh_coordenador_turno)(view_func)
+
+
+def coordenador_pais_requerido(view_func):
+    return _acesso_requerido(eh_coordenador_pais_encarregados)(view_func)

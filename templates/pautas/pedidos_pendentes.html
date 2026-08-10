@@ -23,6 +23,7 @@ Pedidos de Documentos Pendentes
                         Solicitado em {{ pedido.solicitado_em|date:"d/m/Y H:i" }}
                     </p>
 
+                    {% if pedido.pode_decidir %}
                     <form method="post" action="{% url 'pedido_autorizar' pedido.id %}" class="d-inline">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-success btn-sm mb-2">Autorizar</button>
@@ -36,6 +37,9 @@ Pedidos de Documentos Pendentes
                             <button type="submit" class="btn btn-outline-danger">Recusar</button>
                         </div>
                     </form>
+                    {% else %}
+                    <span class="badge bg-secondary">Aguarda decisão de outra entidade</span>
+                    {% endif %}
                 </div>
             </div>
         </div>

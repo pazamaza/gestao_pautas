@@ -1,10 +1,10 @@
 {% extends 'base.html' %}
-{% block title %}Administradores{% endblock %}
+{% block title %}Sub-diretores Pedagógicos{% endblock %}
 {% block content %}
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center">
-        <h2>Administradores</h2>
-        <a href="{% url 'administrador_novo' %}" class="btn btn-primary">Novo Administrador</a>
+        <h2>Sub-diretores Pedagógicos</h2>
+        <a href="{% url 'subdiretor_pedagogico_novo' %}" class="btn btn-primary">Novo Sub-diretor Pedagógico</a>
     </div>
 
     <div class="table-responsive">
@@ -20,36 +20,36 @@
                 </tr>
             </thead>
             <tbody>
-                {% for administrador in administradores %}
+                {% for subdiretor_pedagogico in subdiretores_pedagogicos %}
                 <tr>
-                    <td>{{ administrador.username }}</td>
-                    <td>{{ administrador.get_full_name|default:"—" }}</td>
-                    <td>{{ administrador.email|default:"—" }}</td>
+                    <td>{{ subdiretor_pedagogico.username }}</td>
+                    <td>{{ subdiretor_pedagogico.get_full_name|default:"—" }}</td>
+                    <td>{{ subdiretor_pedagogico.email|default:"—" }}</td>
                     <td>
-                        {% if administrador.is_superuser %}
+                        {% if subdiretor_pedagogico.is_superuser %}
                         <span class="badge bg-success">Sim</span>
                         {% else %}
                         <span class="badge bg-secondary">Não</span>
                         {% endif %}
                     </td>
                     <td>
-                        {% if administrador.is_active %}
+                        {% if subdiretor_pedagogico.is_active %}
                         <span class="badge bg-success">Ativo</span>
                         {% else %}
                         <span class="badge bg-danger">Inativo</span>
                         {% endif %}
                     </td>
                     <td>
-                        <a href="{% url 'administrador_detalhe' administrador.pk %}" class="btn btn-info btn-sm">Ver</a>
-                        <a href="{% url 'administrador_editar' administrador.pk %}" class="btn btn-warning btn-sm">Editar</a>
-                        {% if administrador.pk != user.pk %}
-                        <a href="{% url 'administrador_excluir' administrador.pk %}" class="btn btn-danger btn-sm">Excluir</a>
+                        <a href="{% url 'subdiretor_pedagogico_detalhe' subdiretor_pedagogico.pk %}" class="btn btn-info btn-sm">Ver</a>
+                        <a href="{% url 'subdiretor_pedagogico_editar' subdiretor_pedagogico.pk %}" class="btn btn-warning btn-sm">Editar</a>
+                        {% if subdiretor_pedagogico.pk != user.pk %}
+                        <a href="{% url 'subdiretor_pedagogico_excluir' subdiretor_pedagogico.pk %}" class="btn btn-danger btn-sm">Excluir</a>
                         {% endif %}
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6">Nenhum administrador cadastrado.</td>
+                    <td colspan="6">Nenhum sub-diretor pedagógico cadastrado.</td>
                 </tr>
                 {% endfor %}
             </tbody>

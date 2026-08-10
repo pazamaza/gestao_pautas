@@ -3,12 +3,12 @@ from django.views.generic import (ListView, CreateView,
     UpdateView, DetailView)
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
-from accounts.mixins import AdministradorRequeridoMixin
-from accounts.decoracors import administrador_requerido
+from accounts.mixins import SubdiretorPedagogicoRequeridoMixin
+from accounts.decoracors import subdiretor_pedagogico_requerido
 from .models import Turma, PeriodoAcademico, AnoLetivo
 from .forms import TurmaForm, PeriodoAcademicoForm
 
-class TurmaListView(AdministradorRequeridoMixin, ListView):
+class TurmaListView(SubdiretorPedagogicoRequeridoMixin, ListView):
     model = Turma
     template_name = 'turmas/lista.html'
     context_object_name = 'turmas'
@@ -34,7 +34,7 @@ class TurmaListView(AdministradorRequeridoMixin, ListView):
         context['anos_letivos'] = AnoLetivo.objects.all()
         return context
 
-@administrador_requerido
+@subdiretor_pedagogico_requerido
 def desativar_turma(request, pk):
     turma = get_object_or_404(Turma, pk=pk)
     turma.ativo = False
@@ -42,7 +42,7 @@ def desativar_turma(request, pk):
     messages.success(request, "Turma desativada com sucesso.")
     return redirect("turma_lista")
 
-@administrador_requerido
+@subdiretor_pedagogico_requerido
 def reativar_turma(request, pk):
     turma = get_object_or_404(Turma, pk=pk)
     turma.ativo = True
@@ -50,7 +50,7 @@ def reativar_turma(request, pk):
     messages.success(request, "Turma reativada com sucesso.")
     return redirect("turma_lista")
 
-class TurmaCreateView(AdministradorRequeridoMixin, CreateView):
+class TurmaCreateView(SubdiretorPedagogicoRequeridoMixin, CreateView):
     model = Turma
     form_class = TurmaForm
     template_name = 'turmas/form.html'
@@ -58,7 +58,7 @@ class TurmaCreateView(AdministradorRequeridoMixin, CreateView):
         'turma_lista'
     )
 
-class TurmaUpdateView(AdministradorRequeridoMixin, UpdateView):
+class TurmaUpdateView(SubdiretorPedagogicoRequeridoMixin, UpdateView):
     model = Turma
     form_class = TurmaForm
     template_name = 'turmas/form.html'
@@ -66,12 +66,12 @@ class TurmaUpdateView(AdministradorRequeridoMixin, UpdateView):
         'turma_lista'
     )
 
-class TurmaDetailView(AdministradorRequeridoMixin, DetailView):
+class TurmaDetailView(SubdiretorPedagogicoRequeridoMixin, DetailView):
     model = Turma
     template_name = 'turmas/detalhe.html'
     context_object_name = 'turma'
 
-class TurmaInativaListView(AdministradorRequeridoMixin, ListView):
+class TurmaInativaListView(SubdiretorPedagogicoRequeridoMixin, ListView):
 
     model = Turma
     template_name = "turmas/inativas.html"
@@ -80,7 +80,7 @@ class TurmaInativaListView(AdministradorRequeridoMixin, ListView):
         return Turma.objects.filter(ativo=False)
 
 
-class PeriodoAcademicoListView(AdministradorRequeridoMixin, ListView):
+class PeriodoAcademicoListView(SubdiretorPedagogicoRequeridoMixin, ListView):
     model = PeriodoAcademico
     template_name = 'turmas/periodo_lista.html'
     context_object_name = 'periodos'
@@ -91,21 +91,21 @@ class PeriodoAcademicoListView(AdministradorRequeridoMixin, ListView):
         )
 
 
-class PeriodoAcademicoCreateView(AdministradorRequeridoMixin, CreateView):
+class PeriodoAcademicoCreateView(SubdiretorPedagogicoRequeridoMixin, CreateView):
     model = PeriodoAcademico
     form_class = PeriodoAcademicoForm
     template_name = 'turmas/periodo_form.html'
     success_url = reverse_lazy('periodo_lista')
 
 
-class PeriodoAcademicoUpdateView(AdministradorRequeridoMixin, UpdateView):
+class PeriodoAcademicoUpdateView(SubdiretorPedagogicoRequeridoMixin, UpdateView):
     model = PeriodoAcademico
     form_class = PeriodoAcademicoForm
     template_name = 'turmas/periodo_form.html'
     success_url = reverse_lazy('periodo_lista')
 
 
-class PeriodoAcademicoDetailView(AdministradorRequeridoMixin, DetailView):
+class PeriodoAcademicoDetailView(SubdiretorPedagogicoRequeridoMixin, DetailView):
     model = PeriodoAcademico
     template_name = 'turmas/periodo_detalhe.html'
     context_object_name = 'periodo'

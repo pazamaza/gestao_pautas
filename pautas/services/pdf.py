@@ -471,6 +471,75 @@ def exportar_boletim_pdf(aluno, ano_letivo, resultados):
     return output
 
 
+def exportar_declaracao_pdf(aluno, ano_letivo, resultados):
+    from core.models import Escola
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+    output = BytesIO()
+    documento = SimpleDocTemplate(
+        output,
+        pagesize=A4,
+        rightMargin=36,
+        leftMargin=36,
+        topMargin=36,
+        bottomMargin=36,
+        title='Declaração de Notas',
+    )
+
+    escola = Escola.obter_configuracao()
+    estilos = getSampleStyleSheet()
+    elementos = []
+    _cabecalho_escola(elementos, estilos, escola)
+
+    elementos.append(Paragraph('Declaração de Notas', estilos['Heading2']))
+    elementos.append(
+        Paragraph(
+            f'Declara-se, para os devidos efeitos, que {aluno.nome} '
+            f'(Nº Processo: {aluno.numero_processo}), aluno(a) da turma '
+            f'{aluno.turma}, obteve no ano letivo {ano_letivo} os seguintes '
+            'resultados:',
+            estilos['Normal'],
+        )
+    )
+    elementos.append(Spacer(1, 14))
+
+    dados = [['Disciplina', '1º Trimestre', '2º Trimestre', '3º Trimestre', 'Média Final', 'Situação']]
+    for resultado in resultados:
+        dados.append([
+            resultado.disciplina.nome,
+            resultado.mt1 if resultado.mt1 else '-',
+            resultado.mt2 if resultado.mt2 else '-',
+            resultado.mt3 if resultado.mt3 else '-',
+            resultado.mf if resultado.mf else '-',
+            resultado.resultado or '-',
+        ])
+
+    tabela = Table(dados, repeatRows=1, colWidths=[160, 70, 70, 70, 70, 80])
+    tabela.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#d9eaf7')),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('ALIGN', (1, 0), (-1, -1), 'CENTER'),
+        ('GRID', (0, 0), (-1, -1), 0.4, colors.grey),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f7f7f7')]),
+    ]))
+    elementos.append(tabela)
+
+    elementos.append(Spacer(1, 24))
+    elementos.append(Paragraph(
+        'Documento emitido automaticamente pelo sistema de gestão de pautas.',
+        estilos['Normal'],
+    ))
+
+    documento.build(elementos)
+    output.seek(0)
+    return output
+
+
 _VALORES_POR_EXTENSO = {
     0: 'Zero', 1: 'Um', 2: 'Dois', 3: 'Três', 4: 'Quatro', 5: 'Cinco',
     6: 'Seis', 7: 'Sete', 8: 'Oito', 9: 'Nove', 10: 'Dez', 11: 'Onze',

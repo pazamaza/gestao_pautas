@@ -5,11 +5,31 @@ from .views import (
     logout_view,
     dashboard,
     perfil,
-    AdministradorListView,
-    AdministradorCreateView,
-    AdministradorDetailView,
-    AdministradorUpdateView,
-    AdministradorDeleteView,
+    SubdiretorPedagogicoListView,
+    SubdiretorPedagogicoCreateView,
+    SubdiretorPedagogicoDetailView,
+    SubdiretorPedagogicoUpdateView,
+    SubdiretorPedagogicoDeleteView,
+    DiretorGeralListView,
+    DiretorGeralCreateView,
+    DiretorGeralDetailView,
+    DiretorGeralUpdateView,
+    DiretorGeralDeleteView,
+    ChefeSecretariaListView,
+    ChefeSecretariaCreateView,
+    ChefeSecretariaDetailView,
+    ChefeSecretariaUpdateView,
+    ChefeSecretariaDeleteView,
+    CoordenadorTurnoListView,
+    CoordenadorTurnoCreateView,
+    CoordenadorTurnoDetailView,
+    CoordenadorTurnoUpdateView,
+    CoordenadorTurnoDeleteView,
+    CoordenadorPaisListView,
+    CoordenadorPaisCreateView,
+    CoordenadorPaisDetailView,
+    CoordenadorPaisUpdateView,
+    CoordenadorPaisDeleteView,
 )
 
 urlpatterns = [
@@ -39,32 +59,136 @@ urlpatterns = [
     ),
 
     path(
-        'administradores/',
-        AdministradorListView.as_view(),
-        name='administrador_lista'
+        'subdiretores-pedagogicos/',
+        SubdiretorPedagogicoListView.as_view(),
+        name='subdiretor_pedagogico_lista'
     ),
 
     path(
-        'administradores/novo/',
-        AdministradorCreateView.as_view(),
-        name='administrador_novo'
+        'subdiretores-pedagogicos/novo/',
+        SubdiretorPedagogicoCreateView.as_view(),
+        name='subdiretor_pedagogico_novo'
     ),
 
     path(
-        'administradores/<int:pk>/',
-        AdministradorDetailView.as_view(),
-        name='administrador_detalhe'
+        'subdiretores-pedagogicos/<int:pk>/',
+        SubdiretorPedagogicoDetailView.as_view(),
+        name='subdiretor_pedagogico_detalhe'
     ),
 
     path(
-        'administradores/<int:pk>/editar/',
-        AdministradorUpdateView.as_view(),
-        name='administrador_editar'
+        'subdiretores-pedagogicos/<int:pk>/editar/',
+        SubdiretorPedagogicoUpdateView.as_view(),
+        name='subdiretor_pedagogico_editar'
     ),
 
     path(
-        'administradores/<int:pk>/excluir/',
-        AdministradorDeleteView.as_view(),
-        name='administrador_excluir'
+        'subdiretores-pedagogicos/<int:pk>/excluir/',
+        SubdiretorPedagogicoDeleteView.as_view(),
+        name='subdiretor_pedagogico_excluir'
+    ),
+
+    path(
+        'diretores-gerais/',
+        DiretorGeralListView.as_view(),
+        name='diretor_geral_lista'
+    ),
+    path(
+        'diretores-gerais/novo/',
+        DiretorGeralCreateView.as_view(),
+        name='diretor_geral_novo'
+    ),
+    path(
+        'diretores-gerais/<int:pk>/',
+        DiretorGeralDetailView.as_view(),
+        name='diretor_geral_detalhe'
+    ),
+    path(
+        'diretores-gerais/<int:pk>/editar/',
+        DiretorGeralUpdateView.as_view(),
+        name='diretor_geral_editar'
+    ),
+    path(
+        'diretores-gerais/<int:pk>/excluir/',
+        DiretorGeralDeleteView.as_view(),
+        name='diretor_geral_excluir'
+    ),
+
+    path(
+        'chefes-secretaria/',
+        ChefeSecretariaListView.as_view(),
+        name='chefe_secretaria_lista'
+    ),
+    path(
+        'chefes-secretaria/novo/',
+        ChefeSecretariaCreateView.as_view(),
+        name='chefe_secretaria_novo'
+    ),
+    path(
+        'chefes-secretaria/<int:pk>/',
+        ChefeSecretariaDetailView.as_view(),
+        name='chefe_secretaria_detalhe'
+    ),
+    path(
+        'chefes-secretaria/<int:pk>/editar/',
+        ChefeSecretariaUpdateView.as_view(),
+        name='chefe_secretaria_editar'
+    ),
+    path(
+        'chefes-secretaria/<int:pk>/excluir/',
+        ChefeSecretariaDeleteView.as_view(),
+        name='chefe_secretaria_excluir'
+    ),
+
+    path(
+        'coordenadores-turno/',
+        CoordenadorTurnoListView.as_view(),
+        name='coordenador_turno_lista'
+    ),
+    path(
+        'coordenadores-turno/novo/',
+        CoordenadorTurnoCreateView.as_view(),
+        name='coordenador_turno_novo'
+    ),
+    path(
+        'coordenadores-turno/<int:pk>/',
+        CoordenadorTurnoDetailView.as_view(),
+        name='coordenador_turno_detalhe'
+    ),
+    path(
+        'coordenadores-turno/<int:pk>/editar/',
+        CoordenadorTurnoUpdateView.as_view(),
+        name='coordenador_turno_editar'
+    ),
+    path(
+        'coordenadores-turno/<int:pk>/excluir/',
+        CoordenadorTurnoDeleteView.as_view(),
+        name='coordenador_turno_excluir'
+    ),
+
+    path(
+        'coordenadores-pais/',
+        CoordenadorPaisListView.as_view(),
+        name='coordenador_pais_lista'
+    ),
+    path(
+        'coordenadores-pais/novo/',
+        CoordenadorPaisCreateView.as_view(),
+        name='coordenador_pais_novo'
+    ),
+    path(
+        'coordenadores-pais/<int:pk>/',
+        CoordenadorPaisDetailView.as_view(),
+        name='coordenador_pais_detalhe'
+    ),
+    path(
+        'coordenadores-pais/<int:pk>/editar/',
+        CoordenadorPaisUpdateView.as_view(),
+        name='coordenador_pais_editar'
+    ),
+    path(
+        'coordenadores-pais/<int:pk>/excluir/',
+        CoordenadorPaisDeleteView.as_view(),
+        name='coordenador_pais_excluir'
     ),
 ]

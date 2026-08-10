@@ -5,7 +5,7 @@
         <li class="nav-item"><a class="nav-link" href="{% url 'encarregado_lista' %}">Encarregados</a></li>
         <li class="nav-item"><a class="nav-link" href="{% url 'professor_lista' %}">Professores</a></li>
         {% if user.is_superuser %}
-        <li class="nav-item"><a class="nav-link" href="{% url 'administrador_lista' %}">Administradores</a></li>
+        <li class="nav-item"><a class="nav-link" href="{% url 'subdiretor_pedagogico_lista' %}">Sub-diretores Pedagógicos</a></li>
         {% endif %}
         <li class="nav-item"><a class="nav-link" href="{% url 'turma_lista' %}">Turmas</a></li>
         <li class="nav-item"><a class="nav-link" href="{% url 'disciplina_lista' %}">Disciplinas</a></li>

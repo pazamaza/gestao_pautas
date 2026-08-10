@@ -4,11 +4,15 @@ from django.contrib.auth.models import Group
 from django.db.models import Q
 
 from .models import (
-    AdministradorUser,
+    SubdiretorPedagogicoUser,
     AlunoUser,
     EncarregadoUser,
     Perfil,
     ProfessorUser,
+    DiretorGeralUser,
+    ChefeSecretariaUser,
+    CoordenadorTurnoUser,
+    CoordenadorPaisUser,
 )
 
 
@@ -60,11 +64,36 @@ class EncarregadoUserAdmin(GrupoUserAdmin):
     perfil_related_name = 'encarregado'
 
 
-@admin.register(AdministradorUser)
-class AdministradorUserAdmin(GrupoUserAdmin):
-    grupo_nome = 'Administrador'
+@admin.register(SubdiretorPedagogicoUser)
+class SubdiretorPedagogicoUserAdmin(GrupoUserAdmin):
+    grupo_nome = 'Sub-diretor Pedagógico'
     list_display = ('username', 'first_name', 'last_name', 'email', 'is_active', 'is_superuser')
 
     def get_queryset(self, request):
         qs = BaseUserAdmin.get_queryset(self, request)
         return qs.filter(Q(groups__name=self.grupo_nome) | Q(is_superuser=True)).distinct()
+
+
+@admin.register(DiretorGeralUser)
+class DiretorGeralUserAdmin(GrupoUserAdmin):
+    grupo_nome = 'Diretor Geral do Complexo'
+    list_display = ('username', 'first_name', 'last_name', 'email', 'is_active', 'is_superuser')
+
+    def get_queryset(self, request):
+        qs = BaseUserAdmin.get_queryset(self, request)
+        return qs.filter(Q(groups__name=self.grupo_nome) | Q(is_superuser=True)).distinct()
+
+
+@admin.register(ChefeSecretariaUser)
+class ChefeSecretariaUserAdmin(GrupoUserAdmin):
+    grupo_nome = 'Chefe de Secretaria'
+
+
+@admin.register(CoordenadorTurnoUser)
+class CoordenadorTurnoUserAdmin(GrupoUserAdmin):
+    grupo_nome = 'Coordenador de Turno'
+
+
+@admin.register(CoordenadorPaisUser)
+class CoordenadorPaisUserAdmin(GrupoUserAdmin):
+    grupo_nome = 'Coordenador de Pais e Encarregados de Educação'

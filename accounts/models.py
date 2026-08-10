@@ -57,8 +57,36 @@ class EncarregadoUser(User):
         verbose_name_plural = 'Contas de Encarregados'
 
 
-class AdministradorUser(User):
+class SubdiretorPedagogicoUser(User):
     class Meta:
         proxy = True
-        verbose_name = 'Conta de Administrador'
-        verbose_name_plural = 'Contas de Administradores'
+        verbose_name = 'Conta de Sub-diretor Pedagógico'
+        verbose_name_plural = 'Contas de Sub-diretores Pedagógicos'
+
+
+class DiretorGeralUser(User):
+    class Meta:
+        proxy = True
+        verbose_name = 'Conta de Diretor Geral'
+        verbose_name_plural = 'Contas de Diretores Gerais'
+
+
+class ChefeSecretariaUser(User):
+    class Meta:
+        proxy = True
+        verbose_name = 'Conta de Chefe de Secretaria'
+        verbose_name_plural = 'Contas de Chefes de Secretaria'
+
+
+class CoordenadorTurnoUser(User):
+    class Meta:
+        proxy = True
+        verbose_name = 'Conta de Coordenador de Turno'
+        verbose_name_plural = 'Contas de Coordenadores de Turno'
+
+
+class CoordenadorPaisUser(User):
+    class Meta:
+        proxy = True
+        verbose_name = 'Conta de Coordenador de Pais e Encarregados de Educação'
+        verbose_name_plural = 'Contas de Coordenadores de Pais e Encarregados de Educação'

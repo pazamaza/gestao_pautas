@@ -1,3 +1,5 @@
+from functools import wraps
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
@@ -7,11 +9,15 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
 from accounts.decoracors import (
-    admin_ou_professor_requerido,
-    administrador_requerido,
     aluno_requerido,
+    chefe_secretaria_requerido,
 )
-from accounts.utils import eh_administrador
+from accounts.utils import (
+    eh_subdiretor_pedagogico,
+    eh_diretor_geral,
+    eh_chefe_secretaria,
+    eh_admin_ou_professor,
+)
 from alunos.forms import DadosCertificadoForm
 from alunos.models import Matricula
 from notificacoes.models import Notificacao
@@ -20,13 +26,23 @@ from professores.models import DiretorTurma
 
 from .forms import ComprovativoPagamentoForm, ObservacoesValidacaoForm, SolicitarDocumentoForm
 from .models import PedidoDocumento, ResultadoDisciplina
-from .services.pdf import exportar_boletim_pdf, exportar_certificado_pdf
+from .services.pdf import exportar_boletim_pdf, exportar_certificado_pdf, exportar_declaracao_pdf
 
 
 def _usuarios_administradores():
     return User.objects.filter(
-        Q(groups__name='Administrador') | Q(is_superuser=True)
+        Q(groups__name='Sub-diretor Pedagógico') | Q(is_superuser=True)
     ).distinct()
+
+
+def _usuarios_diretor_geral():
+    return User.objects.filter(
+        Q(groups__name='Diretor Geral do Complexo') | Q(is_superuser=True)
+    ).distinct()
+
+
+def _usuarios_secretaria():
+    return User.objects.filter(groups__name='Chefe de Secretaria').distinct()
 
 
 def _aprovador_boletim(aluno, ano_letivo):
@@ -36,30 +52,67 @@ def _aprovador_boletim(aluno, ano_letivo):
     return diretor.professor.user if diretor else None
 
 
-def _destinatarios_pedido(pedido):
-    if pedido.tipo == PedidoDocumento.TIPO_BOLETIM:
-        aprovador = _aprovador_boletim(pedido.aluno, pedido.ano_letivo)
-        if aprovador:
-            return [aprovador]
+def _decisores_pedido(pedido):
+    if pedido.tipo == PedidoDocumento.TIPO_CERTIFICADO:
+        return _usuarios_diretor_geral()
+    if pedido.tipo == PedidoDocumento.TIPO_DECLARACAO:
+        return _usuarios_administradores()
+    aprovador = _aprovador_boletim(pedido.aluno, pedido.ano_letivo)
+    if aprovador:
+        return [aprovador]
     return _usuarios_administradores()
 
 
+def _destinatarios_pedido(pedido):
+    # A Secretaria é o ponto único de entrada e acompanha todos os pedidos;
+    # quem efetivamente decide (Diretor Geral/Sub-diretor/Diretor de Turma,
+    # conforme o tipo) é notificado em simultâneo, para não perder o tempo
+    # de resposta que já existia antes desta reorganização.
+    destinatarios = set(_decisores_pedido(pedido))
+    destinatarios |= set(_usuarios_secretaria())
+    return destinatarios
+
+
 def _pode_decidir_pedido(user, pedido):
-    if eh_administrador(user):
+    if pedido.tipo == PedidoDocumento.TIPO_CERTIFICADO:
+        return eh_diretor_geral(user)
+    if pedido.tipo == PedidoDocumento.TIPO_DECLARACAO:
+        return eh_subdiretor_pedagogico(user)
+    # TIPO_BOLETIM: decisão de mérito continua com o Sub-diretor Pedagógico
+    # (supervisão) ou o Diretor de Turma da turma do aluno. A centralização
+    # completa na Secretaria (Secretaria decide, Diretor de Turma só
+    # autentica) fica para uma fase seguinte.
+    if eh_subdiretor_pedagogico(user):
         return True
-    if pedido.tipo != PedidoDocumento.TIPO_BOLETIM:
-        return False
     return DiretorTurma.objects.filter(
         professor__user=user, turma=pedido.aluno.turma, ano_letivo=pedido.ano_letivo, ativo=True
     ).exists()
 
 
 def _pode_ver_pedido(user, pedido):
-    if eh_administrador(user):
+    if eh_subdiretor_pedagogico(user) or eh_diretor_geral(user) or eh_chefe_secretaria(user):
         return True
     if pedido.aluno.user_id == user.id:
         return True
     return _pode_decidir_pedido(user, pedido)
+
+
+def _pode_gerir_fila_documentos(user):
+    # Quem vê a fila de pedidos pendentes: Secretaria (ponto único de
+    # entrada, vê tudo), Sub-diretor Pedagógico e Diretor Geral (autenticam
+    # declaração/certificado, respetivamente) e professores (só os seus
+    # boletins, filtrados dentro da própria view).
+    return eh_admin_ou_professor(user) or eh_diretor_geral(user) or eh_chefe_secretaria(user)
+
+
+def _gestao_documentos_requerida(view_func):
+    @wraps(view_func)
+    @login_required
+    def wrapper(request, *args, **kwargs):
+        if not _pode_gerir_fila_documentos(request.user):
+            return render(request, 'dashboards/sem_permissao.html', status=403)
+        return view_func(request, *args, **kwargs)
+    return wrapper
 
 
 @aluno_requerido
@@ -162,22 +215,30 @@ def pedido_carregar_comprovativo(request, pk):
     return render(request, 'pautas/carregar_comprovativo.html', {'form': form, 'pedido': pedido})
 
 
-@admin_ou_professor_requerido
+@_gestao_documentos_requerida
 def pedidos_documentos_pendentes(request):
     pedidos = PedidoDocumento.objects.filter(
         status=PedidoDocumento.STATUS_PENDENTE
     ).select_related('aluno', 'aluno__turma', 'ano_letivo')
 
-    if not eh_administrador(request.user):
+    user = request.user
+    if not (eh_subdiretor_pedagogico(user) or eh_diretor_geral(user) or eh_chefe_secretaria(user)):
+        # Professor "comum": só os boletins das turmas onde é Diretor de Turma.
         turmas_dirigidas = DiretorTurma.objects.filter(
-            professor__user=request.user, ativo=True
+            professor__user=user, ativo=True
         ).values_list('turma_id', flat=True)
         pedidos = pedidos.filter(tipo=PedidoDocumento.TIPO_BOLETIM, aluno__turma_id__in=turmas_dirigidas)
+    # Secretaria, Sub-diretor e Diretor Geral são o ponto único de entrada:
+    # veem a fila completa, de todos os tipos, mesmo os que não decidem —
+    # a lista/template só ativa os botões de decisão quando aplicável.
+
+    for pedido in pedidos:
+        pedido.pode_decidir = _pode_decidir_pedido(user, pedido)
 
     return render(request, 'pautas/pedidos_pendentes.html', {'pedidos': pedidos})
 
 
-@admin_ou_professor_requerido
+@_gestao_documentos_requerida
 def pedido_autorizar(request, pk):
     pedido = get_object_or_404(
         PedidoDocumento.objects.select_related('aluno', 'aluno__turma', 'ano_letivo'), pk=pk
@@ -204,7 +265,7 @@ def pedido_autorizar(request, pk):
     return redirect('pedidos_documentos_pendentes')
 
 
-@admin_ou_professor_requerido
+@_gestao_documentos_requerida
 def pedido_recusar(request, pk):
     pedido = get_object_or_404(
         PedidoDocumento.objects.select_related('aluno', 'aluno__turma', 'ano_letivo'), pk=pk
@@ -238,7 +299,7 @@ def pedido_recusar(request, pk):
     return redirect('pedidos_documentos_pendentes')
 
 
-@administrador_requerido
+@chefe_secretaria_requerido
 def pedidos_pagamento(request):
     pedidos = PedidoDocumento.objects.filter(
         status=PedidoDocumento.STATUS_PAGAMENTO_SUBMETIDO
@@ -249,7 +310,7 @@ def pedidos_pagamento(request):
     return render(request, 'pautas/pedidos_pagamento.html', {'pedidos': pedidos, 'prontos': prontos})
 
 
-@administrador_requerido
+@chefe_secretaria_requerido
 def pedido_confirmar_pagamento(request, pk):
     pedido = get_object_or_404(PedidoDocumento.objects.select_related('aluno'), pk=pk)
     if pedido.status != PedidoDocumento.STATUS_PAGAMENTO_SUBMETIDO:
@@ -269,7 +330,7 @@ def pedido_confirmar_pagamento(request, pk):
     return redirect('pedidos_pagamento')
 
 
-@administrador_requerido
+@chefe_secretaria_requerido
 def pedido_rejeitar_pagamento(request, pk):
     pedido = get_object_or_404(PedidoDocumento.objects.select_related('aluno'), pk=pk)
     if pedido.status != PedidoDocumento.STATUS_PAGAMENTO_SUBMETIDO:
@@ -290,7 +351,7 @@ def pedido_rejeitar_pagamento(request, pk):
     return redirect('pedidos_pagamento')
 
 
-@administrador_requerido
+@chefe_secretaria_requerido
 def pedido_marcar_levantado(request, pk):
     pedido = get_object_or_404(PedidoDocumento, pk=pk)
     if pedido.status != PedidoDocumento.STATUS_PRONTO:
@@ -321,6 +382,9 @@ def pedido_emitir_pdf(request, pk):
     if pedido.tipo == PedidoDocumento.TIPO_BOLETIM:
         arquivo = exportar_boletim_pdf(pedido.aluno, pedido.ano_letivo, resultados)
         nome = f'boletim_{pedido.aluno.numero_processo}_{pedido.ano_letivo_id}.pdf'
+    elif pedido.tipo == PedidoDocumento.TIPO_DECLARACAO:
+        arquivo = exportar_declaracao_pdf(pedido.aluno, pedido.ano_letivo, resultados)
+        nome = f'declaracao_{pedido.aluno.numero_processo}_{pedido.ano_letivo_id}.pdf'
     else:
         matricula = Matricula.objects.filter(
             aluno=pedido.aluno, ano_letivo=pedido.ano_letivo

@@ -1,48 +1,44 @@
 {% extends 'base.html' %}
-{% block title %}Detalhes do Administrador{% endblock %}
+{% block title %}Detalhes de {{ titulo_singular }}{% endblock %}
 {% block content %}
 <div class="container mt-4">
     <div class="card shadow">
         <div class="card-header bg-primary text-white">
-            <h3>{{ administrador.get_full_name|default:administrador.username }}</h3>
+            <h3>{{ conta.get_full_name|default:conta.username }}</h3>
         </div>
         <div class="card-body">
             <table class="table">
                 <tr>
                     <th>Utilizador</th>
-                    <td>{{ administrador.username }}</td>
+                    <td>{{ conta.username }}</td>
                 </tr>
                 <tr>
                     <th>Nome</th>
-                    <td>{{ administrador.first_name|default:"—" }}</td>
+                    <td>{{ conta.first_name|default:"—" }}</td>
                 </tr>
                 <tr>
                     <th>Apelido</th>
-                    <td>{{ administrador.last_name|default:"—" }}</td>
+                    <td>{{ conta.last_name|default:"—" }}</td>
                 </tr>
                 <tr>
                     <th>Email</th>
-                    <td>{{ administrador.email|default:"—" }}</td>
-                </tr>
-                <tr>
-                    <th>Superuser</th>
-                    <td>{{ administrador.is_superuser|yesno:"Sim,Não" }}</td>
+                    <td>{{ conta.email|default:"—" }}</td>
                 </tr>
                 <tr>
                     <th>Estado</th>
-                    <td>{{ administrador.is_active|yesno:"Ativo,Inativo" }}</td>
+                    <td>{{ conta.is_active|yesno:"Ativo,Inativo" }}</td>
                 </tr>
                 <tr>
                     <th>Último login</th>
-                    <td>{{ administrador.last_login|default:"—" }}</td>
+                    <td>{{ conta.last_login|default:"—" }}</td>
                 </tr>
             </table>
 
-            <a href="{% url 'administrador_editar' administrador.pk %}"
+            <a href="{% url url_editar_name conta.pk %}"
                class="btn btn-primary">
                 Editar
             </a>
-            <a href="{% url 'administrador_lista' %}"
+            <a href="{% url url_lista_name %}"
                class="btn btn-secondary">
                 Voltar
             </a>
