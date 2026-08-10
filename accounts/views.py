@@ -276,8 +276,13 @@ def dashboard(request):
         'total_encarregados': Encarregado.objects.count(),
     }
 
-    if eh_subdiretor_pedagogico(user):
+    if eh_subdiretor_pedagogico(user) and not eh_diretor_geral(user):
         # ---- Dashboard do Sub-diretor Pedagógico ----
+        # (excluído explicitamente quem também for Diretor Geral — esse
+        # é o "novo topo" da hierarquia e tem o seu próprio dashboard
+        # executivo, mais abaixo; sem esta exclusão, o superuser real
+        # ficaria sempre preso aqui, porque também passa em
+        # eh_subdiretor_pedagogico.)
 
         # Ano lectivo seleccionado (via querystring ?ano_letivo=) ou, por
         # omissão, o ano activo.
@@ -537,10 +542,41 @@ def dashboard(request):
         )
 
     if eh_diretor_geral(user):
-        # ---- Dashboard do Diretor Geral do Complexo ---- (Fase 5:
-        # homologações e reclamações pendentes de decisão do Diretor Geral)
+        # ---- Dashboard do Diretor Geral do Complexo ---- (visão
+        # executiva consolidada — sem detalhe operacional, que é o das
+        # outras 3 entidades; ver "Plano De Gestão de Responsabilidades",
+        # secção 2.1: totais, taxa de aprovação geral, pendências
+        # agregadas das outras entidades, e as próprias homologações/
+        # reclamações que só o Diretor Geral decide)
+
+        ano_letivo_ativo = AnoLetivo.objects.filter(ativo=True).first() or AnoLetivo.objects.first()
+        resultados_ano = (
+            ResultadoDisciplina.objects.filter(ano_letivo=ano_letivo_ativo)
+            if ano_letivo_ativo else ResultadoDisciplina.objects.none()
+        )
+        resultados_com_notas = [r for r in resultados_ano if r.mf and r.mf > 0]
+        aprovados = sum(
+            1 for r in resultados_com_notas if r.resultado == ResultadoDisciplina.RESULTADO_APROVADO
+        )
+        total_avaliados = len(resultados_com_notas)
+        taxa_aprovacao_geral = round(aprovados / total_avaliados * 100, 1) if total_avaliados else 0
 
         context.update({
+            'ano_letivo_ativo': ano_letivo_ativo,
+            'taxa_aprovacao_geral': taxa_aprovacao_geral,
+            # Pendências agregadas das 3 entidades operacionais — só a
+            # contagem, sem entrar no detalhe de cada uma.
+            'pedidos_documentos_pendentes': PedidoDocumento.objects.filter(
+                status=PedidoDocumento.STATUS_PENDENTE
+            ).count(),
+            'pedidos_pagamento_pendentes': PedidoDocumento.objects.filter(
+                status=PedidoDocumento.STATUS_PAGAMENTO_SUBMETIDO
+            ).count(),
+            'faltas_por_justificar_total': Frequencia.objects.filter(
+                estado=Frequencia.FALTA
+            ).exclude(justificacaofalta__aprovada=True).count(),
+            # Homologações e reclamações — decisões que só o Diretor
+            # Geral toma.
             'resultados_pendentes_homologacao': ResultadoDisciplina.objects.filter(
                 status=ResultadoDisciplina.STATUS_VALIDADA, homologado_em__isnull=True
             ).count(),

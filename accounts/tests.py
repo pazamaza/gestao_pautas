@@ -238,14 +238,26 @@ class NovosPapeisAdministrativosTests(TestCase):
                 self.assertTemplateUsed(response, template)
                 self.client.logout()
 
-    def test_superuser_continua_a_ver_dashboard_admin_academico(self):
+    def test_superuser_ve_dashboard_executivo_do_diretor_geral(self):
         # O superuser é simultaneamente Diretor Geral e Sub-diretor
-        # Pedagógico; o dashboard académico (dashboards/admin.html) deve
-        # continuar a ser o que é mostrado, para não quebrar o que já
-        # funcionava antes destes 4 novos papéis.
+        # Pedagógico; o Diretor Geral é o "novo topo" da hierarquia, por
+        # isso o dashboard()  dá-lhe prioridade sobre o dashboard
+        # académico do Sub-diretor (dashboards/admin.html), que passa a
+        # ficar reservado a uma conta que seja *só* Sub-diretor.
         Group.objects.get_or_create(name='Sub-diretor Pedagógico')
         user = User.objects.create_user(username='super2', password='senha123', is_superuser=True)
         self.client.login(username='super2', password='senha123')
+
+        response = self.client.get(reverse('dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'dashboards/diretor_geral.html')
+
+    def test_subdiretor_pedagogico_puro_ve_dashboard_academico(self):
+        Group.objects.get_or_create(name='Sub-diretor Pedagógico')
+        user = User.objects.create_user(username='sd_puro', password='senha123')
+        user.groups.add(Group.objects.get(name='Sub-diretor Pedagógico'))
+        self.client.login(username='sd_puro', password='senha123')
 
         response = self.client.get(reverse('dashboard'))
 
