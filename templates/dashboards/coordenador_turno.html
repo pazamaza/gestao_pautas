@@ -58,6 +58,19 @@
             </div>
         </div>
         <div class="col-lg-6">
+            <div class="card shadow-sm dashboard-chart-card h-100">
+                <div class="card-body">
+                    <h6>Frequência Diária do Turno</h6>
+                    <canvas id="grafico-freq-diaria"></canvas>
+                    {{ freq_diaria_labels|json_script:"freq-diaria-labels" }}
+                    {{ freq_diaria_dados|json_script:"freq-diaria-dados" }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-lg-6">
             <div class="card shadow-sm h-100">
                 <div class="card-header">Turmas com Frequência Baixa (&lt; 85%)</div>
                 <div class="table-responsive">

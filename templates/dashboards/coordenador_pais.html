@@ -59,18 +59,13 @@
 
     <div class="row g-3">
         <div class="col-lg-6">
-            <div class="card shadow-sm">
-                <div class="card-header">Faltas por Justificar por Turma</div>
-                <ul class="list-group list-group-flush">
-                    {% for item in faltas_por_turma %}
-                    <li class="list-group-item d-flex justify-content-between">
-                        <span>{{ item.turma }}</span>
-                        <span class="text-muted">{{ item.total }}</span>
-                    </li>
-                    {% empty %}
-                    <li class="list-group-item text-muted">Sem faltas por justificar.</li>
-                    {% endfor %}
-                </ul>
+            <div class="card shadow-sm dashboard-chart-card h-100">
+                <div class="card-body">
+                    <h6>Faltas por Justificar por Turma</h6>
+                    <canvas id="grafico-faltas-turma"></canvas>
+                    {{ faltas_turma_labels|json_script:"faltas-turma-labels" }}
+                    {{ faltas_turma_dados|json_script:"faltas-turma-dados" }}
+                </div>
             </div>
         </div>
         <div class="col-lg-6">
@@ -83,6 +78,20 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <div class="card shadow-sm mt-3">
+        <div class="card-header">Faltas por Justificar — Detalhe</div>
+        <ul class="list-group list-group-flush">
+            {% for item in faltas_por_turma %}
+            <li class="list-group-item d-flex justify-content-between">
+                <span>{{ item.turma }}</span>
+                <span class="text-muted">{{ item.total }}</span>
+            </li>
+            {% empty %}
+            <li class="list-group-item text-muted">Sem faltas por justificar.</li>
+            {% endfor %}
+        </ul>
     </div>
 </div>
 <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">

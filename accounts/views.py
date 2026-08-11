@@ -46,6 +46,22 @@ def _media(valores):
     return round(sum(valores) / len(valores), 1)
 
 
+def _frequencia_diaria(frequencias_queryset):
+    """(labels, dados) de % de presença por dia, para os últimos 30 dias
+    com registos — usado nos gráficos "Frequência Diária" dos dashboards
+    da Secretaria e do Coordenador de Turno."""
+    total_por_dia = {}
+    presentes_por_dia = {}
+    for f in frequencias_queryset:
+        total_por_dia[f.data] = total_por_dia.get(f.data, 0) + 1
+        if f.estado in (Frequencia.PRESENTE, Frequencia.ATRASO):
+            presentes_por_dia[f.data] = presentes_por_dia.get(f.data, 0) + 1
+    dias = sorted(total_por_dia.keys())[-30:]
+    labels = [dia.strftime('%d/%m') for dia in dias]
+    dados = [round(presentes_por_dia.get(dia, 0) / total_por_dia[dia] * 100, 1) for dia in dias]
+    return labels, dados
+
+
 def _situacao_nota(mt):
     if mt is None:
         return 'pendente'
@@ -55,6 +71,146 @@ def _situacao_nota(mt):
     if mt < 10:
         return 'exame'
     return 'aprovado'
+
+
+def _contexto_estatisticas_academicas(request):
+    """Estatísticas académicas completas (evolução, distribuição de
+    resultados, desempenho por disciplina/turma, género, frequência
+    mensal) — usado pelos dashboards do Sub-diretor Pedagógico e do
+    Diretor Geral, que têm a mesma aparência visual (mesmos gráficos),
+    só variando os cards extra de cada um."""
+
+    anos_letivos = AnoLetivo.objects.all()
+    ano_letivo_id = request.GET.get('ano_letivo')
+    ano_letivo_selecionado = (
+        anos_letivos.filter(pk=ano_letivo_id).first() if ano_letivo_id
+        else anos_letivos.filter(ativo=True).first() or anos_letivos.first()
+    )
+
+    avaliacoes_pendentes = Avaliacao.objects.filter(status=Avaliacao.STATUS_RASCUNHO).count()
+    avaliacoes_com_erros = Avaliacao.objects.filter(status=Avaliacao.STATUS_COM_ERROS).count()
+    avaliacoes_validadas = Avaliacao.objects.filter(status=Avaliacao.STATUS_VALIDADA).count()
+
+    resultados_pendentes = ResultadoDisciplina.objects.exclude(status=ResultadoDisciplina.STATUS_VALIDADA).count()
+    resultados_validados = ResultadoDisciplina.objects.filter(status=ResultadoDisciplina.STATUS_VALIDADA).count()
+
+    resultados = (
+        ResultadoDisciplina.objects
+        .filter(ano_letivo=ano_letivo_selecionado)
+        .select_related('aluno', 'aluno__turma', 'disciplina')
+        if ano_letivo_selecionado else ResultadoDisciplina.objects.none()
+    )
+    resultados_com_notas = [r for r in resultados if r.mf and r.mf > 0]
+
+    aprovados = sum(1 for r in resultados_com_notas if r.resultado == ResultadoDisciplina.RESULTADO_APROVADO)
+    reprovados = sum(
+        1 for r in resultados_com_notas
+        if r.resultado in (ResultadoDisciplina.RESULTADO_REPROVADO, ResultadoDisciplina.RESULTADO_DEFICIENCIA)
+    )
+    total_avaliados = len(resultados_com_notas)
+    taxa_aprovacao = round(aprovados / total_avaliados * 100, 1) if total_avaliados else 0
+    taxa_reprovacao = round(reprovados / total_avaliados * 100, 1) if total_avaliados else 0
+    media_geral = _media(r.mf for r in resultados_com_notas)
+
+    evolucao_labels = ['1º Trimestre', '2º Trimestre', '3º Trimestre']
+    evolucao_dados = [
+        _media(float(r.mt1) for r in resultados_com_notas if r.mt1 and r.mt1 > 0) or 0,
+        _media(float(r.mt2) for r in resultados_com_notas if r.mt2 and r.mt2 > 0) or 0,
+        _media(float(r.mt3) for r in resultados_com_notas if r.mt3 and r.mt3 > 0) or 0,
+    ]
+
+    distribuicao_resultados = {}
+    for r in resultados_com_notas:
+        distribuicao_resultados[r.resultado] = distribuicao_resultados.get(r.resultado, 0) + 1
+
+    por_disciplina = {}
+    for r in resultados_com_notas:
+        por_disciplina.setdefault(r.disciplina.nome, []).append(float(r.mf))
+    disciplina_labels = sorted(por_disciplina.keys())
+    disciplina_dados = [_media(por_disciplina[nome]) for nome in disciplina_labels]
+
+    por_turma = {}
+    for r in resultados_com_notas:
+        por_turma.setdefault(str(r.aluno.turma), []).append(float(r.mf))
+    top_turmas = sorted(
+        ((nome, _media(valores)) for nome, valores in por_turma.items()),
+        key=lambda item: item[1], reverse=True,
+    )[:5]
+
+    medias_por_aluno = {}
+    for r in resultados_com_notas:
+        medias_por_aluno.setdefault(r.aluno, []).append(float(r.mf))
+
+    alunos_risco = sorted(
+        (
+            {'aluno': aluno, 'turma': aluno.turma, 'media': _media(valores)}
+            for aluno, valores in medias_por_aluno.items()
+            if _media(valores) is not None and _media(valores) < 10
+        ),
+        key=lambda item: item['media'],
+    )[:5]
+
+    melhores_medias = sorted(
+        (
+            {'aluno': aluno, 'turma': aluno.turma, 'media': _media(valores)}
+            for aluno, valores in medias_por_aluno.items()
+        ),
+        key=lambda item: item['media'],
+        reverse=True,
+    )[:5]
+
+    sexos = Aluno.objects.filter(estado=Aluno.ESTADO_ATIVO).values_list('sexo', flat=True)
+    total_feminino = sum(1 for sexo in sexos if sexo == 'F')
+    total_masculino = sum(1 for sexo in sexos if sexo == 'M')
+
+    frequencias_ano = (
+        Frequencia.objects.filter(atribuicao__ano_letivo=ano_letivo_selecionado)
+        if ano_letivo_selecionado else Frequencia.objects.none()
+    )
+    meses_nomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+    total_por_mes = {}
+    presentes_por_mes = {}
+    for frequencia in frequencias_ano:
+        mes = frequencia.data.month
+        total_por_mes[mes] = total_por_mes.get(mes, 0) + 1
+        if frequencia.estado in (Frequencia.PRESENTE, Frequencia.ATRASO):
+            presentes_por_mes[mes] = presentes_por_mes.get(mes, 0) + 1
+    meses_com_dados = sorted(total_por_mes.keys())
+
+    return {
+        'total_alunos': Aluno.objects.filter(estado=Aluno.ESTADO_ATIVO).count(),
+        'total_turmas': Turma.objects.filter(ativo=True).count(),
+        'anos_letivos': anos_letivos,
+        'ano_letivo_selecionado': ano_letivo_selecionado,
+        'media_geral': media_geral,
+        'taxa_aprovacao': taxa_aprovacao,
+        'taxa_reprovacao': taxa_reprovacao,
+        'avaliacoes_pendentes': avaliacoes_pendentes,
+        'avaliacoes_com_erros': avaliacoes_com_erros,
+        'avaliacoes_validadas': avaliacoes_validadas,
+        'resultados_pendentes': resultados_pendentes,
+        'resultados_validados': resultados_validados,
+        'periodos': PeriodoAcademico.objects.select_related('ano_letivo').order_by(
+            '-ano_letivo__descricao', 'nome'
+        ),
+        'alunos_risco': alunos_risco,
+        'melhores_medias': melhores_medias,
+        'evolucao_labels': evolucao_labels,
+        'evolucao_dados': evolucao_dados,
+        'resultado_labels': list(distribuicao_resultados.keys()),
+        'resultado_dados': list(distribuicao_resultados.values()),
+        'disciplina_labels': disciplina_labels,
+        'disciplina_dados': disciplina_dados,
+        'turma_labels': [item[0] for item in top_turmas],
+        'turma_dados': [item[1] for item in top_turmas],
+        'genero_labels': ['Feminino', 'Masculino'],
+        'genero_dados': [total_feminino, total_masculino],
+        'frequencia_labels': [meses_nomes[mes - 1] for mes in meses_com_dados],
+        'frequencia_dados': [
+            round(presentes_por_mes.get(mes, 0) / total_por_mes[mes] * 100, 1)
+            for mes in meses_com_dados
+        ],
+    }
 
 
 def _contexto_dashboard_professor(request):
@@ -310,174 +466,13 @@ def dashboard(request):
     if eh_subdiretor_pedagogico(user) and not eh_diretor_geral(user):
         # ---- Dashboard do Sub-diretor Pedagógico ----
         # (excluído explicitamente quem também for Diretor Geral — esse
-        # é o "novo topo" da hierarquia e tem o seu próprio dashboard
-        # executivo, mais abaixo; sem esta exclusão, o superuser real
-        # ficaria sempre preso aqui, porque também passa em
+        # é o "novo topo" da hierarquia e tem o seu próprio dashboard,
+        # com a mesma aparência — ver _contexto_estatisticas_academicas
+        # — mais abaixo; sem esta exclusão, o superuser real ficaria
+        # sempre preso aqui, porque também passa em
         # eh_subdiretor_pedagogico.)
 
-        # Ano lectivo seleccionado (via querystring ?ano_letivo=) ou, por
-        # omissão, o ano activo.
-        anos_letivos = AnoLetivo.objects.all()
-        ano_letivo_id = request.GET.get('ano_letivo')
-        ano_letivo_selecionado = (
-            anos_letivos.filter(pk=ano_letivo_id).first() if ano_letivo_id
-            else anos_letivos.filter(ativo=True).first() or anos_letivos.first()
-        )
-
-        # KPIs de validação de avaliações/resultados (contadores para os
-        # cards de alerta do admin — quantas avaliações/resultados ainda
-        # precisam de ser revistos).
-        avaliacoes_pendentes = Avaliacao.objects.filter(
-            status=Avaliacao.STATUS_RASCUNHO
-        ).count()
-        avaliacoes_com_erros = Avaliacao.objects.filter(
-            status=Avaliacao.STATUS_COM_ERROS
-        ).count()
-        avaliacoes_validadas = Avaliacao.objects.filter(
-            status=Avaliacao.STATUS_VALIDADA
-        ).count()
-
-        resultados_pendentes = ResultadoDisciplina.objects.exclude(
-            status=ResultadoDisciplina.STATUS_VALIDADA
-        ).count()
-        resultados_validados = ResultadoDisciplina.objects.filter(
-            status=ResultadoDisciplina.STATUS_VALIDADA
-        ).count()
-
-        # Todos os ResultadoDisciplina do ano seleccionado — base para as
-        # estatísticas de taxa de aprovação/reprovação, evolução por
-        # trimestre, distribuição por disciplina/turma, etc. abaixo.
-        resultados = (
-            ResultadoDisciplina.objects
-            .filter(ano_letivo=ano_letivo_selecionado)
-            .select_related('aluno', 'aluno__turma', 'disciplina')
-            if ano_letivo_selecionado else ResultadoDisciplina.objects.none()
-        )
-        resultados_com_notas = [r for r in resultados if r.mf and r.mf > 0]
-
-        aprovados = sum(
-            1 for r in resultados_com_notas if r.resultado == ResultadoDisciplina.RESULTADO_APROVADO
-        )
-        reprovados = sum(
-            1 for r in resultados_com_notas
-            if r.resultado in (ResultadoDisciplina.RESULTADO_REPROVADO, ResultadoDisciplina.RESULTADO_DEFICIENCIA)
-        )
-        total_avaliados = len(resultados_com_notas)
-        taxa_aprovacao = round(aprovados / total_avaliados * 100, 1) if total_avaliados else 0
-        taxa_reprovacao = round(reprovados / total_avaliados * 100, 1) if total_avaliados else 0
-        media_geral = _media(r.mf for r in resultados_com_notas)
-
-        # Evolução da média geral por trimestre (gráfico de linha).
-        evolucao_labels = ['1º Trimestre', '2º Trimestre', '3º Trimestre']
-        evolucao_dados = [
-            _media(float(r.mt1) for r in resultados_com_notas if r.mt1 and r.mt1 > 0) or 0,
-            _media(float(r.mt2) for r in resultados_com_notas if r.mt2 and r.mt2 > 0) or 0,
-            _media(float(r.mt3) for r in resultados_com_notas if r.mt3 and r.mt3 > 0) or 0,
-        ]
-
-        # Distribuição de resultados (Aprovado/Reprovado/Exame/...) — gráfico
-        # de pizza/doughnut.
-        distribuicao_resultados = {}
-        for r in resultados_com_notas:
-            distribuicao_resultados[r.resultado] = distribuicao_resultados.get(r.resultado, 0) + 1
-
-        # Média por disciplina (gráfico de barras) e ranking de turmas com
-        # melhor média (top 5).
-        por_disciplina = {}
-        for r in resultados_com_notas:
-            por_disciplina.setdefault(r.disciplina.nome, []).append(float(r.mf))
-        disciplina_labels = sorted(por_disciplina.keys())
-        disciplina_dados = [_media(por_disciplina[nome]) for nome in disciplina_labels]
-
-        por_turma = {}
-        for r in resultados_com_notas:
-            por_turma.setdefault(str(r.aluno.turma), []).append(float(r.mf))
-        top_turmas = sorted(
-            ((nome, _media(valores)) for nome, valores in por_turma.items()),
-            key=lambda item: item[1], reverse=True,
-        )[:5]
-
-        # Alunos em risco (média < 10, os 5 piores) e melhores médias
-        # (top 5) — listas de atalho para o admin identificar casos a
-        # acompanhar.
-        medias_por_aluno = {}
-        for r in resultados_com_notas:
-            medias_por_aluno.setdefault(r.aluno, []).append(float(r.mf))
-
-        alunos_risco = sorted(
-            (
-                {'aluno': aluno, 'turma': aluno.turma, 'media': _media(valores)}
-                for aluno, valores in medias_por_aluno.items()
-                if _media(valores) is not None and _media(valores) < 10
-            ),
-            key=lambda item: item['media'],
-        )[:5]
-
-        melhores_medias = sorted(
-            (
-                {'aluno': aluno, 'turma': aluno.turma, 'media': _media(valores)}
-                for aluno, valores in medias_por_aluno.items()
-            ),
-            key=lambda item: item['media'],
-            reverse=True,
-        )[:5]
-
-        # Distribuição por género (gráfico) dos alunos activos.
-        sexos = Aluno.objects.filter(estado=Aluno.ESTADO_ATIVO).values_list('sexo', flat=True)
-        total_feminino = sum(1 for sexo in sexos if sexo == 'F')
-        total_masculino = sum(1 for sexo in sexos if sexo == 'M')
-
-        # Taxa de frequência mensal (% de presenças sobre o total de
-        # registos), agregada por mês a partir de todas as Frequencia do ano
-        # lectivo seleccionado.
-        frequencias_ano = (
-            Frequencia.objects.filter(atribuicao__ano_letivo=ano_letivo_selecionado)
-            if ano_letivo_selecionado else Frequencia.objects.none()
-        )
-        meses_nomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-        total_por_mes = {}
-        presentes_por_mes = {}
-        for frequencia in frequencias_ano:
-            mes = frequencia.data.month
-            total_por_mes[mes] = total_por_mes.get(mes, 0) + 1
-            if frequencia.estado in (Frequencia.PRESENTE, Frequencia.ATRASO):
-                presentes_por_mes[mes] = presentes_por_mes.get(mes, 0) + 1
-        meses_com_dados = sorted(total_por_mes.keys())
-
-        context.update({
-            'total_alunos': Aluno.objects.filter(estado=Aluno.ESTADO_ATIVO).count(),
-            'total_turmas': Turma.objects.filter(ativo=True).count(),
-            'anos_letivos': anos_letivos,
-            'ano_letivo_selecionado': ano_letivo_selecionado,
-            'media_geral': media_geral,
-            'taxa_aprovacao': taxa_aprovacao,
-            'taxa_reprovacao': taxa_reprovacao,
-            'avaliacoes_pendentes': avaliacoes_pendentes,
-            'avaliacoes_com_erros': avaliacoes_com_erros,
-            'avaliacoes_validadas': avaliacoes_validadas,
-            'resultados_pendentes': resultados_pendentes,
-            'resultados_validados': resultados_validados,
-            'periodos': PeriodoAcademico.objects.select_related('ano_letivo').order_by(
-                '-ano_letivo__descricao', 'nome'
-            ),
-            'alunos_risco': alunos_risco,
-            'melhores_medias': melhores_medias,
-            'evolucao_labels': evolucao_labels,
-            'evolucao_dados': evolucao_dados,
-            'resultado_labels': list(distribuicao_resultados.keys()),
-            'resultado_dados': list(distribuicao_resultados.values()),
-            'disciplina_labels': disciplina_labels,
-            'disciplina_dados': disciplina_dados,
-            'turma_labels': [item[0] for item in top_turmas],
-            'turma_dados': [item[1] for item in top_turmas],
-            'genero_labels': ['Feminino', 'Masculino'],
-            'genero_dados': [total_feminino, total_masculino],
-            'frequencia_labels': [meses_nomes[mes - 1] for mes in meses_com_dados],
-            'frequencia_dados': [
-                round(presentes_por_mes.get(mes, 0) / total_por_mes[mes] * 100, 1)
-                for mes in meses_com_dados
-            ],
-        })
+        context.update(_contexto_estatisticas_academicas(request))
 
         return render(
             request,
@@ -534,9 +529,7 @@ def dashboard(request):
                 (stats['media_geral'] is not None and stats['media_geral'] < MEDIA_MINIMA)
                 or stats['frequencia'] < FREQUENCIA_MINIMA
             )
-            faltas_por_justificar = Frequencia.objects.filter(
-                aluno=dependente, estado=Frequencia.FALTA
-            ).exclude(justificacaofalta__aprovada=True).count()
+            faltas_por_justificar = Frequencia.pendentes_justificacao(aluno=dependente).count()
 
             if em_risco:
                 total_em_risco += 1
@@ -573,60 +566,23 @@ def dashboard(request):
         )
 
     if eh_diretor_geral(user):
-        # ---- Dashboard do Diretor Geral do Complexo ---- (visão
-        # executiva consolidada — sem detalhe operacional, que é o das
-        # outras 3 entidades; ver "Plano De Gestão de Responsabilidades",
-        # secção 2.1: totais, taxa de aprovação geral, pendências
-        # agregadas das outras entidades, e as próprias homologações/
-        # reclamações que só o Diretor Geral decide)
+        # ---- Dashboard do Diretor Geral do Complexo ---- (mesma
+        # aparência/gráficos do Sub-diretor Pedagógico — a pedido
+        # explícito do utilizador, 2026-08-11 — mais os cards próprios
+        # do Diretor Geral: pendências agregadas das outras entidades e
+        # as homologações/reclamações que só ele decide)
 
-        ano_letivo_ativo = AnoLetivo.objects.filter(ativo=True).first() or AnoLetivo.objects.first()
-        resultados_ano = (
-            ResultadoDisciplina.objects.filter(ano_letivo=ano_letivo_ativo)
-            .select_related('aluno', 'aluno__turma')
-            if ano_letivo_ativo else ResultadoDisciplina.objects.none()
-        )
-        resultados_com_notas = [r for r in resultados_ano if r.mf and r.mf > 0]
-        aprovados = sum(
-            1 for r in resultados_com_notas if r.resultado == ResultadoDisciplina.RESULTADO_APROVADO
-        )
-        total_avaliados = len(resultados_com_notas)
-        taxa_aprovacao_geral = round(aprovados / total_avaliados * 100, 1) if total_avaliados else 0
-
-        # Alunos em risco (contagem só, sem lista nominal — isso é
-        # detalhe operacional do Sub-diretor/Coordenador de Pais) e
-        # ranking de turmas (top 5), ambos ao nível executivo.
-        medias_por_aluno = {}
-        for r in resultados_com_notas:
-            medias_por_aluno.setdefault(r.aluno_id, []).append(float(r.mf))
-        total_alunos_risco_geral = sum(
-            1 for valores in medias_por_aluno.values() if _media(valores) is not None and _media(valores) < 10
-        )
-
-        por_turma = {}
-        for r in resultados_com_notas:
-            por_turma.setdefault(str(r.aluno.turma), []).append(float(r.mf))
-        ranking_turmas = sorted(
-            ((nome, _media(valores)) for nome, valores in por_turma.items()),
-            key=lambda item: item[1], reverse=True,
-        )[:5]
+        context.update(_contexto_estatisticas_academicas(request))
 
         context.update({
-            'ano_letivo_ativo': ano_letivo_ativo,
-            'taxa_aprovacao_geral': taxa_aprovacao_geral,
-            'total_alunos_risco_geral': total_alunos_risco_geral,
-            'ranking_turmas': ranking_turmas,
-            # Pendências agregadas das 3 entidades operacionais — só a
-            # contagem, sem entrar no detalhe de cada uma.
+            # Pendências agregadas das 3 entidades operacionais.
             'pedidos_documentos_pendentes': PedidoDocumento.objects.filter(
                 status=PedidoDocumento.STATUS_PENDENTE
             ).count(),
             'pedidos_pagamento_pendentes': PedidoDocumento.objects.filter(
                 status=PedidoDocumento.STATUS_PAGAMENTO_SUBMETIDO
             ).count(),
-            'faltas_por_justificar_total': Frequencia.objects.filter(
-                estado=Frequencia.FALTA
-            ).exclude(justificacaofalta__aprovada=True).count(),
+            'faltas_por_justificar_total': Frequencia.pendentes_justificacao().count(),
             # Homologações e reclamações — decisões que só o Diretor
             # Geral toma.
             'resultados_pendentes_homologacao': ResultadoDisciplina.objects.filter(
@@ -654,6 +610,7 @@ def dashboard(request):
             for valor, _rotulo in PedidoDocumento.STATUS_CHOICES
         }
         rotulos_estado = dict(PedidoDocumento.STATUS_CHOICES)
+        freq_dia_labels, freq_dia_dados = _frequencia_diaria(Frequencia.objects.all())
 
         context.update({
             'pedidos_documentos_pendentes': pedidos_por_estado.get(PedidoDocumento.STATUS_PENDENTE, 0),
@@ -661,6 +618,8 @@ def dashboard(request):
             'pedidos_prontos_levantamento': pedidos_por_estado.get(PedidoDocumento.STATUS_PRONTO, 0),
             'pedidos_estado_labels': [rotulos_estado[v] for v in pedidos_por_estado],
             'pedidos_estado_dados': list(pedidos_por_estado.values()),
+            'freq_diaria_labels': freq_dia_labels,
+            'freq_diaria_dados': freq_dia_dados,
         })
 
         return render(
@@ -685,9 +644,9 @@ def dashboard(request):
             turma_id__in=turmas_ids, ativo=True
         ).select_related('professor__user', 'turma__classe')
 
-        faltas_por_justificar_turno = Frequencia.objects.filter(
-            aluno__turma_id__in=turmas_ids, estado=Frequencia.FALTA
-        ).exclude(justificacaofalta__aprovada=True).count()
+        faltas_por_justificar_turno = Frequencia.pendentes_justificacao(
+            aluno__turma_id__in=turmas_ids
+        ).count()
 
         total_professores_turno = AtribuicaoDocente.objects.filter(
             turma_id__in=turmas_ids, ativo=True
@@ -701,7 +660,9 @@ def dashboard(request):
 
         # Turmas do turno com frequência abaixo de 85% — alerta de
         # assiduidade crónica.
-        frequencias_turno = Frequencia.objects.filter(aluno__turma_id__in=turmas_ids).select_related('aluno__turma')
+        frequencias_turno = list(
+            Frequencia.objects.filter(aluno__turma_id__in=turmas_ids).select_related('aluno__turma')
+        )
         totais_por_turma = {}
         presentes_por_turma = {}
         for f in frequencias_turno:
@@ -718,6 +679,8 @@ def dashboard(request):
             key=lambda item: item['percentagem'],
         )
 
+        freq_dia_labels, freq_dia_dados = _frequencia_diaria(frequencias_turno)
+
         context.update({
             'turno_coordenado_display': dict(Turma.PERIODO_CHOICES).get(turno, '—'),
             'turmas_turno': turmas_turno,
@@ -730,6 +693,8 @@ def dashboard(request):
             'avaliacoes_estado_labels': [rotulos_avaliacao[v] for v in avaliacoes_por_estado],
             'avaliacoes_estado_dados': list(avaliacoes_por_estado.values()),
             'turmas_frequencia_baixa': turmas_frequencia_baixa,
+            'freq_diaria_labels': freq_dia_labels,
+            'freq_diaria_dados': freq_dia_dados,
         })
 
         return render(
@@ -767,9 +732,7 @@ def dashboard(request):
         )
 
         faltas_por_turma = {}
-        faltas_sem_justificacao = Frequencia.objects.filter(
-            estado=Frequencia.FALTA
-        ).exclude(justificacaofalta__aprovada=True).select_related('aluno__turma')
+        faltas_sem_justificacao = Frequencia.pendentes_justificacao().select_related('aluno__turma')
         for falta in faltas_sem_justificacao:
             chave = str(falta.aluno.turma)
             faltas_por_turma[chave] = faltas_por_turma.get(chave, 0) + 1
@@ -786,6 +749,8 @@ def dashboard(request):
             'faltas_por_turma': [
                 {'turma': turma, 'total': total} for turma, total in faltas_por_turma.items()
             ],
+            'faltas_turma_labels': list(faltas_por_turma.keys()),
+            'faltas_turma_dados': list(faltas_por_turma.values()),
             'reclamacoes_abertas': reclamacoes_por_estado.get(Reclamacao.ESTADO_ABERTA, 0),
             'reclamacoes_estado_labels': [rotulos_reclamacao[v] for v in reclamacoes_por_estado],
             'reclamacoes_estado_dados': list(reclamacoes_por_estado.values()),

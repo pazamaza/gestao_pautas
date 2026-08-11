@@ -465,7 +465,9 @@ class DashboardsConteudoEnriquecidoTests(TestCase):
         ]:
             Group.objects.get_or_create(name=nome)
 
-    def test_dashboard_diretor_geral_renderiza_com_ranking_turmas(self):
+    def test_dashboard_diretor_geral_renderiza_com_graficos_completos(self):
+        # Mesma aparência do Sub-diretor Pedagógico (pedido explícito do
+        # utilizador) — os 6 gráficos académicos + os cards próprios.
         user = User.objects.create_user(username='dg_dash', password='senha123')
         user.groups.add(Group.objects.get(name='Diretor Geral do Complexo'))
         self.client.login(username='dg_dash', password='senha123')
@@ -473,8 +475,13 @@ class DashboardsConteudoEnriquecidoTests(TestCase):
         response = self.client.get(reverse('dashboard'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn('ranking_turmas', response.context)
-        self.assertIn('total_alunos_risco_geral', response.context)
+        for chave in (
+            'evolucao_labels', 'resultado_labels', 'frequencia_labels',
+            'disciplina_labels', 'turma_labels', 'genero_labels',
+            'alunos_risco', 'melhores_medias',
+        ):
+            self.assertIn(chave, response.context)
+        self.assertIn('resultados_pendentes_homologacao', response.context)
 
     def test_dashboard_chefe_secretaria_renderiza_com_grafico_pedidos(self):
         user = User.objects.create_user(username='cs_dash', password='senha123')
@@ -485,6 +492,7 @@ class DashboardsConteudoEnriquecidoTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn('pedidos_estado_labels', response.context)
+        self.assertIn('freq_diaria_labels', response.context)
 
     def test_dashboard_coordenador_turno_renderiza_com_grafico_avaliacoes(self):
         user = User.objects.create_user(username='ct_dash', password='senha123')
@@ -498,6 +506,7 @@ class DashboardsConteudoEnriquecidoTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('avaliacoes_estado_labels', response.context)
         self.assertIn('turmas_frequencia_baixa', response.context)
+        self.assertIn('freq_diaria_labels', response.context)
 
     def test_dashboard_coordenador_pais_renderiza_com_grafico_reclamacoes(self):
         user = User.objects.create_user(username='cp_dash', password='senha123')
@@ -508,6 +517,7 @@ class DashboardsConteudoEnriquecidoTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn('reclamacoes_estado_labels', response.context)
+        self.assertIn('faltas_turma_labels', response.context)
 
 
 class DashboardDiretorTurmaTests(TestCase):

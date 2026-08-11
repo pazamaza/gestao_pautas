@@ -1,126 +1,232 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Dashboard{% endblock %}
 {% block content %}
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+
 <div class="container-fluid mt-3">
-    {% include 'includes/perfil_header.html' with subtitulo="Diretor Geral do Complexo Escolar." %}
 
-    <h2 class="mb-3">Visão Executiva{% if ano_letivo_ativo %} — {{ ano_letivo_ativo }}{% endif %}</h2>
-    <div class="row g-3 mb-4">
-        <div class="col-md col-6">
-            <div class="card shadow-sm">
-                <div class="card-body text-center">
-                    <h6 class="text-muted">Total Alunos</h6>
-                    <h3>{{ total_alunos }}</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md col-6">
-            <div class="card shadow-sm">
-                <div class="card-body text-center">
-                    <h6 class="text-muted">Total Turmas</h6>
-                    <h3>{{ total_turmas }}</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md col-6">
-            <div class="card shadow-sm">
-                <div class="card-body text-center">
-                    <h6 class="text-muted">Total Professores</h6>
-                    <h3>{{ total_professores }}</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md col-6">
-            <div class="card shadow-sm">
-                <div class="card-body text-center">
-                    <h6 class="text-muted">Taxa de Aprovação Geral</h6>
-                    <h3 class="text-success">{{ taxa_aprovacao_geral }}%</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md col-6">
-            <div class="card shadow-sm">
-                <div class="card-body text-center">
-                    <h6 class="text-muted">Alunos em Risco</h6>
-                    <h3 class="text-danger">{{ total_alunos_risco_geral }}</h3>
-                </div>
+{% include 'includes/perfil_header.html' with subtitulo="Diretor Geral do Complexo Escolar." %}
+
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <h2 class="mb-0">Painel de Relatórios e Estatísticas</h2>
+    <form method="get" class="d-flex align-items-center gap-2">
+        <label class="form-label mb-0 small text-muted">Ano Letivo</label>
+        <select name="ano_letivo" class="form-select form-select-sm" onchange="this.form.submit()">
+            {% for ano in anos_letivos %}
+            <option value="{{ ano.id }}" {% if ano_letivo_selecionado.id == ano.id %}selected{% endif %}>
+                {{ ano.descricao }}
+            </option>
+            {% endfor %}
+        </select>
+    </form>
+</div>
+
+<div class="row g-3">
+    <div class="col-md col-6">
+        <div class="card shadow-sm kpi-card">
+            <div class="card-body">
+                <h6 class="text-muted">Total Alunos</h6>
+                <h3>{{ total_alunos }}</h3>
             </div>
         </div>
     </div>
-
-    <div class="card shadow-sm mb-4">
-        <div class="card-header">Top 5 Turmas por Média</div>
-        <div class="table-responsive">
-            <table class="table table-sm table-striped mb-0">
-                <thead>
-                    <tr><th>Turma</th><th>Média</th></tr>
-                </thead>
-                <tbody>
-                    {% for nome, media in ranking_turmas %}
-                    <tr><td>{{ nome }}</td><td>{{ media }}</td></tr>
-                    {% empty %}
-                    <tr><td colspan="2">Sem dados suficientes ainda.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <h2 class="mb-3">Pendências das Entidades Operacionais</h2>
-    <p class="text-muted small">Contagens agregadas — o detalhe fica com quem gere cada uma.</p>
-    <div class="row g-3 mb-4">
-        <div class="col-md col-6">
-            <div class="card shadow-sm border-warning">
-                <div class="card-body text-center">
-                    <h6 class="text-muted">Documentos Pendentes (Secretaria)</h6>
-                    <h3 class="text-warning">{{ pedidos_documentos_pendentes }}</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md col-6">
-            <div class="card shadow-sm border-warning">
-                <div class="card-body text-center">
-                    <h6 class="text-muted">Pagamentos por Confirmar (Secretaria)</h6>
-                    <h3 class="text-warning">{{ pedidos_pagamento_pendentes }}</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md col-6">
-            <div class="card shadow-sm border-warning">
-                <div class="card-body text-center">
-                    <h6 class="text-muted">Faltas por Justificar (Coordenação de Turno)</h6>
-                    <h3 class="text-warning">{{ faltas_por_justificar_total }}</h3>
-                </div>
+    <div class="col-md col-6">
+        <div class="card shadow-sm kpi-card">
+            <div class="card-body">
+                <h6 class="text-muted">Turmas Ativas</h6>
+                <h3>{{ total_turmas }}</h3>
             </div>
         </div>
     </div>
-
-    <h2 class="mb-3">Decisões do Diretor Geral</h2>
-    <div class="row g-3">
-        <div class="col-md col-6">
-            <a href="{% url 'resultado_lista' %}" class="card shadow-sm text-decoration-none text-dark border-primary">
-                <div class="card-body text-center">
-                    <h6 class="text-muted">Resultados por Homologar</h6>
-                    <h3 class="text-primary">{{ resultados_pendentes_homologacao }}</h3>
-                </div>
-            </a>
+    <div class="col-md col-6">
+        <div class="card shadow-sm kpi-card">
+            <div class="card-body">
+                <h6 class="text-muted">Média Geral</h6>
+                <h3>{{ media_geral|default:"—" }}</h3>
+            </div>
         </div>
-        <div class="col-md col-6">
-            <a href="{% url 'reclamacao_lista' %}" class="card shadow-sm text-decoration-none text-dark border-info">
-                <div class="card-body text-center">
-                    <h6 class="text-muted">Reclamações por Decidir</h6>
-                    <h3 class="text-info">{{ reclamacoes_pendentes_diretor_geral }}</h3>
-                </div>
-            </a>
+    </div>
+    <div class="col-md col-6">
+        <div class="card shadow-sm kpi-card">
+            <div class="card-body">
+                <h6 class="text-muted">Taxa de Aprovação</h6>
+                <h3 class="text-success">{{ taxa_aprovacao }}%</h3>
+            </div>
         </div>
-        <div class="col-md col-6">
-            <a href="{% url 'auditoria_registo' %}" class="card shadow-sm text-decoration-none text-dark border-secondary">
-                <div class="card-body text-center">
-                    <h6 class="text-muted">Registo de Auditoria</h6>
-                    <h3 class="text-secondary">Consultar</h3>
-                </div>
-            </a>
+    </div>
+    <div class="col-md col-6">
+        <div class="card shadow-sm kpi-card">
+            <div class="card-body">
+                <h6 class="text-muted">Taxa de Reprovação</h6>
+                <h3 class="text-danger">{{ taxa_reprovacao }}%</h3>
+            </div>
         </div>
     </div>
 </div>
+
+<div class="row g-3 mt-1">
+    <div class="col-lg-4">
+        <div class="card shadow-sm dashboard-chart-card h-100">
+            <div class="card-body">
+                <h6>Evolução da Média Escolar</h6>
+                <canvas id="grafico-evolucao"></canvas>
+                {{ evolucao_labels|json_script:"evolucao-labels" }}
+                {{ evolucao_dados|json_script:"evolucao-dados" }}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card shadow-sm dashboard-chart-card h-100">
+            <div class="card-body">
+                <h6>Distribuição de Resultados</h6>
+                <canvas id="grafico-resultados"></canvas>
+                {{ resultado_labels|json_script:"resultado-labels" }}
+                {{ resultado_dados|json_script:"resultado-dados" }}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card shadow-sm dashboard-chart-card h-100">
+            <div class="card-body">
+                <h6>Frequência Mensal (%)</h6>
+                <canvas id="grafico-frequencia"></canvas>
+                {{ frequencia_labels|json_script:"frequencia-labels" }}
+                {{ frequencia_dados|json_script:"frequencia-dados" }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mt-1">
+    <div class="col-lg-4">
+        <div class="card shadow-sm dashboard-chart-card chart-tall h-100">
+            <div class="card-body">
+                <h6>Desempenho por Disciplina</h6>
+                <canvas id="grafico-disciplinas"></canvas>
+                {{ disciplina_labels|json_script:"disciplina-labels" }}
+                {{ disciplina_dados|json_script:"disciplina-dados" }}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4 d-flex flex-column gap-3">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h6>Alunos em Risco Académico</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr><th>Nome</th><th>Turma</th><th>Média</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for item in alunos_risco %}
+                            <tr class="table-danger">
+                                <td>{{ item.aluno }}</td>
+                                <td>{{ item.turma }}</td>
+                                <td>{{ item.media }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="3">Nenhum aluno em risco.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="card shadow-sm dashboard-chart-card">
+            <div class="card-body">
+                <h6>Top 5 Turmas</h6>
+                <canvas id="grafico-turmas"></canvas>
+                {{ turma_labels|json_script:"turma-labels" }}
+                {{ turma_dados|json_script:"turma-dados" }}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4 d-flex flex-column gap-3">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h6>Alunos com Melhores Médias</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr><th>Nome</th><th>Média</th><th>Turma</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for item in melhores_medias %}
+                            <tr class="table-success">
+                                <td>{{ item.aluno }}</td>
+                                <td>{{ item.media }}</td>
+                                <td>{{ item.turma }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="3">Sem notas lançadas.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="card shadow-sm dashboard-chart-card">
+            <div class="card-body">
+                <h6>Distribuição por Género</h6>
+                <canvas id="grafico-genero"></canvas>
+                {{ genero_labels|json_script:"genero-labels" }}
+                {{ genero_dados|json_script:"genero-dados" }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<hr class="my-4">
+<h2 class="text-center mb-4">Pendências das Entidades Operacionais</h2>
+<div class="d-flex flex-wrap justify-content-center gap-3">
+    <div class="card shadow-sm border-warning" style="width: 220px;">
+        <div class="card-body text-center">
+            <h6 class="text-muted">Documentos Pendentes (Secretaria)</h6>
+            <h2 class="text-warning">{{ pedidos_documentos_pendentes }}</h2>
+        </div>
+    </div>
+    <div class="card shadow-sm border-warning" style="width: 220px;">
+        <div class="card-body text-center">
+            <h6 class="text-muted">Pagamentos por Confirmar (Secretaria)</h6>
+            <h2 class="text-warning">{{ pedidos_pagamento_pendentes }}</h2>
+        </div>
+    </div>
+    <div class="card shadow-sm border-warning" style="width: 220px;">
+        <div class="card-body text-center">
+            <h6 class="text-muted">Faltas por Justificar (Coord. Turno)</h6>
+            <h2 class="text-warning">{{ faltas_por_justificar_total }}</h2>
+        </div>
+    </div>
+</div>
+
+<hr class="my-4">
+<h2 class="text-center mb-4">Decisões do Diretor Geral</h2>
+<div class="d-flex flex-wrap justify-content-center gap-3">
+    <a href="{% url 'resultado_lista' %}" class="card shadow-sm text-decoration-none text-dark border-primary" style="width: 220px;">
+        <div class="card-body text-center">
+            <h5>Resultados por Homologar</h5>
+            <h2 class="text-primary">{{ resultados_pendentes_homologacao }}</h2>
+        </div>
+    </a>
+    <a href="{% url 'reclamacao_lista' %}" class="card shadow-sm text-decoration-none text-dark border-info" style="width: 220px;">
+        <div class="card-body text-center">
+            <h5>Reclamações por Decidir</h5>
+            <h2 class="text-info">{{ reclamacoes_pendentes_diretor_geral }}</h2>
+        </div>
+    </a>
+    <a href="{% url 'auditoria_registo' %}" class="card shadow-sm text-decoration-none text-dark border-secondary" style="width: 220px;">
+        <div class="card-body text-center">
+            <h5>Registo de Auditoria</h5>
+            <h2 class="text-secondary">Consultar</h2>
+        </div>
+    </a>
+</div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/vendor/chart.min.js' %}"></script>
+<script src="{% static 'js/dashboard_charts.js' %}"></script>
 {% endblock %}

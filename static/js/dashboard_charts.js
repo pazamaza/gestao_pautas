@@ -143,6 +143,20 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // Gráfico: Faltas por Justificar por Turma, dashboard do Coordenador de Pais (barras)
+    const faltasTurmaEl = document.getElementById('grafico-faltas-turma');
+    if (faltasTurmaEl) {
+        const { labels, dados } = lerDados('faltas-turma-labels', 'faltas-turma-dados');
+        new Chart(faltasTurmaEl, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{ label: 'Faltas', data: dados, backgroundColor: cores.vermelho }],
+            },
+            options: { ...opcoesBase, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } },
+        });
+    }
+
     // Gráfico: Estado das Reclamações, dashboard do Coordenador de Pais (doughnut)
     const reclamacoesEl = document.getElementById('grafico-reclamacoes');
     if (reclamacoesEl) {
@@ -154,6 +168,29 @@ document.addEventListener('DOMContentLoaded', function () {
                 datasets: [{ data: dados, backgroundColor: [cores.cinza, cores.amarelo, cores.verde] }],
             },
             options: opcoesBase,
+        });
+    }
+
+    // Gráfico: Frequência Diária (linha) — dashboards da Secretaria e do
+    // Coordenador de Turno
+    const freqDiariaEl = document.getElementById('grafico-freq-diaria');
+    if (freqDiariaEl) {
+        const { labels, dados } = lerDados('freq-diaria-labels', 'freq-diaria-dados');
+        new Chart(freqDiariaEl, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Presença (%)',
+                    data: dados,
+                    borderColor: cores.azul,
+                    backgroundColor: 'rgba(13, 110, 253, 0.15)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 2,
+                }],
+            },
+            options: { ...opcoesBase, scales: { y: { beginAtZero: true, max: 100 } } },
         });
     }
 
