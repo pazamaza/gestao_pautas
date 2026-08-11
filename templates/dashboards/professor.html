@@ -10,6 +10,55 @@ Dashboard do Professor
 <div class="container-fluid mt-4">
     {% include 'includes/perfil_header.html' with subtitulo="Caderneta Digital do Professor" %}
 
+    {% if eh_diretor_turma %}
+    <div class="card shadow-sm mb-3 border-primary">
+        <div class="card-header bg-primary text-white">Painel do Diretor de Turma</div>
+        <div class="card-body">
+            <div class="row g-3 mb-3">
+                <div class="col-md-4">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body text-center">
+                            <h6 class="text-muted mb-1">Alunos em Risco (turma dirigida)</h6>
+                            <h3 class="text-danger mb-0">{{ alunos_risco_turma_dirigida|length }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body text-center">
+                            <h6 class="text-muted mb-1">Justificações por Decidir</h6>
+                            <h3 class="text-warning mb-0">{{ justificacoes_pendentes_turma_dirigida }}</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <a href="{% url 'pedidos_documentos_pendentes' %}" class="card shadow-sm h-100 text-decoration-none text-dark">
+                        <div class="card-body text-center">
+                            <h6 class="text-muted mb-1">Boletins por Autenticar</h6>
+                            <h3 class="text-info mb-0">{{ pedidos_boletim_pendentes }}</h3>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            {% if alunos_risco_turma_dirigida %}
+            <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead><tr><th>Aluno</th><th>Média</th></tr></thead>
+                    <tbody>
+                        {% for item in alunos_risco_turma_dirigida %}
+                        <tr>
+                            <td>{{ item.aluno.nome }}</td>
+                            <td class="text-danger">{{ item.media }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
     {% if not atribuicao_selecionada %}
         <div class="alert alert-warning mt-3">
             Não existe nenhuma atribuição docente ativa associada a si.

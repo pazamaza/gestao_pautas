@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Dashboard{% endblock %}
 {% block content %}
 <div class="container-fluid mt-3">
@@ -28,12 +29,53 @@
             </div>
         </div>
         <div class="col-md col-6">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Professores do Turno</h6>
+                    <h3>{{ total_professores_turno }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md col-6">
             <a href="{% url 'justificacao_lista' %}" class="card shadow-sm text-decoration-none text-dark border-warning">
                 <div class="card-body text-center">
                     <h6 class="text-muted">Faltas por Justificar</h6>
                     <h3 class="text-warning">{{ faltas_por_justificar_turno }}</h3>
                 </div>
             </a>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-lg-6">
+            <div class="card shadow-sm dashboard-chart-card h-100">
+                <div class="card-body">
+                    <h6>Estado das Avaliações do Turno</h6>
+                    <canvas id="grafico-avaliacoes-turno"></canvas>
+                    {{ avaliacoes_estado_labels|json_script:"avaliacoes-estado-labels" }}
+                    {{ avaliacoes_estado_dados|json_script:"avaliacoes-estado-dados" }}
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header">Turmas com Frequência Baixa (&lt; 85%)</div>
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead><tr><th>Turma</th><th>Frequência</th></tr></thead>
+                        <tbody>
+                            {% for item in turmas_frequencia_baixa %}
+                            <tr>
+                                <td>{{ item.turma }}</td>
+                                <td class="text-danger">{{ item.percentagem }}%</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="2" class="text-muted">Nenhuma turma abaixo do limite.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -68,4 +110,7 @@
     </div>
     {% endif %}
 </div>
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+<script src="{% static 'js/vendor/chart.min.js' %}"></script>
+<script src="{% static 'js/dashboard_charts.js' %}"></script>
 {% endblock %}

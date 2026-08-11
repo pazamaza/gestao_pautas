@@ -451,3 +451,84 @@ class ContaAdministrativaPaginasGetTests(TestCase):
 
                 response_excluir = self.client.get(reverse(f'{prefixo}_excluir', args=[alvo.pk]))
                 self.assertEqual(response_excluir.status_code, 200)
+
+
+class DashboardsConteudoEnriquecidoTests(TestCase):
+    """Regressão dos gráficos/tabelas acrescentados aos dashboards
+    (inspirados nos mockups em Dashboard/) — garante que os 4 papéis
+    administrativos renderizam sem erro com os novos dados de contexto."""
+
+    def setUp(self):
+        for nome in [
+            'Diretor Geral do Complexo', 'Chefe de Secretaria',
+            'Coordenador de Turno', 'Coordenador de Pais e Encarregados de Educação',
+        ]:
+            Group.objects.get_or_create(name=nome)
+
+    def test_dashboard_diretor_geral_renderiza_com_ranking_turmas(self):
+        user = User.objects.create_user(username='dg_dash', password='senha123')
+        user.groups.add(Group.objects.get(name='Diretor Geral do Complexo'))
+        self.client.login(username='dg_dash', password='senha123')
+
+        response = self.client.get(reverse('dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('ranking_turmas', response.context)
+        self.assertIn('total_alunos_risco_geral', response.context)
+
+    def test_dashboard_chefe_secretaria_renderiza_com_grafico_pedidos(self):
+        user = User.objects.create_user(username='cs_dash', password='senha123')
+        user.groups.add(Group.objects.get(name='Chefe de Secretaria'))
+        self.client.login(username='cs_dash', password='senha123')
+
+        response = self.client.get(reverse('dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('pedidos_estado_labels', response.context)
+
+    def test_dashboard_coordenador_turno_renderiza_com_grafico_avaliacoes(self):
+        user = User.objects.create_user(username='ct_dash', password='senha123')
+        user.groups.add(Group.objects.get(name='Coordenador de Turno'))
+        user.perfil.turno_coordenado = 'manha'
+        user.perfil.save()
+        self.client.login(username='ct_dash', password='senha123')
+
+        response = self.client.get(reverse('dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('avaliacoes_estado_labels', response.context)
+        self.assertIn('turmas_frequencia_baixa', response.context)
+
+    def test_dashboard_coordenador_pais_renderiza_com_grafico_reclamacoes(self):
+        user = User.objects.create_user(username='cp_dash', password='senha123')
+        user.groups.add(Group.objects.get(name='Coordenador de Pais e Encarregados de Educação'))
+        self.client.login(username='cp_dash', password='senha123')
+
+        response = self.client.get(reverse('dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('reclamacoes_estado_labels', response.context)
+
+
+class DashboardDiretorTurmaTests(TestCase):
+    def test_dashboard_professor_diretor_turma_mostra_painel_extra(self):
+        from professores.models import DiretorTurma, Professor
+        from turmas.models import AnoLetivo, Classe, Turma
+
+        Group.objects.get_or_create(name='Professor')
+        ano_letivo = AnoLetivo.objects.create(descricao='2026')
+        classe, _ = Classe.objects.get_or_create(nome='8ª Classe')
+        turma = Turma.objects.create(nome='A', classe=classe, ano_letivo=ano_letivo)
+
+        user = User.objects.create_user(username='dt_dash', password='senha123')
+        user.groups.add(Group.objects.get(name='Professor'))
+        professor = Professor.objects.create(user=user, numero_funcionario='PDT001')
+        DiretorTurma.objects.create(professor=professor, turma=turma, ano_letivo=ano_letivo)
+
+        self.client.login(username='dt_dash', password='senha123')
+        response = self.client.get(reverse('dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context['eh_diretor_turma'])
+        self.assertIn('alunos_risco_turma_dirigida', response.context)
+        self.assertContains(response, 'Painel do Diretor de Turma')

@@ -88,6 +88,35 @@ def _contexto_dashboard_professor(request):
         aluno__turma_id__in=turmas_dirigidas,
     ).count()
 
+    # Alunos em risco e justificações por decidir nas turmas que dirige
+    # (só faz sentido calcular se for mesmo Diretor de Turma de alguma
+    # turma — ver Fase 3, "Plano De Gestão de Responsabilidades").
+    alunos_risco_turma_dirigida = []
+    justificacoes_pendentes_turma_dirigida = 0
+    if turmas_dirigidas:
+        ano_letivo_atual = AnoLetivo.objects.filter(ativo=True).first() or AnoLetivo.objects.first()
+        resultados_dirigidas = (
+            ResultadoDisciplina.objects.filter(
+                ano_letivo=ano_letivo_atual, aluno__turma_id__in=turmas_dirigidas,
+            ).select_related('aluno', 'aluno__turma')
+            if ano_letivo_atual else ResultadoDisciplina.objects.none()
+        )
+        medias_por_aluno_dirigida = {}
+        for r in resultados_dirigidas:
+            if r.mf and r.mf > 0:
+                medias_por_aluno_dirigida.setdefault(r.aluno, []).append(float(r.mf))
+        alunos_risco_turma_dirigida = sorted(
+            (
+                {'aluno': aluno, 'media': _media(valores)}
+                for aluno, valores in medias_por_aluno_dirigida.items()
+                if _media(valores) is not None and _media(valores) < 10
+            ),
+            key=lambda item: item['media'],
+        )
+        justificacoes_pendentes_turma_dirigida = JustificacaoFalta.objects.filter(
+            frequencia__atribuicao__turma_id__in=turmas_dirigidas, aprovada=False,
+        ).count()
+
     contexto = {
         'total_turmas': len(turmas_ids),
         'total_disciplinas': len(disciplinas_ids),
@@ -101,6 +130,8 @@ def _contexto_dashboard_professor(request):
         'atribuicoes_professor': atribuicoes_professor,
         'eh_diretor_turma': turmas_dirigidas.exists(),
         'pedidos_boletim_pendentes': pedidos_boletim_pendentes,
+        'alunos_risco_turma_dirigida': alunos_risco_turma_dirigida,
+        'justificacoes_pendentes_turma_dirigida': justificacoes_pendentes_turma_dirigida,
     }
 
     if not atribuicoes_professor.exists():
@@ -552,6 +583,7 @@ def dashboard(request):
         ano_letivo_ativo = AnoLetivo.objects.filter(ativo=True).first() or AnoLetivo.objects.first()
         resultados_ano = (
             ResultadoDisciplina.objects.filter(ano_letivo=ano_letivo_ativo)
+            .select_related('aluno', 'aluno__turma')
             if ano_letivo_ativo else ResultadoDisciplina.objects.none()
         )
         resultados_com_notas = [r for r in resultados_ano if r.mf and r.mf > 0]
@@ -561,9 +593,29 @@ def dashboard(request):
         total_avaliados = len(resultados_com_notas)
         taxa_aprovacao_geral = round(aprovados / total_avaliados * 100, 1) if total_avaliados else 0
 
+        # Alunos em risco (contagem só, sem lista nominal — isso é
+        # detalhe operacional do Sub-diretor/Coordenador de Pais) e
+        # ranking de turmas (top 5), ambos ao nível executivo.
+        medias_por_aluno = {}
+        for r in resultados_com_notas:
+            medias_por_aluno.setdefault(r.aluno_id, []).append(float(r.mf))
+        total_alunos_risco_geral = sum(
+            1 for valores in medias_por_aluno.values() if _media(valores) is not None and _media(valores) < 10
+        )
+
+        por_turma = {}
+        for r in resultados_com_notas:
+            por_turma.setdefault(str(r.aluno.turma), []).append(float(r.mf))
+        ranking_turmas = sorted(
+            ((nome, _media(valores)) for nome, valores in por_turma.items()),
+            key=lambda item: item[1], reverse=True,
+        )[:5]
+
         context.update({
             'ano_letivo_ativo': ano_letivo_ativo,
             'taxa_aprovacao_geral': taxa_aprovacao_geral,
+            'total_alunos_risco_geral': total_alunos_risco_geral,
+            'ranking_turmas': ranking_turmas,
             # Pendências agregadas das 3 entidades operacionais — só a
             # contagem, sem entrar no detalhe de cada uma.
             'pedidos_documentos_pendentes': PedidoDocumento.objects.filter(
@@ -597,16 +649,18 @@ def dashboard(request):
         # pagamentos — responsabilidade que antes estava só no Sub-diretor
         # Pedagógico, ver dashboards/admin.html)
 
+        pedidos_por_estado = {
+            valor: PedidoDocumento.objects.filter(status=valor).count()
+            for valor, _rotulo in PedidoDocumento.STATUS_CHOICES
+        }
+        rotulos_estado = dict(PedidoDocumento.STATUS_CHOICES)
+
         context.update({
-            'pedidos_documentos_pendentes': PedidoDocumento.objects.filter(
-                status=PedidoDocumento.STATUS_PENDENTE
-            ).count(),
-            'pedidos_pagamento_pendentes': PedidoDocumento.objects.filter(
-                status=PedidoDocumento.STATUS_PAGAMENTO_SUBMETIDO
-            ).count(),
-            'pedidos_prontos_levantamento': PedidoDocumento.objects.filter(
-                status=PedidoDocumento.STATUS_PRONTO
-            ).count(),
+            'pedidos_documentos_pendentes': pedidos_por_estado.get(PedidoDocumento.STATUS_PENDENTE, 0),
+            'pedidos_pagamento_pendentes': pedidos_por_estado.get(PedidoDocumento.STATUS_PAGAMENTO_SUBMETIDO, 0),
+            'pedidos_prontos_levantamento': pedidos_por_estado.get(PedidoDocumento.STATUS_PRONTO, 0),
+            'pedidos_estado_labels': [rotulos_estado[v] for v in pedidos_por_estado],
+            'pedidos_estado_dados': list(pedidos_por_estado.values()),
         })
 
         return render(
@@ -635,14 +689,47 @@ def dashboard(request):
             aluno__turma_id__in=turmas_ids, estado=Frequencia.FALTA
         ).exclude(justificacaofalta__aprovada=True).count()
 
+        total_professores_turno = AtribuicaoDocente.objects.filter(
+            turma_id__in=turmas_ids, ativo=True
+        ).values('professor_id').distinct().count()
+
+        avaliacoes_por_estado = {
+            valor: Avaliacao.objects.filter(atribuicao__turma_id__in=turmas_ids, status=valor).count()
+            for valor, _rotulo in Avaliacao.STATUS_CHOICES
+        }
+        rotulos_avaliacao = dict(Avaliacao.STATUS_CHOICES)
+
+        # Turmas do turno com frequência abaixo de 85% — alerta de
+        # assiduidade crónica.
+        frequencias_turno = Frequencia.objects.filter(aluno__turma_id__in=turmas_ids).select_related('aluno__turma')
+        totais_por_turma = {}
+        presentes_por_turma = {}
+        for f in frequencias_turno:
+            chave = str(f.aluno.turma)
+            totais_por_turma[chave] = totais_por_turma.get(chave, 0) + 1
+            if f.estado in (Frequencia.PRESENTE, Frequencia.ATRASO):
+                presentes_por_turma[chave] = presentes_por_turma.get(chave, 0) + 1
+        turmas_frequencia_baixa = sorted(
+            (
+                {'turma': turma, 'percentagem': round(presentes_por_turma.get(turma, 0) / total * 100, 1)}
+                for turma, total in totais_por_turma.items()
+                if total and round(presentes_por_turma.get(turma, 0) / total * 100, 1) < 85
+            ),
+            key=lambda item: item['percentagem'],
+        )
+
         context.update({
             'turno_coordenado_display': dict(Turma.PERIODO_CHOICES).get(turno, '—'),
             'turmas_turno': turmas_turno,
             'total_alunos_turno': Aluno.objects.filter(
                 turma_id__in=turmas_ids, estado=Aluno.ESTADO_ATIVO
             ).count(),
+            'total_professores_turno': total_professores_turno,
             'diretores_turma_turno': diretores_turma_turno,
             'faltas_por_justificar_turno': faltas_por_justificar_turno,
+            'avaliacoes_estado_labels': [rotulos_avaliacao[v] for v in avaliacoes_por_estado],
+            'avaliacoes_estado_dados': list(avaliacoes_por_estado.values()),
+            'turmas_frequencia_baixa': turmas_frequencia_baixa,
         })
 
         return render(
@@ -687,13 +774,21 @@ def dashboard(request):
             chave = str(falta.aluno.turma)
             faltas_por_turma[chave] = faltas_por_turma.get(chave, 0) + 1
 
+        reclamacoes_por_estado = {
+            valor: Reclamacao.objects.filter(estado=valor).count()
+            for valor, _rotulo in Reclamacao.ESTADO_CHOICES
+        }
+        rotulos_reclamacao = dict(Reclamacao.ESTADO_CHOICES)
+
         context.update({
             'alunos_risco_media': alunos_risco_media[:20],
             'total_alunos_risco': len(alunos_risco_media),
             'faltas_por_turma': [
                 {'turma': turma, 'total': total} for turma, total in faltas_por_turma.items()
             ],
-            'reclamacoes_abertas': Reclamacao.objects.filter(estado=Reclamacao.ESTADO_ABERTA).count(),
+            'reclamacoes_abertas': reclamacoes_por_estado.get(Reclamacao.ESTADO_ABERTA, 0),
+            'reclamacoes_estado_labels': [rotulos_reclamacao[v] for v in reclamacoes_por_estado],
+            'reclamacoes_estado_dados': list(reclamacoes_por_estado.values()),
         })
 
         return render(

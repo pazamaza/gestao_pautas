@@ -38,6 +38,32 @@
                 </div>
             </div>
         </div>
+        <div class="col-md col-6">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Alunos em Risco</h6>
+                    <h3 class="text-danger">{{ total_alunos_risco_geral }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">Top 5 Turmas por Média</div>
+        <div class="table-responsive">
+            <table class="table table-sm table-striped mb-0">
+                <thead>
+                    <tr><th>Turma</th><th>Média</th></tr>
+                </thead>
+                <tbody>
+                    {% for nome, media in ranking_turmas %}
+                    <tr><td>{{ nome }}</td><td>{{ media }}</td></tr>
+                    {% empty %}
+                    <tr><td colspan="2">Sem dados suficientes ainda.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <h2 class="mb-3">Pendências das Entidades Operacionais</h2>

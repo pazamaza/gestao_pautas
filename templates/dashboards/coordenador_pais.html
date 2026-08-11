@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Dashboard{% endblock %}
 {% block content %}
 <div class="container-fluid mt-3">
@@ -56,18 +57,35 @@
         </div>
     </div>
 
-    <div class="card shadow-sm">
-        <div class="card-header">Faltas por Justificar por Turma</div>
-        <ul class="list-group list-group-flush">
-            {% for item in faltas_por_turma %}
-            <li class="list-group-item d-flex justify-content-between">
-                <span>{{ item.turma }}</span>
-                <span class="text-muted">{{ item.total }}</span>
-            </li>
-            {% empty %}
-            <li class="list-group-item text-muted">Sem faltas por justificar.</li>
-            {% endfor %}
-        </ul>
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header">Faltas por Justificar por Turma</div>
+                <ul class="list-group list-group-flush">
+                    {% for item in faltas_por_turma %}
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>{{ item.turma }}</span>
+                        <span class="text-muted">{{ item.total }}</span>
+                    </li>
+                    {% empty %}
+                    <li class="list-group-item text-muted">Sem faltas por justificar.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card shadow-sm dashboard-chart-card h-100">
+                <div class="card-body">
+                    <h6>Estado das Reclamações</h6>
+                    <canvas id="grafico-reclamacoes"></canvas>
+                    {{ reclamacoes_estado_labels|json_script:"reclamacoes-estado-labels" }}
+                    {{ reclamacoes_estado_dados|json_script:"reclamacoes-estado-dados" }}
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+<script src="{% static 'js/vendor/chart.min.js' %}"></script>
+<script src="{% static 'js/dashboard_charts.js' %}"></script>
 {% endblock %}

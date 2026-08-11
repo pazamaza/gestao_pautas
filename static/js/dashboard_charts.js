@@ -112,6 +112,51 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // Gráfico: Estado dos Pedidos de Documentos, dashboard da Secretaria (doughnut)
+    const pedidosSecretariaEl = document.getElementById('grafico-pedidos-secretaria');
+    if (pedidosSecretariaEl) {
+        const { labels, dados } = lerDados('pedidos-estado-labels', 'pedidos-estado-dados');
+        new Chart(pedidosSecretariaEl, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: dados,
+                    backgroundColor: [cores.amarelo, cores.vermelho, cores.azul, cores.roxo, cores.verde, cores.cinza],
+                }],
+            },
+            options: opcoesBase,
+        });
+    }
+
+    // Gráfico: Estado das Avaliações do turno, dashboard do Coordenador de Turno (barras)
+    const avaliacoesTurnoEl = document.getElementById('grafico-avaliacoes-turno');
+    if (avaliacoesTurnoEl) {
+        const { labels, dados } = lerDados('avaliacoes-estado-labels', 'avaliacoes-estado-dados');
+        new Chart(avaliacoesTurnoEl, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{ label: 'Avaliações', data: dados, backgroundColor: [cores.cinza, cores.amarelo, cores.verde] }],
+            },
+            options: { ...opcoesBase, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } },
+        });
+    }
+
+    // Gráfico: Estado das Reclamações, dashboard do Coordenador de Pais (doughnut)
+    const reclamacoesEl = document.getElementById('grafico-reclamacoes');
+    if (reclamacoesEl) {
+        const { labels, dados } = lerDados('reclamacoes-estado-labels', 'reclamacoes-estado-dados');
+        new Chart(reclamacoesEl, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{ data: dados, backgroundColor: [cores.cinza, cores.amarelo, cores.verde] }],
+            },
+            options: opcoesBase,
+        });
+    }
+
     // Gráfico: Distribuição por género dos alunos activos (pizza)
     const generoEl = document.getElementById('grafico-genero');
     if (generoEl) {
