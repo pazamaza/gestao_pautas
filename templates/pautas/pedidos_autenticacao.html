@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block title %}
+Documentos a Autenticar
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h2>Documentos a Autenticar</h2>
+    <p class="text-muted">Documentos já emitidos pela Secretaria, a aguardar a sua autenticação.</p>
+
+    <div class="row g-3 mt-1">
+        {% for pedido in pedidos %}
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">{{ pedido.get_tipo_display }}</h5>
+                    <p class="card-text mb-1">
+                        Aluno: <strong>{{ pedido.aluno.nome }}</strong> ({{ pedido.aluno.numero_processo }})
+                    </p>
+                    <p class="card-text mb-1">Turma: {{ pedido.aluno.turma }}</p>
+                    <p class="card-text mb-3">
+                        Ano Letivo: {{ pedido.ano_letivo }} &bull;
+                        Emitido em {{ pedido.emitido_em|date:"d/m/Y H:i" }}
+                    </p>
+
+                    <a href="{% url 'pedido_emitir_pdf' pedido.id %}" class="btn btn-outline-primary btn-sm mb-2">
+                        Ver Documento (PDF)
+                    </a>
+
+                    {% if pedido.pode_autenticar %}
+                    <form method="post" action="{% url 'pedido_autenticar' pedido.id %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success btn-sm mb-2">Autenticar</button>
+                    </form>
+                    {% else %}
+                    <span class="badge bg-secondary">Aguarda autenticação de outra entidade</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <p class="text-muted">Não há documentos a aguardar autenticação.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
