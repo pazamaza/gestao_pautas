@@ -44,6 +44,18 @@ class Frequencia(models.Model):
     def __str__(self):
         return (f"{self.aluno} - " f"{self.data}")
 
+    @classmethod
+    def pendentes_justificacao(cls, **filtros):
+        """Faltas ainda dentro do prazo de justificação (PRAZO_JUSTIFICACAO_DIAS)
+        e sem justificação aprovada — ou seja, itens que ainda exigem uma ação
+        (submeter ou decidir). Depois do prazo expirar, a falta passa a
+        'injustificada' definitivamente (ver esta_injustificada) e deixa de
+        ser uma pendência: já não há nada por fazer com ela."""
+        limite = timezone.localdate() - timedelta(days=PRAZO_JUSTIFICACAO_DIAS)
+        return cls.objects.filter(
+            estado=cls.FALTA, data__gte=limite, **filtros
+        ).exclude(justificacaofalta__aprovada=True)
+
     def prazo_justificacao_expirado(self):
         """True se já passaram PRAZO_JUSTIFICACAO_DIAS desde a data da falta."""
         limite = self.data + timedelta(days=PRAZO_JUSTIFICACAO_DIAS)

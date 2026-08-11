@@ -1,8 +1,8 @@
-"""Testes da Fase 1 do plano de distribuição de responsabilidades: a
-Secretaria passa a ser o ponto único de entrada de pedidos de documentos e
-pagamentos, e a decisão de mérito passa a variar por tipo (Boletim ->
-Sub-diretor/Diretor de Turma, Declaração -> Sub-diretor, Certificado ->
-Diretor Geral)."""
+"""Testes do fluxo de Pedidos de Documentos: a Secretaria passa a ser a
+única a autorizar/recusar pedidos e a emitir o documento (indicando a forma
+de pagamento); quem decidia por tipo antes (Diretor Geral/Sub-diretor/
+Diretor de Turma) passa a autenticar o documento já emitido, antes da
+Secretaria notificar o aluno para levantamento."""
 
 import datetime
 
@@ -15,7 +15,7 @@ from professores.models import DiretorTurma, Professor
 from turmas.models import AnoLetivo, Classe, Turma
 
 from .models import PedidoDocumento
-from .views_documentos import _pode_decidir_pedido
+from .views_documentos import _pode_autenticar_pedido
 
 
 class PedidoDocumentoTestBase(TestCase):
@@ -31,7 +31,9 @@ class PedidoDocumentoTestBase(TestCase):
 
         encarregado_user = User.objects.create_user(username='enc_doc', password='senha123')
         encarregado = Encarregado.objects.create(user=encarregado_user, telefone='900000000')
+        aluno_user = User.objects.create_user(username='aluno_doc', password='senha123')
         self.aluno = Aluno.objects.create(
+            user=aluno_user,
             nome='Aluno Documentos',
             numero_processo='NPDOC01',
             data_nascimento=datetime.date(2008, 1, 1),
@@ -54,29 +56,33 @@ class PedidoDocumentoTestBase(TestCase):
         self.professor = Professor.objects.create(user=professor_user, numero_funcionario='P900')
         DiretorTurma.objects.create(professor=self.professor, turma=self.turma, ano_letivo=self.ano_letivo)
 
-    def _pedido(self, tipo):
-        return PedidoDocumento.objects.create(aluno=self.aluno, tipo=tipo, ano_letivo=self.ano_letivo)
+    def _pedido(self, tipo, status=None):
+        pedido = PedidoDocumento.objects.create(aluno=self.aluno, tipo=tipo, ano_letivo=self.ano_letivo)
+        if status:
+            pedido.status = status
+            pedido.save()
+        return pedido
 
 
-class PodeDecidirPedidoTests(PedidoDocumentoTestBase):
-    def test_certificado_so_diretor_geral_decide(self):
+class PodeAutenticarPedidoTests(PedidoDocumentoTestBase):
+    def test_certificado_so_diretor_geral_autentica(self):
         pedido = self._pedido(PedidoDocumento.TIPO_CERTIFICADO)
-        self.assertTrue(_pode_decidir_pedido(self.diretor_geral, pedido))
-        self.assertFalse(_pode_decidir_pedido(self.sub_diretor, pedido))
-        self.assertFalse(_pode_decidir_pedido(self.secretaria, pedido))
+        self.assertTrue(_pode_autenticar_pedido(self.diretor_geral, pedido))
+        self.assertFalse(_pode_autenticar_pedido(self.sub_diretor, pedido))
+        self.assertFalse(_pode_autenticar_pedido(self.secretaria, pedido))
 
-    def test_declaracao_so_subdiretor_decide(self):
+    def test_declaracao_so_subdiretor_autentica(self):
         pedido = self._pedido(PedidoDocumento.TIPO_DECLARACAO)
-        self.assertTrue(_pode_decidir_pedido(self.sub_diretor, pedido))
-        self.assertFalse(_pode_decidir_pedido(self.diretor_geral, pedido))
-        self.assertFalse(_pode_decidir_pedido(self.secretaria, pedido))
+        self.assertTrue(_pode_autenticar_pedido(self.sub_diretor, pedido))
+        self.assertFalse(_pode_autenticar_pedido(self.diretor_geral, pedido))
+        self.assertFalse(_pode_autenticar_pedido(self.secretaria, pedido))
 
-    def test_boletim_subdiretor_ou_diretor_turma_decidem(self):
+    def test_boletim_subdiretor_ou_diretor_turma_autenticam(self):
         pedido = self._pedido(PedidoDocumento.TIPO_BOLETIM)
-        self.assertTrue(_pode_decidir_pedido(self.sub_diretor, pedido))
-        self.assertTrue(_pode_decidir_pedido(self.professor.user, pedido))
-        self.assertFalse(_pode_decidir_pedido(self.diretor_geral, pedido))
-        self.assertFalse(_pode_decidir_pedido(self.secretaria, pedido))
+        self.assertTrue(_pode_autenticar_pedido(self.sub_diretor, pedido))
+        self.assertTrue(_pode_autenticar_pedido(self.professor.user, pedido))
+        self.assertFalse(_pode_autenticar_pedido(self.diretor_geral, pedido))
+        self.assertFalse(_pode_autenticar_pedido(self.secretaria, pedido))
 
 
 class FilaDocumentosViewTests(PedidoDocumentoTestBase):
@@ -91,36 +97,43 @@ class FilaDocumentosViewTests(PedidoDocumentoTestBase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.context['pedidos']), 3)
 
-    def test_professor_comum_ve_so_boletins_da_sua_turma(self):
+    def test_professor_comum_ja_nao_decide_pendentes(self):
+        # A decisão de autorizar passou a ser só da Secretaria — um
+        # professor comum (mesmo sendo Diretor de Turma) já não acede à
+        # fila de pedidos pendentes de autorização.
         self._pedido(PedidoDocumento.TIPO_BOLETIM)
-        self._pedido(PedidoDocumento.TIPO_DECLARACAO)
-        self._pedido(PedidoDocumento.TIPO_CERTIFICADO)
 
         self.client.login(username='diretor_turma', password='senha123')
         response = self.client.get(reverse('pedidos_documentos_pendentes'))
 
-        self.assertEqual(response.status_code, 200)
-        pedidos = response.context['pedidos']
-        self.assertEqual(len(pedidos), 1)
-        self.assertEqual(pedidos[0].tipo, PedidoDocumento.TIPO_BOLETIM)
+        self.assertEqual(response.status_code, 403)
 
-    def test_secretaria_sozinha_nao_pode_autorizar_certificado(self):
+    def test_secretaria_autoriza_qualquer_tipo_sozinha(self):
         pedido = self._pedido(PedidoDocumento.TIPO_CERTIFICADO)
 
         self.client.login(username='secretaria', password='senha123')
-        response = self.client.post(reverse('pedido_autorizar', args=[pedido.pk]))
-
-        self.assertEqual(response.status_code, 403)
-
-    def test_diretor_geral_autoriza_certificado(self):
-        pedido = self._pedido(PedidoDocumento.TIPO_CERTIFICADO)
-
-        self.client.login(username='dirgeral', password='senha123')
-        response = self.client.post(reverse('pedido_autorizar', args=[pedido.pk]))
+        response = self.client.post(
+            reverse('pedido_autorizar', args=[pedido.pk]),
+            {'forma_pagamento': 'Transferência GPS/Ruper'},
+        )
 
         self.assertRedirects(response, reverse('pedidos_documentos_pendentes'))
         pedido.refresh_from_db()
         self.assertEqual(pedido.status, PedidoDocumento.STATUS_AUTORIZADO)
+        self.assertEqual(pedido.forma_pagamento, 'Transferência GPS/Ruper')
+
+    def test_diretor_geral_ja_nao_autoriza_pedidos(self):
+        # A autorização (com a nota de pagamento) passou a ser só da
+        # Secretaria; o Diretor Geral só entra mais tarde, a autenticar.
+        pedido = self._pedido(PedidoDocumento.TIPO_CERTIFICADO)
+
+        self.client.login(username='dirgeral', password='senha123')
+        response = self.client.post(
+            reverse('pedido_autorizar', args=[pedido.pk]),
+            {'forma_pagamento': 'Transferência GPS/Ruper'},
+        )
+
+        self.assertEqual(response.status_code, 403)
 
 
 class PagamentosSecretariaTests(PedidoDocumentoTestBase):
@@ -136,13 +149,92 @@ class PagamentosSecretariaTests(PedidoDocumentoTestBase):
         self.assertEqual(response.status_code, 403)
 
     def test_secretaria_confirma_pagamento(self):
-        pedido = self._pedido(PedidoDocumento.TIPO_DECLARACAO)
-        pedido.status = PedidoDocumento.STATUS_PAGAMENTO_SUBMETIDO
-        pedido.save()
+        pedido = self._pedido(
+            PedidoDocumento.TIPO_DECLARACAO, status=PedidoDocumento.STATUS_PAGAMENTO_SUBMETIDO
+        )
 
         self.client.login(username='secretaria', password='senha123')
         response = self.client.post(reverse('pedido_confirmar_pagamento', args=[pedido.pk]))
 
         self.assertRedirects(response, reverse('pedidos_pagamento'))
+        pedido.refresh_from_db()
+        self.assertEqual(pedido.status, PedidoDocumento.STATUS_PAGAMENTO_CONFIRMADO)
+
+
+class EmissaoAutenticacaoNotificacaoTests(PedidoDocumentoTestBase):
+    def test_secretaria_emite_documento(self):
+        pedido = self._pedido(
+            PedidoDocumento.TIPO_DECLARACAO, status=PedidoDocumento.STATUS_PAGAMENTO_CONFIRMADO
+        )
+
+        self.client.login(username='secretaria', password='senha123')
+        response = self.client.post(reverse('pedido_emitir', args=[pedido.pk]))
+
+        self.assertRedirects(response, reverse('pedidos_pagamento'))
+        pedido.refresh_from_db()
+        self.assertEqual(pedido.status, PedidoDocumento.STATUS_EMITIDO)
+        self.assertEqual(pedido.emitido_por, self.secretaria)
+
+    def test_diretor_turma_autentica_boletim_emitido(self):
+        pedido = self._pedido(PedidoDocumento.TIPO_BOLETIM, status=PedidoDocumento.STATUS_EMITIDO)
+
+        self.client.login(username='diretor_turma', password='senha123')
+        response = self.client.post(reverse('pedido_autenticar', args=[pedido.pk]))
+
+        self.assertRedirects(response, reverse('pedidos_autenticacao'))
+        pedido.refresh_from_db()
+        self.assertEqual(pedido.status, PedidoDocumento.STATUS_AUTENTICADO)
+        self.assertEqual(pedido.autenticado_por, self.professor.user)
+
+    def test_secretaria_nao_autentica(self):
+        pedido = self._pedido(PedidoDocumento.TIPO_BOLETIM, status=PedidoDocumento.STATUS_EMITIDO)
+
+        self.client.login(username='secretaria', password='senha123')
+        response = self.client.post(reverse('pedido_autenticar', args=[pedido.pk]))
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_secretaria_notifica_aluno_apos_autenticacao(self):
+        pedido = self._pedido(
+            PedidoDocumento.TIPO_BOLETIM, status=PedidoDocumento.STATUS_AUTENTICADO
+        )
+
+        self.client.login(username='secretaria', password='senha123')
+        response = self.client.post(reverse('pedido_notificar_aluno', args=[pedido.pk]))
+
+        self.assertRedirects(response, reverse('pedidos_pagamento'))
+        pedido.refresh_from_db()
+        self.assertEqual(pedido.status, PedidoDocumento.STATUS_PRONTO)
+
+    def test_fluxo_completo_ate_pronto(self):
+        pedido = self._pedido(PedidoDocumento.TIPO_DECLARACAO)
+
+        self.client.login(username='secretaria', password='senha123')
+        self.client.post(
+            reverse('pedido_autorizar', args=[pedido.pk]),
+            {'forma_pagamento': 'Numerário na Secretaria'},
+        )
+        pedido.refresh_from_db()
+        self.assertEqual(pedido.status, PedidoDocumento.STATUS_AUTORIZADO)
+
+        pedido.status = PedidoDocumento.STATUS_PAGAMENTO_SUBMETIDO
+        pedido.save()
+        self.client.post(reverse('pedido_confirmar_pagamento', args=[pedido.pk]))
+        pedido.refresh_from_db()
+        self.assertEqual(pedido.status, PedidoDocumento.STATUS_PAGAMENTO_CONFIRMADO)
+
+        self.client.post(reverse('pedido_emitir', args=[pedido.pk]))
+        pedido.refresh_from_db()
+        self.assertEqual(pedido.status, PedidoDocumento.STATUS_EMITIDO)
+
+        self.client.logout()
+        self.client.login(username='subdir', password='senha123')
+        self.client.post(reverse('pedido_autenticar', args=[pedido.pk]))
+        pedido.refresh_from_db()
+        self.assertEqual(pedido.status, PedidoDocumento.STATUS_AUTENTICADO)
+
+        self.client.logout()
+        self.client.login(username='secretaria', password='senha123')
+        self.client.post(reverse('pedido_notificar_aluno', args=[pedido.pk]))
         pedido.refresh_from_db()
         self.assertEqual(pedido.status, PedidoDocumento.STATUS_PRONTO)

@@ -23,10 +23,14 @@ Pedidos de Documentos Pendentes
                         Solicitado em {{ pedido.solicitado_em|date:"d/m/Y H:i" }}
                     </p>
 
-                    {% if pedido.pode_decidir %}
-                    <form method="post" action="{% url 'pedido_autorizar' pedido.id %}" class="d-inline">
+                    {% if pedido.pode_autorizar %}
+                    <form method="post" action="{% url 'pedido_autorizar' pedido.id %}" class="mb-2">
                         {% csrf_token %}
-                        <button type="submit" class="btn btn-success btn-sm mb-2">Autorizar</button>
+                        <div class="input-group input-group-sm">
+                            <input type="text" name="forma_pagamento" class="form-control"
+                                   placeholder="Forma de pagamento (ex.: GPS/Ruper)" required>
+                            <button type="submit" class="btn btn-success">Autorizar</button>
+                        </div>
                     </form>
 
                     <form method="post" action="{% url 'pedido_recusar' pedido.id %}" class="mt-2">
@@ -38,7 +42,7 @@ Pedidos de Documentos Pendentes
                         </div>
                     </form>
                     {% else %}
-                    <span class="badge bg-secondary">Aguarda decisão de outra entidade</span>
+                    <span class="badge bg-secondary">Aguarda decisão da Secretaria</span>
                     {% endif %}
                 </div>
             </div>

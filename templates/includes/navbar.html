@@ -1,6 +1,14 @@
+{% load static %}
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
     <div class="container-fluid">
-        <a class="navbar-brand" href="{% url 'dashboard' %}">
+        <a class="navbar-brand d-flex align-items-center gap-2" href="{% url 'dashboard' %}">
+            <img
+                src="{% if escola.logotipo %}{{ escola.logotipo.url }}{% else %}{% static 'images/insignia_angola.png' %}{% endif %}"
+                alt="Logótipo"
+                height="32"
+                width="32"
+                class="rounded-circle"
+                style="object-fit: cover;">
             Gestão de Pautas Escolar
         </a>
 
@@ -179,9 +187,32 @@
                 </li>
                 {% endif %}
 
-                {% if eh_coordenador_pais_nav or eh_diretor_geral_nav or eh_subdiretor_pedagogico_nav %}
+                {% if eh_coordenador_pais_nav or eh_diretor_geral_nav or eh_subdiretor_pedagogico_nav or eh_encarregado_nav %}
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'reclamacao_lista' %}">Reclamações</a>
+                </li>
+                {% endif %}
+
+                {% if eh_diretor_geral_nav or eh_subdiretor_pedagogico_nav or eh_professor_nav %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'pedidos_autenticacao' %}">Documentos a Autenticar</a>
+                </li>
+                {% endif %}
+
+                {% if eh_chefe_secretaria_nav %}
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle"
+                       href="#"
+                       id="menuSecretaria"
+                       role="button"
+                       data-bs-toggle="dropdown"
+                       aria-expanded="false">
+                        Documentos
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="menuSecretaria">
+                        <li><a class="dropdown-item" href="{% url 'pedidos_documentos_pendentes' %}">Pedidos Pendentes</a></li>
+                        <li><a class="dropdown-item" href="{% url 'pedidos_pagamento' %}">Pagamentos / Emissão</a></li>
+                    </ul>
                 </li>
                 {% endif %}
 

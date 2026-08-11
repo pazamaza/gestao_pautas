@@ -24,7 +24,12 @@ from notificacoes.models import Notificacao
 from notificacoes.services import notificar
 from professores.models import DiretorTurma
 
-from .forms import ComprovativoPagamentoForm, ObservacoesValidacaoForm, SolicitarDocumentoForm
+from .forms import (
+    AutorizarPedidoForm,
+    ComprovativoPagamentoForm,
+    ObservacoesValidacaoForm,
+    SolicitarDocumentoForm,
+)
 from .models import PedidoDocumento, ResultadoDisciplina
 from .services.pdf import exportar_boletim_pdf, exportar_certificado_pdf, exportar_declaracao_pdf
 
@@ -52,7 +57,11 @@ def _aprovador_boletim(aluno, ano_letivo):
     return diretor.professor.user if diretor else None
 
 
-def _decisores_pedido(pedido):
+def _autenticadores_pedido(pedido):
+    # Quem autentica o documento já emitido pela Secretaria, consoante o
+    # tipo: Certificado -> Diretor Geral; Declaração -> Sub-diretor
+    # Pedagógico; Boletim -> Diretor de Turma do aluno (ou Sub-diretor, na
+    # ausência de um).
     if pedido.tipo == PedidoDocumento.TIPO_CERTIFICADO:
         return _usuarios_diretor_geral()
     if pedido.tipo == PedidoDocumento.TIPO_DECLARACAO:
@@ -63,25 +72,21 @@ def _decisores_pedido(pedido):
     return _usuarios_administradores()
 
 
-def _destinatarios_pedido(pedido):
-    # A Secretaria é o ponto único de entrada e acompanha todos os pedidos;
-    # quem efetivamente decide (Diretor Geral/Sub-diretor/Diretor de Turma,
-    # conforme o tipo) é notificado em simultâneo, para não perder o tempo
-    # de resposta que já existia antes desta reorganização.
-    destinatarios = set(_decisores_pedido(pedido))
-    destinatarios |= set(_usuarios_secretaria())
-    return destinatarios
+def _pode_autorizar_pedido(user):
+    # Decisão de autorizar/recusar o pedido (e emitir a nota de pagamento)
+    # está centralizada na Secretaria, para todos os tipos de documento —
+    # quem valida o mérito do conteúdo é só chamado mais tarde, para
+    # autenticar o documento já emitido (ver _pode_autenticar_pedido).
+    return eh_chefe_secretaria(user)
 
 
-def _pode_decidir_pedido(user, pedido):
+def _pode_autenticar_pedido(user, pedido):
     if pedido.tipo == PedidoDocumento.TIPO_CERTIFICADO:
         return eh_diretor_geral(user)
     if pedido.tipo == PedidoDocumento.TIPO_DECLARACAO:
         return eh_subdiretor_pedagogico(user)
-    # TIPO_BOLETIM: decisão de mérito continua com o Sub-diretor Pedagógico
-    # (supervisão) ou o Diretor de Turma da turma do aluno. A centralização
-    # completa na Secretaria (Secretaria decide, Diretor de Turma só
-    # autentica) fica para uma fase seguinte.
+    # TIPO_BOLETIM: autentica o Sub-diretor Pedagógico (supervisão) ou o
+    # Diretor de Turma do aluno.
     if eh_subdiretor_pedagogico(user):
         return True
     return DiretorTurma.objects.filter(
@@ -94,15 +99,21 @@ def _pode_ver_pedido(user, pedido):
         return True
     if pedido.aluno.user_id == user.id:
         return True
-    return _pode_decidir_pedido(user, pedido)
+    return _pode_autenticar_pedido(user, pedido)
 
 
 def _pode_gerir_fila_documentos(user):
-    # Quem vê a fila de pedidos pendentes: Secretaria (ponto único de
-    # entrada, vê tudo), Sub-diretor Pedagógico e Diretor Geral (autenticam
-    # declaração/certificado, respetivamente) e professores (só os seus
-    # boletins, filtrados dentro da própria view).
-    return eh_admin_ou_professor(user) or eh_diretor_geral(user) or eh_chefe_secretaria(user)
+    # Quem vê a fila de pedidos pendentes de autorização: Secretaria (só
+    # quem decide, desde que a decisão de mérito passou a ser dela) e
+    # Sub-diretor Pedagógico/Diretor Geral (supervisão).
+    return eh_subdiretor_pedagogico(user) or eh_diretor_geral(user) or eh_chefe_secretaria(user)
+
+
+def _pode_ver_fila_autenticacao(user):
+    # Quem vê a fila de documentos emitidos a aguardar autenticação:
+    # Sub-diretor Pedagógico e Diretor Geral (supervisão) e professores (só
+    # os seus, como Diretores de Turma — filtrado dentro da própria view).
+    return eh_admin_ou_professor(user) or eh_diretor_geral(user)
 
 
 def _gestao_documentos_requerida(view_func):
@@ -110,6 +121,16 @@ def _gestao_documentos_requerida(view_func):
     @login_required
     def wrapper(request, *args, **kwargs):
         if not _pode_gerir_fila_documentos(request.user):
+            return render(request, 'dashboards/sem_permissao.html', status=403)
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
+def _autenticacao_requerida(view_func):
+    @wraps(view_func)
+    @login_required
+    def wrapper(request, *args, **kwargs):
+        if not _pode_ver_fila_autenticacao(request.user):
             return render(request, 'dashboards/sem_permissao.html', status=403)
         return view_func(request, *args, **kwargs)
     return wrapper
@@ -141,7 +162,7 @@ def solicitar_documento(request):
                 ano_letivo=form.cleaned_data['ano_letivo'],
             )
             notificar(
-                _destinatarios_pedido(pedido),
+                _usuarios_secretaria(),
                 titulo=f'Novo pedido de {pedido.get_tipo_display()}',
                 mensagem=(
                     f'{aluno.nome} solicitou {pedido.get_tipo_display()} '
@@ -199,7 +220,7 @@ def pedido_carregar_comprovativo(request, pk):
         if form.is_valid():
             pedido.submeter_pagamento(form.cleaned_data['comprovativo_pagamento'])
             notificar(
-                _usuarios_administradores(),
+                _usuarios_secretaria(),
                 titulo='Comprovativo de pagamento submetido',
                 mensagem=(
                     f'{aluno.nome} submeteu o comprovativo de pagamento do pedido de '
@@ -222,18 +243,8 @@ def pedidos_documentos_pendentes(request):
     ).select_related('aluno', 'aluno__turma', 'ano_letivo')
 
     user = request.user
-    if not (eh_subdiretor_pedagogico(user) or eh_diretor_geral(user) or eh_chefe_secretaria(user)):
-        # Professor "comum": só os boletins das turmas onde é Diretor de Turma.
-        turmas_dirigidas = DiretorTurma.objects.filter(
-            professor__user=user, ativo=True
-        ).values_list('turma_id', flat=True)
-        pedidos = pedidos.filter(tipo=PedidoDocumento.TIPO_BOLETIM, aluno__turma_id__in=turmas_dirigidas)
-    # Secretaria, Sub-diretor e Diretor Geral são o ponto único de entrada:
-    # veem a fila completa, de todos os tipos, mesmo os que não decidem —
-    # a lista/template só ativa os botões de decisão quando aplicável.
-
     for pedido in pedidos:
-        pedido.pode_decidir = _pode_decidir_pedido(user, pedido)
+        pedido.pode_autorizar = _pode_autorizar_pedido(user)
 
     return render(request, 'pautas/pedidos_pendentes.html', {'pedidos': pedidos})
 
@@ -244,24 +255,33 @@ def pedido_autorizar(request, pk):
         PedidoDocumento.objects.select_related('aluno', 'aluno__turma', 'ano_letivo'), pk=pk
     )
 
-    if not _pode_decidir_pedido(request.user, pedido):
+    if not _pode_autorizar_pedido(request.user):
         return render(request, 'dashboards/sem_permissao.html', status=403)
 
     if pedido.status != PedidoDocumento.STATUS_PENDENTE:
         messages.error(request, 'Este pedido já foi decidido.')
         return redirect('pedidos_documentos_pendentes')
 
-    pedido.autorizar(request.user)
+    if request.method != 'POST':
+        return redirect('pedidos_documentos_pendentes')
+
+    form = AutorizarPedidoForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, 'Indique a forma de pagamento para autorizar o pedido.')
+        return redirect('pedidos_documentos_pendentes')
+
+    forma_pagamento = form.cleaned_data['forma_pagamento']
+    pedido.autorizar(request.user, forma_pagamento)
     notificar(
         [pedido.aluno.user],
         titulo=f'Pedido de {pedido.get_tipo_display()} autorizado',
         mensagem=(
-            f'O seu pedido de {pedido.get_tipo_display()} foi autorizado. Efetue o pagamento '
-            'através do GPS (Ruper) e carregue o comprovativo para prosseguir.'
+            f'O seu pedido de {pedido.get_tipo_display()} foi autorizado. Forma de pagamento: '
+            f'{forma_pagamento}. Efetue o pagamento e carregue o comprovativo para prosseguir.'
         ),
         link_url=reverse('meus_pedidos_documentos'),
     )
-    messages.success(request, 'Pedido autorizado; aluno notificado.')
+    messages.success(request, 'Pedido autorizado; aluno notificado com a forma de pagamento.')
     return redirect('pedidos_documentos_pendentes')
 
 
@@ -271,7 +291,7 @@ def pedido_recusar(request, pk):
         PedidoDocumento.objects.select_related('aluno', 'aluno__turma', 'ano_letivo'), pk=pk
     )
 
-    if not _pode_decidir_pedido(request.user, pedido):
+    if not _pode_autorizar_pedido(request.user):
         return render(request, 'dashboards/sem_permissao.html', status=403)
 
     if pedido.status != PedidoDocumento.STATUS_PENDENTE:
@@ -304,10 +324,21 @@ def pedidos_pagamento(request):
     pedidos = PedidoDocumento.objects.filter(
         status=PedidoDocumento.STATUS_PAGAMENTO_SUBMETIDO
     ).select_related('aluno', 'ano_letivo')
+    a_emitir = PedidoDocumento.objects.filter(
+        status=PedidoDocumento.STATUS_PAGAMENTO_CONFIRMADO
+    ).select_related('aluno', 'ano_letivo')
+    a_notificar = PedidoDocumento.objects.filter(
+        status=PedidoDocumento.STATUS_AUTENTICADO
+    ).select_related('aluno', 'ano_letivo')
     prontos = PedidoDocumento.objects.filter(
         status=PedidoDocumento.STATUS_PRONTO
     ).select_related('aluno', 'ano_letivo')
-    return render(request, 'pautas/pedidos_pagamento.html', {'pedidos': pedidos, 'prontos': prontos})
+    return render(request, 'pautas/pedidos_pagamento.html', {
+        'pedidos': pedidos,
+        'a_emitir': a_emitir,
+        'a_notificar': a_notificar,
+        'prontos': prontos,
+    })
 
 
 @chefe_secretaria_requerido
@@ -317,16 +348,101 @@ def pedido_confirmar_pagamento(request, pk):
         messages.error(request, 'Este pedido não tem comprovativo submetido para confirmar.')
         return redirect('pedidos_pagamento')
     pedido.confirmar_pagamento(request.user)
+    # Ainda não notifica o aluno — o documento só está pronto depois de
+    # emitido pela Secretaria e autenticado por quem de direito (ver
+    # pedido_emitir / pedido_autenticar / pedido_notificar_aluno).
+    messages.success(request, 'Pagamento confirmado; pedido aguarda emissão do documento.')
+    return redirect('pedidos_pagamento')
+
+
+@chefe_secretaria_requerido
+def pedido_emitir(request, pk):
+    pedido = get_object_or_404(
+        PedidoDocumento.objects.select_related('aluno', 'aluno__turma', 'ano_letivo'), pk=pk
+    )
+    if pedido.status != PedidoDocumento.STATUS_PAGAMENTO_CONFIRMADO:
+        messages.error(request, 'Este pedido não está pronto para emissão.')
+        return redirect('pedidos_pagamento')
+
+    pedido.emitir(request.user)
+    notificar(
+        _autenticadores_pedido(pedido),
+        titulo=f'Documento de {pedido.get_tipo_display()} aguarda autenticação',
+        mensagem=(
+            f'O documento de {pedido.get_tipo_display()} de {pedido.aluno.nome} foi emitido '
+            'pela Secretaria e aguarda a sua autenticação.'
+        ),
+        link_url=reverse('pedidos_autenticacao'),
+    )
+    messages.success(request, 'Documento emitido; autenticação solicitada.')
+    return redirect('pedidos_pagamento')
+
+
+@_autenticacao_requerida
+def pedidos_autenticacao(request):
+    pedidos = PedidoDocumento.objects.filter(
+        status=PedidoDocumento.STATUS_EMITIDO
+    ).select_related('aluno', 'aluno__turma', 'ano_letivo')
+
+    user = request.user
+    if not (eh_subdiretor_pedagogico(user) or eh_diretor_geral(user)):
+        # Professor "comum": só os boletins das turmas onde é Diretor de Turma.
+        turmas_dirigidas = DiretorTurma.objects.filter(
+            professor__user=user, ativo=True
+        ).values_list('turma_id', flat=True)
+        pedidos = pedidos.filter(tipo=PedidoDocumento.TIPO_BOLETIM, aluno__turma_id__in=turmas_dirigidas)
+
+    for pedido in pedidos:
+        pedido.pode_autenticar = _pode_autenticar_pedido(user, pedido)
+
+    return render(request, 'pautas/pedidos_autenticacao.html', {'pedidos': pedidos})
+
+
+@login_required
+def pedido_autenticar(request, pk):
+    pedido = get_object_or_404(
+        PedidoDocumento.objects.select_related('aluno', 'aluno__turma', 'ano_letivo'), pk=pk
+    )
+
+    if not _pode_autenticar_pedido(request.user, pedido):
+        return render(request, 'dashboards/sem_permissao.html', status=403)
+
+    if pedido.status != PedidoDocumento.STATUS_EMITIDO:
+        messages.error(request, 'Este documento ainda não foi emitido pela Secretaria.')
+        return redirect('pedidos_autenticacao')
+
+    pedido.autenticar(request.user)
+    notificar(
+        _usuarios_secretaria(),
+        titulo=f'Documento de {pedido.get_tipo_display()} autenticado',
+        mensagem=(
+            f'O documento de {pedido.get_tipo_display()} de {pedido.aluno.nome} foi autenticado. '
+            'Pode notificar o aluno para levantamento.'
+        ),
+        link_url=reverse('pedidos_pagamento'),
+    )
+    messages.success(request, 'Documento autenticado; Secretaria notificada.')
+    return redirect('pedidos_autenticacao')
+
+
+@chefe_secretaria_requerido
+def pedido_notificar_aluno(request, pk):
+    pedido = get_object_or_404(PedidoDocumento.objects.select_related('aluno'), pk=pk)
+    if pedido.status != PedidoDocumento.STATUS_AUTENTICADO:
+        messages.error(request, 'Este pedido ainda não foi autenticado.')
+        return redirect('pedidos_pagamento')
+
+    pedido.marcar_pronto()
     notificar(
         [pedido.aluno.user],
         titulo=f'{pedido.get_tipo_display()} pronto para levantamento',
         mensagem=(
-            f'O pagamento do seu pedido de {pedido.get_tipo_display()} foi confirmado. '
+            f'O seu pedido de {pedido.get_tipo_display()} foi autenticado e está pronto. '
             'Pode levantar o documento na secretaria.'
         ),
         link_url=reverse('meus_pedidos_documentos'),
     )
-    messages.success(request, 'Pagamento confirmado; aluno notificado para levantamento.')
+    messages.success(request, 'Aluno notificado para levantamento.')
     return redirect('pedidos_pagamento')
 
 
@@ -371,7 +487,21 @@ def pedido_emitir_pdf(request, pk):
     if not _pode_ver_pedido(request.user, pedido):
         return render(request, 'dashboards/sem_permissao.html', status=403)
 
-    if pedido.status not in (PedidoDocumento.STATUS_PRONTO, PedidoDocumento.STATUS_LEVANTADO):
+    if pedido.aluno.user_id == request.user.id:
+        # O aluno só descarrega depois do documento estar autenticado e a
+        # Secretaria o ter chamado para levantamento.
+        estados_permitidos = (PedidoDocumento.STATUS_PRONTO, PedidoDocumento.STATUS_LEVANTADO)
+    else:
+        # Secretaria/autenticador podem pré-visualizar assim que o
+        # documento é emitido, antes mesmo da autenticação.
+        estados_permitidos = (
+            PedidoDocumento.STATUS_EMITIDO,
+            PedidoDocumento.STATUS_AUTENTICADO,
+            PedidoDocumento.STATUS_PRONTO,
+            PedidoDocumento.STATUS_LEVANTADO,
+        )
+
+    if pedido.status not in estados_permitidos:
         messages.error(request, 'Este documento ainda não está pronto para emissão.')
         return redirect('meus_pedidos_documentos')
 

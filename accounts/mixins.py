@@ -49,6 +49,12 @@ class ChefeSecretariaRequeridoMixin(AcessoRestritoMixin):
         return eh_chefe_secretaria(self.request.user)
 
 
+class SubdiretorOuSecretariaRequeridoMixin(AcessoRestritoMixin):
+    def test_func(self):
+        user = self.request.user
+        return eh_subdiretor_pedagogico(user) or eh_chefe_secretaria(user)
+
+
 class CoordenadorTurnoRequeridoMixin(AcessoRestritoMixin):
     def test_func(self):
         return eh_coordenador_turno(self.request.user)

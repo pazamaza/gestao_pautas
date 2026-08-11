@@ -76,6 +76,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'notificacoes.context_processors.contagem_nao_lidas',
                 'accounts.context_processors.papel_usuario',
+                'core.context_processors.escola_config',
 
             ],
             

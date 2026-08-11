@@ -31,6 +31,17 @@ class SolicitarDocumentoForm(forms.Form):
         self.fields['ano_letivo'].queryset = AnoLetivo.objects.all()
 
 
+class AutorizarPedidoForm(forms.Form):
+    forma_pagamento = forms.CharField(
+        label='Forma de Pagamento',
+        max_length=150,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ex.: Transferência GPS/Ruper, referência 123456',
+        }),
+    )
+
+
 class ComprovativoPagamentoForm(forms.Form):
     comprovativo_pagamento = forms.ImageField(
         label='Comprovativo de Pagamento',

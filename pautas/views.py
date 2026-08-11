@@ -28,7 +28,8 @@ from disciplinas.models import Disciplina
 from frequencias.models import JustificacaoFalta
 from professores.models import AtribuicaoDocente, DiretorTurma
 from turmas.models import AnoLetivo, PeriodoAcademico, Turma
-from notificacoes.services import notificar_erro_pauta
+from notificacoes.services import notificar, notificar_erro_pauta
+from .views_documentos import _usuarios_diretor_geral
 
 from .forms import (
     AvaliacaoForm,
@@ -593,8 +594,24 @@ def gerar_resultados(request):
 
 @subdiretor_pedagogico_requerido
 def avaliacao_validar(request, avaliacao_id):
-    avaliacao = get_object_or_404(Avaliacao, pk=avaliacao_id)
+    avaliacao = get_object_or_404(
+        Avaliacao.objects.select_related(
+            'atribuicao__professor__user', 'atribuicao__turma', 'atribuicao__disciplina',
+        ),
+        pk=avaliacao_id,
+    )
     avaliacao.marcar_validada(request.user)
+
+    notificar(
+        [avaliacao.atribuicao.professor.user],
+        titulo='Pauta validada e disponibilizada',
+        mensagem=(
+            f'A sua pauta de {avaliacao.atribuicao.disciplina} - {avaliacao.atribuicao.turma} '
+            'foi validada.'
+        ),
+        link_url=reverse('pauta_trimestral', kwargs={'avaliacao_id': avaliacao.id}),
+    )
+
     messages.success(request, 'Avaliação validada e disponibilizada.')
     # Volta directamente à lista de Avaliações (não à pauta trimestral) —
     # é daí que o admin costuma validar várias pautas seguidas, e assim
@@ -1001,19 +1018,55 @@ def mini_pauta_exportar_pdf(request):
 
 @subdiretor_pedagogico_requerido
 def resultado_validar(request, pk):
-    resultado = get_object_or_404(ResultadoDisciplina, pk=pk)
+    resultado = get_object_or_404(
+        ResultadoDisciplina.objects.select_related('aluno', 'disciplina'), pk=pk
+    )
     resultado.marcar_validada(request.user)
+
+    notificar(
+        _usuarios_diretor_geral(),
+        titulo='Resultado final pronto para homologação',
+        mensagem=(
+            f'O resultado de {resultado.disciplina} - {resultado.aluno.nome} foi validado '
+            'e aguarda homologação.'
+        ),
+        link_url=reverse('resultado_lista'),
+    )
+
     messages.success(request, 'Resultado final validado e disponibilizado.')
     return redirect('resultado_lista')
 
 
 @diretor_geral_requerido
 def resultado_homologar(request, pk):
-    resultado = get_object_or_404(ResultadoDisciplina, pk=pk)
+    resultado = get_object_or_404(
+        ResultadoDisciplina.objects.select_related(
+            'aluno__turma', 'disciplina', 'ano_letivo', 'validado_por',
+        ),
+        pk=pk,
+    )
     if resultado.status != ResultadoDisciplina.STATUS_VALIDADA:
         messages.error(request, 'Só é possível homologar um resultado já validado pelo Sub-diretor Pedagógico.')
         return redirect('resultado_lista')
     resultado.homologar(request.user)
+
+    atribuicao = AtribuicaoDocente.objects.filter(
+        disciplina=resultado.disciplina,
+        turma=resultado.aluno.turma,
+        ano_letivo=resultado.ano_letivo,
+        ativo=True,
+    ).select_related('professor__user').first()
+
+    notificar(
+        [resultado.validado_por, atribuicao.professor.user if atribuicao else None],
+        titulo='Resultado final homologado',
+        mensagem=(
+            f'O resultado de {resultado.disciplina} - {resultado.aluno.nome} foi homologado '
+            'pelo Diretor Geral.'
+        ),
+        link_url=reverse('resultado_lista'),
+    )
+
     messages.success(request, 'Resultado final homologado.')
     return redirect('resultado_lista')
 
@@ -1224,7 +1277,7 @@ class ResultadoDisciplinaListView(ResultadoAcessoMixin, ListView):
             .order_by('aluno__nome', 'disciplina__nome')
         )
 
-        if not eh_subdiretor_pedagogico(self.request.user):
+        if not eh_subdiretor_pedagogico(self.request.user) and not eh_diretor_geral(self.request.user):
             disciplinas_professor = AtribuicaoDocente.objects.filter(
                 professor__user=self.request.user
             ).values('disciplina')

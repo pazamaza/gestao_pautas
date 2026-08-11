@@ -9,6 +9,7 @@
         Gestão de Pautas
         {% endblock %}
     </title>
+    <link rel="icon" href="{% if escola.logotipo %}{{ escola.logotipo.url }}{% else %}{% static 'images/insignia_angola.png' %}{% endif %}">
     <link href="{% static 'css/vendor/bootstrap.min.css' %}" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
 </head>

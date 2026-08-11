@@ -559,6 +559,18 @@ def justificacao_aprovar(request, pk):
         return render(request, 'dashboards/sem_permissao.html', status=403)
 
     justificacao.aprovar(request.user)
+
+    aluno = justificacao.frequencia.aluno
+    notificar(
+        [aluno.user, getattr(aluno.encarregado, 'user', None)],
+        titulo='Justificação de falta aprovada',
+        mensagem=(
+            f'A justificação da falta de {aluno.nome} do dia '
+            f'{justificacao.frequencia.data} foi aprovada.'
+        ),
+        link_url=reverse('frequencia_lista'),
+    )
+
     messages.success(request, 'Justificação aprovada.')
     return redirect('justificacao_lista')
 
@@ -667,6 +679,22 @@ def justificacao_criar(request, frequencia_id):
             nova_justificacao = form.save(commit=False)
             nova_justificacao.frequencia = frequencia
             nova_justificacao.save()
+
+            turma = frequencia.atribuicao.turma
+            diretor = DiretorTurma.objects.filter(
+                turma=turma, ano_letivo=turma.ano_letivo, ativo=True
+            ).select_related('professor__user').first()
+            if diretor:
+                notificar(
+                    [diretor.professor.user],
+                    titulo='Nova justificação de falta para analisar',
+                    mensagem=(
+                        f'{frequencia.aluno.nome} submeteu uma justificação de falta do dia '
+                        f'{frequencia.data}, a aguardar a sua aprovação.'
+                    ),
+                    link_url=reverse('justificacao_lista'),
+                )
+
             messages.success(request, 'Justificação enviada com sucesso. Aguarde a aprovação do professor.')
             return redirect('frequencia_lista')
     else:

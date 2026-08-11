@@ -645,6 +645,9 @@ class PedidoDocumento(models.Model):
     STATUS_RECUSADO = 'recusado'
     STATUS_AUTORIZADO = 'autorizado'
     STATUS_PAGAMENTO_SUBMETIDO = 'pagamento_submetido'
+    STATUS_PAGAMENTO_CONFIRMADO = 'pagamento_confirmado'
+    STATUS_EMITIDO = 'emitido'
+    STATUS_AUTENTICADO = 'autenticado'
     STATUS_PRONTO = 'pronto_levantamento'
     STATUS_LEVANTADO = 'levantado'
 
@@ -653,6 +656,9 @@ class PedidoDocumento(models.Model):
         (STATUS_RECUSADO, 'Recusado'),
         (STATUS_AUTORIZADO, 'Autorizado - Aguarda Pagamento'),
         (STATUS_PAGAMENTO_SUBMETIDO, 'Comprovativo Submetido'),
+        (STATUS_PAGAMENTO_CONFIRMADO, 'Pagamento Confirmado - Aguarda Emissão'),
+        (STATUS_EMITIDO, 'Emitido - Aguarda Autenticação'),
+        (STATUS_AUTENTICADO, 'Autenticado - Aguarda Notificação'),
         (STATUS_PRONTO, 'Pronto para Levantamento'),
         (STATUS_LEVANTADO, 'Levantado'),
     ]
@@ -699,6 +705,13 @@ class PedidoDocumento(models.Model):
         blank=True
     )
 
+    forma_pagamento = models.CharField(
+        max_length=150,
+        blank=True,
+        verbose_name='Forma de Pagamento',
+        help_text='Indicada pela Secretaria ao autorizar o pedido (ex.: Transferência GPS/Ruper, referência de pagamento).'
+    )
+
     comprovativo_pagamento = models.ImageField(
         upload_to='pagamentos/',
         null=True,
@@ -723,6 +736,34 @@ class PedidoDocumento(models.Model):
         blank=True
     )
 
+    emitido_por = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='+',
+        verbose_name='Emitido por (Secretaria)'
+    )
+
+    emitido_em = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+
+    autenticado_por = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='+',
+        verbose_name='Autenticado por (Diretor Geral/Sub-diretor/Diretor de Turma)'
+    )
+
+    autenticado_em = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+
     class Meta:
         ordering = ['-solicitado_em']
         verbose_name = 'Pedido de Documento'
@@ -731,10 +772,11 @@ class PedidoDocumento(models.Model):
     def __str__(self):
         return f"{self.get_tipo_display()} - {self.aluno} - {self.get_status_display()}"
 
-    def autorizar(self, user):
+    def autorizar(self, user, forma_pagamento):
         self.status = self.STATUS_AUTORIZADO
         self.autorizado_por = user
         self.decidido_em = timezone.now()
+        self.forma_pagamento = forma_pagamento
         self.save()
 
     def recusar(self, user, motivo):
@@ -751,9 +793,12 @@ class PedidoDocumento(models.Model):
         self.save()
 
     def confirmar_pagamento(self, user):
+        # Deixa de ir directamente para "Pronto para Levantamento" — antes
+        # do aluno ser chamado, o documento ainda tem de ser emitido pela
+        # Secretaria e autenticado por quem de direito (ver emitir/autenticar).
         self.pagamento_confirmado_por = user
         self.pagamento_confirmado_em = timezone.now()
-        self.status = self.STATUS_PRONTO
+        self.status = self.STATUS_PAGAMENTO_CONFIRMADO
         self.save()
 
     def rejeitar_pagamento(self, user):
@@ -762,6 +807,22 @@ class PedidoDocumento(models.Model):
         self.comprovativo_pagamento = None
         self.pagamento_submetido_em = None
         self.status = self.STATUS_AUTORIZADO
+        self.save()
+
+    def emitir(self, user):
+        self.emitido_por = user
+        self.emitido_em = timezone.now()
+        self.status = self.STATUS_EMITIDO
+        self.save()
+
+    def autenticar(self, user):
+        self.autenticado_por = user
+        self.autenticado_em = timezone.now()
+        self.status = self.STATUS_AUTENTICADO
+        self.save()
+
+    def marcar_pronto(self):
+        self.status = self.STATUS_PRONTO
         self.save()
 
     def marcar_levantado(self):

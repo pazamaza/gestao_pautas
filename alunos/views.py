@@ -18,13 +18,14 @@ from django.views import View
 from accounts.utils import (
     eh_subdiretor_pedagogico,
     eh_professor,
+    eh_encarregado,
     eh_coordenador_pais_encarregados,
     eh_diretor_geral,
     eh_chefe_secretaria,
 )
 from accounts.mixins import (
     SubdiretorPedagogicoRequeridoMixin,
-    AdminOuProfessorRequeridoMixin,
+    SubdiretorOuSecretariaRequeridoMixin,
     AcessoRestritoMixin,
     CoordenadorPaisRequeridoMixin,
 )
@@ -33,21 +34,28 @@ from professores.models import AtribuicaoDocente, DiretorTurma
 from turmas.models import Turma
 
 
-class AlunoCreateView(SubdiretorPedagogicoRequeridoMixin, SuccessMessageMixin, CreateView):
+class AlunoCreateView(SubdiretorOuSecretariaRequeridoMixin, SuccessMessageMixin, CreateView):
     model = Aluno
     form_class = AlunoForm
     template_name = 'alunos/forms.html'
     success_url = reverse_lazy('aluno_lista' )
     success_message = ('Aluno cadastrado com sucesso.' )
 
-class AlunoUpdateView(SubdiretorPedagogicoRequeridoMixin, SuccessMessageMixin, UpdateView):
+class AlunoUpdateView(SubdiretorOuSecretariaRequeridoMixin, SuccessMessageMixin, UpdateView):
     model = Aluno
     form_class = AlunoForm
     template_name = 'alunos/forms.html'
     success_url = reverse_lazy('aluno_lista' )
     success_message = ('Aluno atualizado com sucesso.' )
 
-class AlunoDetailView(AdminOuProfessorRequeridoMixin, DetailView):
+
+class AlunoDetalheAcessoMixin(AcessoRestritoMixin):
+    def test_func(self):
+        user = self.request.user
+        return eh_subdiretor_pedagogico(user) or eh_professor(user) or eh_chefe_secretaria(user)
+
+
+class AlunoDetailView(AlunoDetalheAcessoMixin, DetailView):
     model = Aluno
     template_name = 'alunos/detalhe.html'
 #Eliminar
@@ -64,7 +72,7 @@ class AlunoListView(LoginRequiredMixin, ListView):
     paginate_by = 10
     def get_turmas_permitidas(self):
         user = self.request.user
-        if eh_subdiretor_pedagogico(user):
+        if eh_subdiretor_pedagogico(user) or eh_chefe_secretaria(user):
             return Turma.objects.filter(ativo=True).order_by('classe__nome', 'nome')
         if eh_professor(user):
             turmas_ids = AtribuicaoDocente.objects.filter(
@@ -93,7 +101,7 @@ class AlunoListView(LoginRequiredMixin, ListView):
         context['turmas'] = self.get_turmas_permitidas()
         return context
 
-class EncarregadoListView(SubdiretorPedagogicoRequeridoMixin, ListView):
+class EncarregadoListView(SubdiretorOuSecretariaRequeridoMixin, ListView):
     model = Encarregado
     template_name = 'encarregados/lista.html'
     context_object_name = 'encarregados'
@@ -102,7 +110,7 @@ class EncarregadoListView(SubdiretorPedagogicoRequeridoMixin, ListView):
     def get_queryset(self):
         return Encarregado.objects.select_related('user').order_by('user__first_name', 'user__last_name')
 
-class EncarregadoCreateView(SubdiretorPedagogicoRequeridoMixin, View):
+class EncarregadoCreateView(SubdiretorOuSecretariaRequeridoMixin, View):
     template_name = 'encarregados/cadastro.html'
     def get(self, request):
         form = EncarregadoCadastroForm()
@@ -135,13 +143,13 @@ class EncarregadoCreateView(SubdiretorPedagogicoRequeridoMixin, View):
             {'form': form} )
 
 
-class EncarregadoDetailView(SubdiretorPedagogicoRequeridoMixin, DetailView):
+class EncarregadoDetailView(SubdiretorOuSecretariaRequeridoMixin, DetailView):
     model = Encarregado
     template_name = 'encarregados/detalhe.html'
     context_object_name = 'encarregado'
 
 
-class EncarregadoUpdateView(SubdiretorPedagogicoRequeridoMixin, View):
+class EncarregadoUpdateView(SubdiretorOuSecretariaRequeridoMixin, View):
     template_name = 'encarregados/editar.html'
 
     def get(self, request, pk):
@@ -235,12 +243,15 @@ def _usuarios_do_destino(destino, reclamacao):
 
 def _pode_ver_reclamacoes(user):
     if eh_coordenador_pais_encarregados(user) or eh_chefe_secretaria(user) or eh_diretor_geral(user) \
-            or eh_subdiretor_pedagogico(user):
+            or eh_subdiretor_pedagogico(user) or eh_encarregado(user):
         return True
     return DiretorTurma.objects.filter(professor__user=user, ativo=True).exists()
 
 
 def _reclamacoes_visiveis(user):
+    if eh_encarregado(user):
+        encarregado = getattr(user, 'encarregado', None)
+        return Reclamacao.objects.filter(encarregado=encarregado) if encarregado else Reclamacao.objects.none()
     if eh_coordenador_pais_encarregados(user):
         return Reclamacao.objects.all()
     if eh_chefe_secretaria(user):
